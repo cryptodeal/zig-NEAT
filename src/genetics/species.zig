@@ -19,6 +19,7 @@ pub const MaxAvgFitness = struct {
     pub fn init(allocator: std.mem.Allocator) !*MaxAvgFitness {
         var res = try allocator.create(MaxAvgFitness);
         res.* = .{
+            .allocator = allocator,
             .max = 0.0,
             .avg = 0.0,
         };
@@ -33,10 +34,12 @@ pub const MaxAvgFitness = struct {
 pub const OffspringCount = struct {
     expected: i64,
     skim: f64,
+    allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator) !*OffspringCount {
         var res = try allocator.create(OffspringCount);
         res.* = .{
+            .allocator = allocator,
             .expected = 0,
             .skim = 0.0,
         };
@@ -89,6 +92,9 @@ pub const Species = struct {
     }
 
     pub fn deinit(self: *Species) void {
+        for (self.organisms.items) |o| {
+            o.deinit();
+        }
         self.organisms.deinit();
         self.allocator.destroy(self);
     }
@@ -216,9 +222,11 @@ pub const Species = struct {
         res.expected = 0;
         res.skim = skim;
 
-        for (self.organisms.items) |o| {
-            org_off_int_part = @as(i64, @intCast(@floor(o.expected_offspring)));
-            org_off_fract_part = @mod(o.expected_offspring, 1.0);
+        for (
+            self.organisms.items,
+        ) |o| {
+            org_off_int_part = @as(i64, @intFromFloat(@floor(o.expected_offspring)));
+            org_off_fract_part = try std.math.mod(f64, o.expected_offspring, 1.0);
 
             res.expected += org_off_int_part;
 
@@ -226,11 +234,12 @@ pub const Species = struct {
             res.skim += org_off_fract_part;
 
             if (res.skim >= 1.0) {
-                skim_int_part = @floor(skim);
-                res.expected += @as(i64, @intCast(skim_int_part));
+                skim_int_part = @floor(res.skim);
+                res.expected += @as(i64, @intFromFloat(skim_int_part));
                 res.skim -= skim_int_part;
             }
         }
+
         return res;
     }
 
@@ -435,11 +444,84 @@ pub fn create_first_species(pop: *Population, baby: *Organism) !void {
 
 pub fn build_test_species_with_organisms(allocator: std.mem.Allocator, id: usize) !*Species {
     var gen = try neat_genome.build_test_genome(allocator, 1);
-    var sp = try Species.init(allocator, 1);
+    defer gen.deinit();
+    var sp = try Species.init(allocator, @as(i64, @intCast(id)));
     var i: usize = 0;
     while (i < 3) : (i += 1) {
-        var org = try Organism.init(allocator, @as(f64, @floatFromInt(i + 1)) * 5.0 * @as(f64, @floatFromInt(id)), gen, id);
+        var gnome_cpy = try gen.duplicate(gen.id);
+        var org = try Organism.init(allocator, @as(f64, @floatFromInt(i + 1)) * 5.0 * @as(f64, @floatFromInt(id)), gnome_cpy, id);
         try sp.add_organism(org);
     }
     return sp;
+}
+
+test "Species adjust fitness" {
+    var allocator = std.testing.allocator;
+    var sp = try build_test_species_with_organisms(allocator, 1);
+    defer sp.deinit();
+
+    // configuration
+    var options = Options{
+        .dropoff_age = 5,
+        .survival_thresh = 0.5,
+        .age_significance = 0.5,
+    };
+    sp.adjust_fitness(&options);
+
+    // test results
+    try std.testing.expect(sp.organisms.items[0].is_champion);
+    try std.testing.expect(sp.age_of_last_improvement == 1);
+    try std.testing.expect(sp.max_fitness_ever == 15.0);
+    try std.testing.expect(sp.organisms.items[2].to_eliminate);
+}
+
+test "Species count offspring" {
+    var allocator = std.testing.allocator;
+    var sp = try build_test_species_with_organisms(allocator, 1);
+    defer sp.deinit();
+    for (sp.organisms.items, 0..) |o, i| {
+        o.expected_offspring = @as(f64, @floatFromInt(i)) * 1.5;
+    }
+    var res = try sp.count_offspring(0.5);
+    defer res.deinit();
+    sp.expected_offspring = res.expected;
+    try std.testing.expect(sp.expected_offspring == 5);
+    try std.testing.expect(res.skim == 0);
+
+    // build and test another species
+    var sp2 = try build_test_species_with_organisms(allocator, 2);
+    defer sp2.deinit();
+    for (sp2.organisms.items, 0..) |o, i| {
+        o.expected_offspring = @as(f64, @floatFromInt(i)) * 1.5;
+    }
+    var res2 = try sp.count_offspring(0.4);
+    defer res2.deinit();
+    sp2.expected_offspring = res2.expected;
+    try std.testing.expect(sp2.expected_offspring == 4);
+    try std.testing.expect(res2.skim == 0.9);
+}
+
+test "Species compute max fitness" {
+    var allocator = std.testing.allocator;
+    var sp = try build_test_species_with_organisms(allocator, 1);
+    defer sp.deinit();
+    var avg_check: f64 = 0;
+    for (sp.organisms.items) |o| {
+        avg_check += o.fitness;
+    }
+    avg_check /= @as(f64, @floatFromInt(sp.organisms.items.len));
+
+    var res = try sp.compute_max_and_avg_fitness();
+    defer res.deinit();
+    try std.testing.expect(res.max == 15.0);
+    try std.testing.expect(res.avg == avg_check);
+}
+
+test "Species find champion" {
+    var allocator = std.testing.allocator;
+    var sp = try build_test_species_with_organisms(allocator, 1);
+    defer sp.deinit();
+
+    var champ = sp.find_champion();
+    try std.testing.expect(champ.?.fitness == 15.0);
 }

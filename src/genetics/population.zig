@@ -96,9 +96,7 @@ pub const Population = struct {
             s.deinit();
         }
         self.species.deinit();
-        for (self.organisms.items) |o| {
-            o.deinit();
-        }
+
         self.organisms.deinit();
         for (self.innovations.items) |i| {
             i.deinit();
