@@ -104,10 +104,11 @@ pub const Species = struct {
     }
 
     pub fn remove_organism(self: *Species, org: *Organism) !void {
-        var old_args = self.organisms;
+        var old_orgs = self.organisms;
         var orgs = std.ArrayList(*Organism).init(self.allocator);
+        errdefer orgs.deinit();
 
-        for (old_args.items) |o| {
+        for (old_orgs.items) |o| {
             if (!std.meta.eql(o.*, org.*)) {
                 try orgs.append(o);
             } else {
@@ -115,11 +116,11 @@ pub const Species = struct {
             }
         }
 
-        if (orgs.items.len != old_args.items.len) {
-            std.debug.print("attempt to remove nonexistent Organism from Species with #of organisms: {d}\n", .{old_args.items.len});
+        if (orgs.items.len != old_orgs.items.len - 1) {
+            std.debug.print("attempt to remove nonexistent Organism from Species with #of organisms: {d}\n", .{old_orgs.items.len});
             return error.FailedToRemoveOrganism;
         } else {
-            old_args.deinit();
+            old_orgs.deinit();
             self.organisms = orgs;
         }
     }
@@ -302,7 +303,7 @@ pub const Species = struct {
                 // Note: Superchamp offspring only occur with stolen babies!
                 //      Settings used for published experiments did not use this
                 if (the_champ.super_champ_offspring > 1) {
-                    if (rand.float(f64) < 0.8 or opts.mutate_add_link_prob == 0.0) {
+                    if (rand.float(f64) < 0.8 or opts.mut_add_link_prob == 0.0) {
                         // Make sure no links get added when the system has link adding disabled
                         _ = try new_genome.mutate_link_weights(opts.weight_mut_power, 1.0, MutatorType.GaussianMutator);
                     } else {
@@ -317,7 +318,7 @@ pub const Species = struct {
                 baby = try Organism.init(self.allocator, 0.0, new_genome, generation);
                 if (the_champ.super_champ_offspring == 1 and the_champ.is_population_champion) {
                     baby.?.is_population_champion_child = true;
-                    baby.?.highest_fitness = parent1.original_fitness;
+                    baby.?.highest_fitness = parent1.og_fitness;
                 }
                 the_champ.super_champ_offspring -= 1;
             } else if (!champ_clone_done and self.expected_offspring > 5) {
@@ -386,10 +387,10 @@ pub const Species = struct {
                 var new_genome: *Genome = undefined;
                 if (rand.float(f64) < opts.mate_multipoint_prob) {
                     // mate multipoint baby
-                    new_genome = try parent1.genotype.mate_multipoint(parent2.genotype, @as(i64, @intCast(count)), parent1.original_fitness, parent2.original_fitness);
+                    new_genome = try parent1.genotype.mate_multipoint(parent2.genotype, @as(i64, @intCast(count)), parent1.og_fitness, parent2.og_fitness);
                 } else if (rand.float(f64) < opts.mate_multipoint_avg_prob / (opts.mate_multipoint_avg_prob + opts.mate_singlepoint_prob)) {
                     // mate multipoint_avg baby
-                    new_genome = try parent1.genotype.mate_multipoint_avg(parent2.genotype, @as(i64, @intCast(count)), parent1.original_fitness, parent2.original_fitness);
+                    new_genome = try parent1.genotype.mate_multipoint_avg(parent2.genotype, @as(i64, @intCast(count)), parent1.og_fitness, parent2.og_fitness);
                 } else {
                     // mate singlepoint baby
                     new_genome = try parent1.genotype.mate_singlepoint(parent2.genotype, @as(i64, @intCast(count)));
@@ -411,7 +412,7 @@ pub const Species = struct {
                         defer net.deinit();
                         _ = try new_genome.mutate_add_link(pop, opts);
                         mut_struct_offspring = true;
-                    } else if (rand.float(f64) < opts.mut_connect_sensor) {
+                    } else if (rand.float(f64) < opts.mut_connect_sensors) {
                         mut_struct_offspring = try new_genome.mutate_connect_sensors(pop, opts);
                     }
 
@@ -429,6 +430,26 @@ pub const Species = struct {
         return try offspring.toOwnedSlice();
     }
 };
+
+pub fn og_fitness_comparison(context: void, a: *Species, b: *Species) bool {
+    _ = context;
+    const org1: Organism = a.organisms.items[0].*;
+    const org2: Organism = b.organisms.items[0].*;
+    if (org1.og_fitness < org2.og_fitness) {
+        // try to promote most fit species
+        return true; // Lower fitness is less
+    } else if (org1.og_fitness == org2.og_fitness) {
+        // try to promote less complex organism
+        var complexity1 = org1.phenotype.?.complexity();
+        var complexity2 = org2.phenotype.?.complexity();
+        if (complexity1 > complexity2) {
+            return true; // higher complexity is less
+        } else if (complexity1 == complexity2) {
+            return org1.genotype.id < org2.genotype.id;
+        }
+    }
+    return false;
+}
 
 pub const ReproductionError = error{
     CannotReproduceEmptySpecies,
@@ -524,4 +545,62 @@ test "Species find champion" {
 
     var champ = sp.find_champion();
     try std.testing.expect(champ.?.fitness == 15.0);
+}
+
+test "Species remove organism" {
+    var allocator = std.testing.allocator;
+    var sp = try build_test_species_with_organisms(allocator, 1);
+    defer sp.deinit();
+
+    // test remove
+    var size = sp.organisms.items.len;
+    try sp.remove_organism(sp.organisms.items[0]);
+    try std.testing.expect(sp.organisms.items.len == size - 1);
+
+    // test fail to remove
+    size = sp.organisms.items.len;
+    var gen = try neat_genome.build_test_genome(allocator, 1);
+    var org = try Organism.init(allocator, 6.0, gen, 1);
+    defer org.deinit();
+    try std.testing.expectError(error.FailedToRemoveOrganism, sp.remove_organism(org));
+    try std.testing.expect(sp.organisms.items.len == size);
+}
+
+test "Species reproduce" {
+    var allocator = std.testing.allocator;
+    var in: i64 = 3;
+    var out: i64 = 2;
+    var nmax: i64 = 15;
+    var n: i64 = 3;
+    var link_prob: f64 = 0.8;
+
+    // configuration
+    var options = Options{
+        .dropoff_age = 5,
+        .survival_thresh = 0.5,
+        .age_significance = 0.5,
+        .pop_size = 30,
+        .compat_threshold = 0.6,
+    };
+    var gen = try Genome.init_rand(allocator, 1, in, out, n, nmax, false, link_prob);
+    defer gen.deinit();
+    var pop = try Population.init(allocator, gen, &options);
+    defer pop.deinit();
+
+    // stick the Species pointers into a new Species list for sorting
+    var sorted_species = try allocator.alloc(*Species, pop.species.items.len);
+    defer allocator.free(sorted_species);
+    @memcpy(sorted_species, pop.species.items);
+
+    // sort the Species by max original fitness of its first organism
+    std.mem.sort(*Species, sorted_species, {}, og_fitness_comparison);
+
+    pop.species.items[0].expected_offspring = 11;
+
+    var babies = try pop.species.items[0].reproduce(&options, 1, pop, sorted_species);
+    defer allocator.free(babies);
+    defer for (babies) |b| {
+        b.deinit();
+    };
+    try std.testing.expect(babies.len == pop.species.items[0].expected_offspring);
 }
