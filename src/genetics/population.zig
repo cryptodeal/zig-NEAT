@@ -77,15 +77,21 @@ pub const Population = struct {
             std.debug.print("wrong population size in the options: {d}", .{opts.pop_size});
             return error.InvalidPopulationSize;
         }
+        var prng = std.rand.DefaultPrng.init(blk: {
+            var seed: u64 = undefined;
+            try std.os.getrandom(std.mem.asBytes(&seed));
+            break :blk seed;
+        });
+        const rand = prng.random();
         var self = try Population.raw_init(allocator);
         var count: usize = 0;
         while (count < opts.pop_size) : (count += 1) {
-            var gen = try Genome.init_rand(self.allocator, @as(i64, @intCast(count)), @as(i64, @intCast(in)), @as(i64, @intCast(out)), @as(i64, @intCast(max_hidden)), recurrent, link_prob);
+            var gen = try Genome.init_rand(self.allocator, @as(i64, @intCast(count)), @as(i64, @intCast(in)), @as(i64, @intCast(out)), rand.intRangeLessThan(i64, 0, @as(i64, @intCast(max_hidden))), @as(i64, @intCast(max_hidden)), recurrent, link_prob);
             var org = try Organism.init(self.allocator, 0.0, gen, 1);
             try self.organisms.append(org);
         }
-        self.next_node_id.init(@as(i64, @intCast(in + out + max_hidden + 1)));
-        self.next_innov_number.init(@as(i64, @intCast((in + out + max_hidden) * (in + out + max_hidden) + 1)));
+        self.next_node_id = std.atomic.Atomic(i64).init(@as(i64, @intCast(in + out + max_hidden + 1)));
+        self.next_innov_number = std.atomic.Atomic(i64).init(@as(i64, @intCast((in + out + max_hidden) * (in + out + max_hidden) + 1)));
         try self.speciate(opts, self.organisms.items);
         return self;
     }
@@ -453,3 +459,60 @@ pub const Population = struct {
         self.species = species_to_keep;
     }
 };
+
+test "Population init random" {
+    var allocator = std.testing.allocator;
+    var in: usize = 3;
+    var out: usize = 2;
+    var nmax: usize = 5;
+    var link_prob: f64 = 0.5;
+
+    // configuration
+    var options = Options{
+        .compat_threshold = 0.5,
+        .pop_size = 10,
+    };
+    var pop = try Population.init_random(allocator, in, out, nmax, false, link_prob, &options);
+    defer pop.deinit();
+
+    try std.testing.expect(pop.organisms.items.len == options.pop_size);
+    try std.testing.expect(pop.next_node_id.loadUnchecked() == 11);
+    try std.testing.expect(pop.next_innov_number.loadUnchecked() == 101);
+    try std.testing.expect(pop.species.items.len > 0);
+
+    for (pop.organisms.items) |org| {
+        try std.testing.expect(org.genotype.genes.len > 0);
+        try std.testing.expect(org.genotype.nodes.len > 0);
+        try std.testing.expect(org.genotype.traits.len > 0);
+        try std.testing.expect(org.phenotype != null);
+    }
+}
+
+test "Population init" {
+    var allocator = std.testing.allocator;
+
+    var in: i64 = 3;
+    var out: i64 = 2;
+    var nmax: i64 = 5;
+    var n: i64 = 3;
+    var link_prob: f64 = 0.5;
+
+    // configuration
+    var options = Options{
+        .compat_threshold = 0.5,
+        .pop_size = 10,
+    };
+
+    var gen = try Genome.init_rand(allocator, 1, in, out, n, nmax, false, link_prob);
+    defer gen.deinit();
+    var pop = try Population.init(allocator, gen, &options);
+    defer pop.deinit();
+
+    try std.testing.expect(pop.organisms.items.len == options.pop_size);
+    var last_node_id = try gen.get_last_node_id();
+    try std.testing.expect(last_node_id + 1 == pop.next_node_id.loadUnchecked());
+
+    var next_gene_innov_num = try gen.get_next_gene_innov_num();
+    try std.testing.expect(next_gene_innov_num - 1 == pop.next_innov_number.loadUnchecked());
+    try std.testing.expect(pop.species.items.len == 1);
+}
