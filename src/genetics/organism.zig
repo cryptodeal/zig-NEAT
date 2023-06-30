@@ -75,7 +75,7 @@ pub const Organism = struct {
     }
 
     pub fn deinit(self: *Organism) void {
-        // self.genotype.deinit();
+        self.genotype.deinit();
         self.allocator.destroy(self);
     }
 
@@ -83,7 +83,7 @@ pub const Organism = struct {
         // TODO: might need to free phenotype
         self.phenotype = null;
         // recreate phenotype off new genotype
-        self.phenotype = try self.genotype.genesis(self.allocator, self.genotype.id);
+        self.phenotype = try self.genotype.genesis(self.genotype.id);
     }
 
     pub fn check_champion_child_damaged(self: *Organism) bool {
@@ -128,7 +128,8 @@ test "Organisms sorting" {
     var orgs = try allocator.alloc(*Organism, count);
     defer allocator.free(orgs);
     while (i < count) : (i += 1) {
-        orgs[i] = try Organism.init(allocator, rand.float(f64), gnome, 1);
+        var new_genome = try gnome.duplicate(@as(i64, @intCast(count)));
+        orgs[i] = try Organism.init(allocator, rand.float(f64), new_genome, 1);
     }
     // sort ascending
     std.mem.sort(*Organism, orgs, {}, fitness_comparison);
@@ -140,4 +141,59 @@ test "Organisms sorting" {
     }
 
     // sort descending
+    i = 0;
+    while (i < count) : (i += 1) {
+        var new_genome = try gnome.duplicate(@as(i64, @intCast(count)));
+        orgs[i] = try Organism.init(allocator, rand.float(f64), new_genome, 1);
+    }
+    std.mem.sort(*Organism, orgs, {}, fitness_comparison);
+    std.mem.reverse(*Organism, orgs);
+    fit = std.math.inf(f64);
+    for (orgs) |o| {
+        try std.testing.expect(o.fitness < fit);
+        fit = o.fitness;
+        o.deinit();
+    }
+}
+
+test "Organism champion child damaged" {
+    var allocator = std.testing.allocator;
+    var prng = std.rand.DefaultPrng.init(blk: {
+        var seed: u64 = undefined;
+        try std.os.getrandom(std.mem.asBytes(&seed));
+        break :blk seed;
+    });
+    const rand = prng.random();
+    var gnome = try neat_genome.build_test_genome(allocator, 1);
+    var org = try Organism.init(allocator, rand.float(f64), gnome, 1);
+    defer org.deinit();
+
+    org.is_population_champion_child = true;
+    org.highest_fitness = 100;
+    org.fitness = 1000;
+
+    var res = org.check_champion_child_damaged();
+    try std.testing.expect(!res);
+
+    org.fitness = 10;
+    res = org.check_champion_child_damaged();
+    try std.testing.expect(res);
+}
+
+test "Organism update phenotype" {
+    var allocator = std.testing.allocator;
+    var prng = std.rand.DefaultPrng.init(blk: {
+        var seed: u64 = undefined;
+        try std.os.getrandom(std.mem.asBytes(&seed));
+        break :blk seed;
+    });
+    const rand = prng.random();
+    var gnome = try neat_genome.build_test_genome(allocator, 1);
+    var org = try Organism.init(allocator, rand.float(f64), gnome, 1);
+    defer org.deinit();
+
+    org.phenotype = null;
+    try std.testing.expect(org.phenotype == null);
+    try org.update_phenotype();
+    try std.testing.expect(org.phenotype != null);
 }
