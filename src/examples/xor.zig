@@ -82,8 +82,8 @@ fn eval(opts: *Options, pop: *Population, epoch: *Generation) !void {
         if (res and (epoch.champion == null or org.fitness > epoch.champion.?.fitness)) {
             epoch.solved = true;
             epoch.winner_nodes = org.genotype.nodes.len;
-            epoch.winner_genes = @intCast(usize, org.genotype.extrons());
-            epoch.winner_evals = opts.pop_size * epoch.id + @intCast(usize, org.genotype.id);
+            epoch.winner_genes = @as(usize, @intCast(org.genotype.extrons()));
+            epoch.winner_evals = opts.pop_size * epoch.id + @as(usize, @intCast(org.genotype.id));
             epoch.champion = org;
             // TODO: add functionality to write genome as JSON
             //if (epoch.winner_nodes == 5) {
