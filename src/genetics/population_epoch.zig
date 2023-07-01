@@ -1,10 +1,12 @@
 const std = @import("std");
 const neat_species = @import("species.zig");
 const neat_organism = @import("organism.zig");
-const opt = @import("../opt.zig");
+const neat_genome = @import("genome.zig");
+const opt = @import("../opts.zig");
 const neat_population = @import("population.zig");
 
 const Options = opt.Options;
+const Genome = neat_genome.Genome;
 const Population = neat_population.Population;
 const Species = neat_species.Species;
 const Organism = neat_organism.Organism;
@@ -37,7 +39,7 @@ pub const SequentialPopulationEpochExecutor = struct {
     best_species_id: i64,
     allocator: std.mem.Allocator,
 
-    pub fn init(allocator: std.mem.Allocator) *SequentialPopulationEpochExecutor {
+    pub fn init(allocator: std.mem.Allocator) !*SequentialPopulationEpochExecutor {
         var self = try allocator.create(SequentialPopulationEpochExecutor);
         self.* = .{
             .sorted_species = std.ArrayList(*Species).init(allocator),
@@ -59,7 +61,7 @@ pub const SequentialPopulationEpochExecutor = struct {
 
     pub fn prepare_for_reproduction(self: *SequentialPopulationEpochExecutor, opts: *Options, generation: usize, p: *Population) !void {
         // clear executor state from previous run
-        self.sorted_species.clearRetainingCapacity();
+        self.sorted_species.clearAndFree();
 
         // Use Species' ages to modify the objective fitness of organisms in other words, make it more fair for younger
         // species, so they have a chance to take hold and also penalize stagnant species. Then adjust the fitness using
@@ -70,15 +72,17 @@ pub const SequentialPopulationEpochExecutor = struct {
         }
 
         // find and remove species unable to produce offspring due to fitness stagnation
-        p.purge_zero_offspring_species(generation);
+        try p.purge_zero_offspring_species(generation);
 
         // stick species pointers into new Species list for sorting
-        try self.sorted_species.ensureTotalCapacity(p.species.items.len);
+        try self.sorted_species.ensureTotalCapacityPrecise(p.species.items.len);
+        self.sorted_species.expandToCapacity();
+
         @memcpy(self.sorted_species.items, p.species.items);
 
         // Sort the Species by max original fitness of its first organism
         std.mem.sort(*Species, self.sorted_species.items, {}, fitness_comparison);
-        std.mem.reverse(*Species, self.organisms.items);
+        std.mem.reverse(*Species, self.sorted_species.items);
 
         // Used in debugging to see why (if) best species dies
         self.best_species_id = self.sorted_species.items[0].id;
@@ -89,8 +93,8 @@ pub const SequentialPopulationEpochExecutor = struct {
 
         // check for population-level stagnation
         curr_species.organisms.items[0].is_population_champion = true; // DEBUG marker of the best of pop
-        if (curr_species.organisms.items[0].original_fitness > p.highest_fitness) {
-            p.highest_fitness = curr_species.organisms.items[0].original_fitness;
+        if (curr_species.organisms.items[0].og_fitness > p.highest_fitness) {
+            p.highest_fitness = curr_species.organisms.items[0].og_fitness;
             p.epoch_highest_last_changed = 0;
         } else {
             p.epoch_highest_last_changed += 1;
@@ -102,7 +106,7 @@ pub const SequentialPopulationEpochExecutor = struct {
         } else if (opts.babies_stolen > 0) {
             // STOLEN BABIES: The system can take expected offspring away from worse species and give them
             // to superior species depending on the system parameter BabiesStolen (when BabiesStolen > 0)
-            p.give_babies_to_the_best(self.sorted_species.items, opts);
+            try p.give_babies_to_the_best(self.sorted_species.items, opts);
         }
         // Kill off all Organisms marked for death. The remainder will be allowed to reproduce.
         try p.purge_organisms();
@@ -279,4 +283,57 @@ pub fn fitness_comparison(context: void, a: *Species, b: *Species) bool {
         }
     }
     return false;
+}
+
+fn sequential_executor_next_epoch(allocator: std.mem.Allocator, pop: *Population, opts: *Options) !bool {
+    var executor = try SequentialPopulationEpochExecutor.init(allocator);
+    defer executor.deinit();
+    var i: usize = 0;
+    while (i < 100) : (i += 1) {
+        executor.next_epoch(opts, i, pop) catch {
+            return false;
+        };
+    }
+    return true;
+}
+
+fn parallel_executor_next_epoch(allocator: std.mem.Allocator, pop: *Population, opts: *Options) !bool {
+    var executor = try ParallelPopulationEpochExecutor.init(allocator);
+    defer executor.deinit();
+    var i: usize = 0;
+    while (i < 100) : (i += 1) {
+        executor.next_epoch(opts, i, pop) catch {
+            return false;
+        };
+    }
+    return true;
+}
+
+test "SequentialPopulationEpochExecutor next epoch" {
+    var allocator = std.testing.allocator;
+
+    var in: i64 = 3;
+    var out: i64 = 2;
+    var nmax: i64 = 15;
+    var n: i64 = 3;
+    var link_prob: f64 = 0.8;
+
+    // configuration
+    var opts = Options{
+        .compat_threshold = 0.5,
+        .dropoff_age = 1,
+        .pop_size = 30,
+        .babies_stolen = 10,
+        .recur_only_prob = 0.2,
+    };
+
+    var gen = try Genome.init_rand(allocator, 1, in, out, n, nmax, false, link_prob);
+    defer gen.deinit();
+    var pop = try Population.init(allocator, gen, &opts);
+    defer pop.deinit();
+
+    std.debug.print("\nPopulation organism count: {d}\n", .{pop.organisms.items.len});
+
+    var res = try sequential_executor_next_epoch(allocator, pop, &opts);
+    try std.testing.expect(res);
 }

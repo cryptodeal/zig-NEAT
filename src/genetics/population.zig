@@ -146,7 +146,7 @@ pub const Population = struct {
             // introduce initial mutations
             _ = try new_genome.mutate_link_weights(1.0, 1.0, MutatorType.GaussianMutator);
             // create organism for new genome
-            var new_organism = try Organism.init(self.allocator, 0.0, new_genome, 1);
+            var new_organism = try Organism.init(self.allocator, 0, new_genome, 1);
             try self.organisms.append(new_organism);
         }
         // keep track of innovation and node number
@@ -218,11 +218,11 @@ pub const Population = struct {
         }
     }
 
-    pub fn purge_zero_offspring_species(self: *Population, generation: usize) void {
+    pub fn purge_zero_offspring_species(self: *Population, generation: usize) !void {
         _ = generation;
         // used to compute avg fitness over all Organisms
         var total: f64 = 0.0;
-        var total_organisms = self.organisms.items.len;
+        var total_organisms: i64 = @as(i64, @intCast(self.organisms.items.len));
 
         // go through organisms, adding fitness to compute avg
         for (self.organisms.items) |o| {
@@ -245,7 +245,7 @@ pub const Population = struct {
         // precision checking
         var total_expected: i64 = 0;
         for (self.species.items) |sp| {
-            var offspring_count = sp.count_offspring(skim);
+            var offspring_count = try sp.count_offspring(skim);
             defer offspring_count.deinit();
             sp.expected_offspring = offspring_count.expected;
             skim = offspring_count.skim;
@@ -254,7 +254,7 @@ pub const Population = struct {
 
         // Need to make up for lost floating point precision in offspring assignment.
         // If we lost precision, give an extra baby to the best Species
-        if (@as(usize, @intCast(total_expected)) < total_organisms) {
+        if (total_expected < total_organisms) {
             // find the species expecting the most
             var best_species: ?*Species = null;
             var max_expected: i64 = 0;
@@ -268,7 +268,7 @@ pub const Population = struct {
             }
             // give the extra offspring to the best species
             if (best_species != null) {
-                best_species.expected_offspring += 1;
+                best_species.?.expected_offspring += 1;
             }
             final_expected += 1;
 
@@ -276,12 +276,12 @@ pub const Population = struct {
             // dominates the population and then gets killed off by its age. Then the whole population plummets in
             // fitness. If the average fitness is allowed to hit 0, then we no longer have an average we can use to
             // assign offspring.
-            if (@as(usize, @intCast(final_expected)) < total_organisms) {
+            if (final_expected < total_organisms) {
                 for (self.species.items) |sp| {
                     sp.expected_offspring = 0;
                 }
                 if (best_species != null) {
-                    best_species.expected_offspring = @as(i64, @intCast(total_organisms));
+                    best_species.?.expected_offspring = @as(i64, @intCast(total_organisms));
                 }
             }
         }
@@ -330,7 +330,7 @@ pub const Population = struct {
 
     // The system can take expected offspring away from worse species and give them
     // to superior species depending on the system parameter BabiesStolen (when BabiesStolen > 0)
-    pub fn give_babies_to_the_best(sorted_species: []*Species, opts: *Options) void {
+    pub fn give_babies_to_the_best(_: *Population, sorted_species: []*Species, opts: *Options) !void {
         var prng = std.rand.DefaultPrng.init(blk: {
             var seed: u64 = undefined;
             try std.os.getrandom(std.mem.asBytes(&seed));
@@ -342,17 +342,17 @@ pub const Population = struct {
         var stolen_babies: usize = 0;
 
         // Take away a constant number of expected offspring from the worst few species
-        var i: usize = sorted_species.len - 1;
+        var i: i64 = @as(i64, @intCast(sorted_species.len - 1));
         while (i >= 0 and stolen_babies < opts.babies_stolen) : (i -= 1) {
-            var curr_species = sorted_species[i];
+            var curr_species = sorted_species[@as(usize, @intCast(i))];
             if (curr_species.age > 5 and curr_species.expected_offspring > 2) {
                 if (curr_species.expected_offspring - 1 >= opts.babies_stolen - stolen_babies) {
                     // This species has enough to finish off the stolen pool
-                    curr_species.expected_offspring -= opts.babies_stolen - stolen_babies;
+                    curr_species.expected_offspring -= @as(i64, @intCast(opts.babies_stolen - stolen_babies));
                     stolen_babies = opts.babies_stolen;
                 } else {
                     // Not enough here to complete the pool of stolen
-                    stolen_babies += curr_species.expected_offspring - 1;
+                    stolen_babies += @as(usize, @intCast(curr_species.expected_offspring - 1));
                     curr_species.expected_offspring = 1;
                 }
             }
@@ -373,7 +373,7 @@ pub const Population = struct {
             if (block_idx < 3 and stolen_babies >= stolen_blocks[block_idx]) {
                 // Give stolen babies to the top three in 1/5 1/5 and 1/10 ratios
                 curr_species.organisms.items[0].super_champ_offspring = stolen_blocks[block_idx];
-                curr_species.expected_offspring += stolen_blocks[block_idx];
+                curr_species.expected_offspring += @as(i64, @intCast(stolen_blocks[block_idx]));
                 stolen_babies -= stolen_blocks[block_idx];
             } else if (block_idx >= 3) {
                 // Give stolen to the rest in random ratios

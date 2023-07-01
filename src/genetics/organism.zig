@@ -21,7 +21,7 @@ pub const Organism = struct {
     species: *Species = undefined,
 
     // number of children this organism may have
-    expected_offspring: f64 = undefined,
+    expected_offspring: f64 = 0,
     // indicates which generation this organism is from
     generation: usize,
 

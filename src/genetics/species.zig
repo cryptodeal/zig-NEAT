@@ -223,9 +223,7 @@ pub const Species = struct {
         res.expected = 0;
         res.skim = skim;
 
-        for (
-            self.organisms.items,
-        ) |o| {
+        for (self.organisms.items) |o| {
             org_off_int_part = @as(i64, @intFromFloat(@floor(o.expected_offspring)));
             org_off_fract_part = try std.math.mod(f64, o.expected_offspring, 1.0);
 
