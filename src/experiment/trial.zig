@@ -29,6 +29,9 @@ pub const Trial = struct {
     }
 
     pub fn deinit(self: *Trial) void {
+        for (self.generations.items) |gen| {
+            gen.deinit();
+        }
         self.generations.deinit();
         self.allocator.destroy(self);
     }
@@ -39,7 +42,7 @@ pub const Trial = struct {
             total += generation.duration;
         }
         if (self.generations.items.len > 0) {
-            return @intCast(i64, total / @intCast(u64, self.generations.items.len));
+            return @as(i64, @intCast(total / @as(u64, @intCast(self.generations.items.len))));
         } else {
             return -1;
         }
@@ -98,7 +101,7 @@ pub const Trial = struct {
     pub fn champion_species_ages(self: *Trial, allocator: std.mem.Allocator) ![]f64 {
         var x = try allocator.alloc(f64, self.generations.items.len);
         for (self.generations.items, 0..) |e, i| {
-            x[i] = @floatFromInt(f64, e.champion.species.age);
+            x[i] = @as(f64, @floatFromInt(e.champion.species.age));
         }
         return x;
     }
@@ -106,7 +109,7 @@ pub const Trial = struct {
     pub fn champions_complexities(self: *Trial, allocator: std.mem.Allocator) ![]f64 {
         var x = try allocator.alloc(f64, self.generations.items.len);
         for (self.generations.items, 0..) |e, i| {
-            x[i] = @floatFromInt(f64, e.champion.phenotype.complexity());
+            x[i] = @as(f64, @floatFromInt(e.champion.phenotype.complexity()));
         }
         return x;
     }
@@ -114,7 +117,7 @@ pub const Trial = struct {
     pub fn diversity(self: *Trial, allocator: std.mem.Allocator) ![]f64 {
         var x = try allocator.alloc(f64, self.generations.items.len);
         for (self.generations.items, 0..) |e, i| {
-            x[i] = @floatFromInt(f64, e.diversity);
+            x[i] = @as(f64, @floatFromInt(e.diversity));
         }
         return x;
     }
@@ -134,17 +137,17 @@ pub const Trial = struct {
     pub fn winner_statistics(self: *Trial, allocator: std.mem.Allocator) !*WinnerStats {
         var stats = try WinnerStats.init(allocator);
         if (self.winner_generation != null) {
-            stats.nodes = @intCast(i64, self.winner_generation.?.winner_nodes);
-            stats.genes = @intCast(i64, self.winner_generation.?.winner_genes);
-            stats.evals = @intCast(i64, self.winner_generation.?.winner_evals);
-            stats.diversity = @intCast(i64, self.winner_generation.?.diversity);
+            stats.nodes = @as(i64, @intCast(self.winner_generation.?.winner_nodes));
+            stats.genes = @as(i64, @intCast(self.winner_generation.?.winner_genes));
+            stats.evals = @as(i64, @intCast(self.winner_generation.?.winner_evals));
+            stats.diversity = @as(i64, @intCast(self.winner_generation.?.diversity));
         } else if (self.generations.items.len > 0) {
             for (self.generations.items) |e| {
                 if (e.solved) {
-                    stats.nodes = @intCast(i64, e.winner_nodes);
-                    stats.genes = @intCast(i64, e.winner_genes);
-                    stats.evals = @intCast(i64, e.winner_evals);
-                    stats.diversity = @intCast(i64, e.diversity);
+                    stats.nodes = @as(i64, @intCast(e.winner_nodes));
+                    stats.genes = @as(i64, @intCast(e.winner_genes));
+                    stats.evals = @as(i64, @intCast(e.winner_evals));
+                    stats.diversity = @as(i64, @intCast(e.diversity));
                     // store winner
                     self.winner_generation = e;
                     break;

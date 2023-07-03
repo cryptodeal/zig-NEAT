@@ -62,22 +62,22 @@ pub fn activate_node(node: *NNode) !void {
 }
 
 pub fn activate_module(module: *NNode) !void {
-    var inputs = try module.allocator.alloc(f64, module.incoming.len);
+    var inputs = try module.allocator.alloc(f64, module.incoming.items.len);
     defer module.allocator.free(inputs);
 
-    for (module.incoming, 0..) |v, i| {
-        inputs[i] = v.in_node.get_active_out();
+    for (module.incoming.items, 0..) |v, i| {
+        inputs[i] = v.in_node.?.get_active_out();
     }
 
     var outputs = try neat_math.NodeActivationType.activate_module_by_type(inputs, module.params, module.activation_type);
-    if (outputs.len != module.outgoing.len) {
-        std.debug.print("number of output parameters {d} returned by module activator doesn't match the number of output neurons of the module {d}", .{ outputs.len, module.outgoing.len });
+    if (outputs.len != module.outgoing.items.len) {
+        std.debug.print("number of output parameters {d} returned by module activator doesn't match the number of output neurons of the module {d}", .{ outputs.len, module.outgoing.items.len });
         return error.ModuleOutputLenMismatch;
     }
 
     // set outputs
     for (outputs, 0..) |out, i| {
-        module.outgoing[i].out_node.set_activation(out);
-        module.outgoing[i].out_node.is_active = true;
+        module.outgoing.items[i].out_node.?.set_activation(out);
+        module.outgoing.items[i].out_node.?.is_active = true;
     }
 }

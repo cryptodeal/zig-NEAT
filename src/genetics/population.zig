@@ -292,7 +292,15 @@ pub const Population = struct {
                 try species_to_keep.append(sp);
             } else {
                 // TODO: ensure this frees memory of extinct species
+                var new_orgs = std.ArrayList(*Organism).init(self.allocator);
+                for (self.organisms.items) |o| {
+                    if (o.species.id != sp.id) {
+                        try new_orgs.append(o);
+                    }
+                }
                 sp.deinit();
+                self.organisms.deinit();
+                self.organisms = new_orgs;
             }
         }
         self.species.deinit();
@@ -318,7 +326,8 @@ pub const Population = struct {
             curr_species.expected_offspring = @as(i64, @intCast(opts.pop_size - half_pop));
             curr_species.age_of_last_improvement = curr_species.age;
             // Get rid of all species after the first two
-            for (sorted_species, 2..) |_, i| {
+            var i: usize = 2;
+            while (i < sorted_species.len) : (i += 1) {
                 sorted_species[i].expected_offspring = 0;
             }
         } else {

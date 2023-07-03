@@ -62,41 +62,37 @@ pub const NodeActivationType = enum {
     };
 
     pub fn activate_by_type(input: f64, aux_params: ?[]f64, activation_type: NodeActivationType) !f64 {
-        var func: ActivationFn = undefined;
-        switch (activation_type) {
-            NodeActivationType.SigmoidPlainActivation => func = plain_sigmoid,
-            NodeActivationType.SigmoidReducedActivation => func = reduced_sigmoid,
-            NodeActivationType.SigmoidBipolarActivation => func = bipolar_sigmoid,
-            NodeActivationType.SigmoidSteepenedActivation => func = steepened_sigmoid,
-            NodeActivationType.SigmoidApproximationActivation => func = approximation_sigmoid,
-            NodeActivationType.SigmoidSteepenedApproximationActivation => func = approximation_steepened_sigmoid,
-            NodeActivationType.SigmoidInverseAbsoluteActivation => func = inverse_absolute_sigmoid,
-            NodeActivationType.SigmoidLeftShiftedActivation => func = left_shifted_sigmoid,
-            NodeActivationType.SigmoidLeftShiftedSteepenedActivation => func = left_shifted_steepened_sigmoid,
-            NodeActivationType.SigmoidRightShiftedSteepenedActivation => func = right_shifted_steepened_sigmoid,
-            NodeActivationType.TanhActivation => func = hyperbolic_tangent,
-            NodeActivationType.GaussianBipolarActivation => func = bipolar_gaussian,
-            NodeActivationType.LinearActivation => func = linear,
-            NodeActivationType.LinearAbsActivation => func = absolute_linear,
-            NodeActivationType.LinearClippedActivation => func = clipped_linear,
-            NodeActivationType.NullActivation => func = null_functor,
-            NodeActivationType.SignActivation => func = sign_function,
-            NodeActivationType.SineActivation => func = sine_function,
-            NodeActivationType.StepActivation => func = step_function,
-            else => @compileError("unknown activation type: " ++ activation_type),
-        }
-        return func(input, aux_params);
+        return switch (activation_type) {
+            NodeActivationType.SigmoidPlainActivation => plain_sigmoid(input, aux_params.?),
+            NodeActivationType.SigmoidReducedActivation => reduced_sigmoid(input, aux_params.?),
+            NodeActivationType.SigmoidBipolarActivation => bipolar_sigmoid(input, aux_params.?),
+            NodeActivationType.SigmoidSteepenedActivation => steepened_sigmoid(input, aux_params.?),
+            NodeActivationType.SigmoidApproximationActivation => approximation_sigmoid(input, aux_params.?),
+            NodeActivationType.SigmoidSteepenedApproximationActivation => approximation_steepened_sigmoid(input, aux_params.?),
+            NodeActivationType.SigmoidInverseAbsoluteActivation => inverse_absolute_sigmoid(input, aux_params.?),
+            NodeActivationType.SigmoidLeftShiftedActivation => left_shifted_sigmoid(input, aux_params.?),
+            NodeActivationType.SigmoidLeftShiftedSteepenedActivation => left_shifted_steepened_sigmoid(input, aux_params.?),
+            NodeActivationType.SigmoidRightShiftedSteepenedActivation => right_shifted_steepened_sigmoid(input, aux_params.?),
+            NodeActivationType.TanhActivation => hyperbolic_tangent(input, aux_params.?),
+            NodeActivationType.GaussianBipolarActivation => bipolar_gaussian(input, aux_params.?),
+            NodeActivationType.LinearActivation => linear(input, aux_params.?),
+            NodeActivationType.LinearAbsActivation => absolute_linear(input, aux_params.?),
+            NodeActivationType.LinearClippedActivation => clipped_linear(input, aux_params.?),
+            NodeActivationType.NullActivation => null_functor(input, aux_params.?),
+            NodeActivationType.SignActivation => sign_function(input, aux_params.?),
+            NodeActivationType.SineActivation => sine_function(input, aux_params.?),
+            NodeActivationType.StepActivation => step_function(input, aux_params.?),
+            else => error.UnknownNodeActivationType,
+        };
     }
 
     pub fn activate_module_by_type(inputs: []f64, aux_params: ?[]f64, activation_type: NodeActivationType) ![]f64 {
-        var func: ModuleActivationFn = undefined;
-        switch (activation_type) {
-            NodeActivationType.MultiplyModuleActivation => func = multiply_module,
-            NodeActivationType.MaxModuleActivation => func = max_module,
-            NodeActivationType.MinModuleActivation => func = min_module,
-            else => @compileError("unknown activation type: " ++ activation_type),
-        }
-        return func(inputs, aux_params);
+        return switch (activation_type) {
+            NodeActivationType.MultiplyModuleActivation => multiply_module(inputs, aux_params.?),
+            NodeActivationType.MaxModuleActivation => max_module(inputs, aux_params.?),
+            NodeActivationType.MinModuleActivation => min_module(inputs, aux_params.?),
+            else => error.UnknownModuleActivationType,
+        };
     }
 
     pub fn activation_name_by_type(self: NodeActivationType) []const u8 {
@@ -248,7 +244,7 @@ fn sine_function(input: f64, aux_params: []f64) f64 {
     return @sin(2.0 * input);
 }
 
-/// step function x<0 ? 0.0 : 1.0
+/// step function x < 0 ? 0.0 : 1.0
 fn step_function(input: f64, aux_params: []f64) f64 {
     _ = aux_params;
     if (std.math.signbit(input)) {
@@ -265,25 +261,28 @@ fn multiply_module(inputs: []f64, aux_params: []f64) []f64 {
     for (inputs) |v| {
         res *= v;
     }
-    return []f64{res};
+    var out = [_]f64{res};
+    return &out;
 }
 
 /// finds maximal value among inputs and return it
 fn max_module(inputs: []f64, aux_params: []f64) []f64 {
     _ = aux_params;
-    var max = std.math.f64_min;
+    var max = std.math.floatMin(f64);
     for (inputs) |v| {
         max = @max(max, v);
     }
-    return []f64{max};
+    var out = [_]f64{max};
+    return &out;
 }
 
 /// finds minimal value among inputs and returns it
 fn min_module(inputs: []f64, aux_params: []f64) []f64 {
     _ = aux_params;
-    var min = std.math.f64_max;
+    var min = std.math.floatMax(f64);
     for (inputs) |v| {
         min = @min(min, v);
     }
-    return []f64{min};
+    var out = [_]f64{min};
+    return &out;
 }

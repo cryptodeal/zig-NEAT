@@ -109,7 +109,7 @@ pub const Species = struct {
         errdefer orgs.deinit();
 
         for (old_orgs.items) |o| {
-            if (!std.meta.eql(o.*, org.*)) {
+            if (!std.meta.eql(o, org)) {
                 try orgs.append(o);
             } else {
                 o.deinit();
@@ -306,8 +306,7 @@ pub const Species = struct {
                         _ = try new_genome.mutate_link_weights(opts.weight_mut_power, 1.0, MutatorType.GaussianMutator);
                     } else {
                         // Sometimes we add a link to a superchamp
-                        var net = try new_genome.genesis(@as(i64, @intCast(generation)));
-                        defer net.deinit();
+                        _ = try new_genome.genesis(@as(i64, @intCast(generation)));
                         _ = try new_genome.mutate_add_link(pop, opts);
                         mut_struct_offspring = true;
                     }
@@ -339,8 +338,7 @@ pub const Species = struct {
                     mut_struct_offspring = true;
                 } else if (rand.float(f64) < opts.mut_add_link_prob) {
                     // Mutate add link
-                    var net = try new_genome.genesis(@as(i64, @intCast(generation)));
-                    defer net.deinit();
+                    _ = try new_genome.genesis(@as(i64, @intCast(generation)));
                     _ = try new_genome.mutate_add_link(pop, opts);
                     mut_struct_offspring = true;
                 } else if (rand.float(f64) < opts.mut_connect_sensors) {
@@ -406,8 +404,7 @@ pub const Species = struct {
                         mut_struct_offspring = true;
                     } else if (rand.float(f64) < opts.mut_add_link_prob) {
                         // mutate_add_link
-                        var net = try new_genome.genesis(@as(i64, @intCast(generation)));
-                        defer net.deinit();
+                        _ = try new_genome.genesis(@as(i64, @intCast(generation)));
                         _ = try new_genome.mutate_add_link(pop, opts);
                         mut_struct_offspring = true;
                     } else if (rand.float(f64) < opts.mut_connect_sensors) {
@@ -425,7 +422,7 @@ pub const Species = struct {
             baby.?.mate_baby = mate_offspring;
             try offspring.append(baby.?);
         }
-        return try offspring.toOwnedSlice();
+        return offspring.toOwnedSlice();
     }
 };
 

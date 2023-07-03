@@ -15,19 +15,19 @@ pub const EpochExecutor = union(enum) {
     sequential: *SequentialPopulationEpochExecutor,
     parallel: *ParallelPopulationEpochExecutor,
 
-    pub fn deinit(self: *EpochExecutor) void {
+    pub fn deinit(self: EpochExecutor) void {
         switch (self) {
             inline else => |s| s.deinit(),
         }
     }
 
-    pub fn next_epoch(self: *EpochExecutor, opts: *Options, generation: usize, population: *Population) !void {
-        switch (self) {
+    pub fn next_epoch(self: EpochExecutor, opts: *Options, generation: usize, population: *Population) !void {
+        try switch (self) {
             inline else => |s| s.next_epoch(opts, generation, population),
-        }
+        };
     }
 
-    pub fn reproduce(self: *EpochExecutor, opts: *Options, generation: usize, population: *Population) !void {
+    pub fn reproduce(self: EpochExecutor, opts: *Options, generation: usize, population: *Population) !void {
         switch (self) {
             inline else => |s| s.reproduce(opts, generation, population),
         }

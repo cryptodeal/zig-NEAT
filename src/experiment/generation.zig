@@ -1,9 +1,10 @@
 const std = @import("std");
 const neat_organism = @import("../genetics/organism.zig");
-const Population = @import("../genetics/population.zig");
+const neat_population = @import("../genetics/population.zig");
 const floats = @import("floats.zig");
 
 const fitness_comparison = neat_organism.fitness_comparison;
+const Population = neat_population.Population;
 const Organism = neat_organism.Organism;
 const mean = floats.mean;
 
@@ -15,7 +16,7 @@ pub const Generation = struct {
     // The elapsed time between generation execution start and finish
     duration: u64 = undefined,
     // The best organism of the best species (probably successful solver if Solved flag set).
-    champion: ?*Organism = undefined,
+    champion: ?*Organism = null,
     // The flag to indicate whether experiment was solved in this epoch
     solved: bool = false,
 
@@ -37,7 +38,7 @@ pub const Generation = struct {
     winner_genes: usize = 0,
 
     // The ID of Trial this Generation was evaluated in
-    trial_id: i64,
+    trial_id: usize,
 
     allocator: std.mem.Allocator,
 
@@ -58,19 +59,23 @@ pub const Generation = struct {
         self.allocator.destroy(self);
     }
 
+    pub fn deinit_early(self: *Generation) void {
+        self.allocator.destroy(self);
+    }
+
     // FillPopulationStatistics Collects statistics about given population
     pub fn fill_population_statistics(self: *Generation, pop: *Population) !void {
-        var max_fitness: f64 = @floatFromInt(f64, std.math.minInt(i64));
+        var max_fitness: f64 = @as(f64, @floatFromInt(std.math.minInt(i64)));
         self.diversity = pop.species.items.len;
         self.age = try self.allocator.alloc(f64, self.diversity);
         self.complexity = try self.allocator.alloc(f64, self.diversity);
         self.fitness = try self.allocator.alloc(f64, self.diversity);
         for (pop.species.items, 0..) |curr_species, i| {
-            self.age[i] = @floatFromInt(f64, curr_species.age);
+            self.age[i] = @as(f64, @floatFromInt(curr_species.age));
             // sort organisms from current species by fitness to have most fit first
             std.mem.sort(*Organism, curr_species.organisms.items, {}, fitness_comparison);
             std.mem.reverse(*Organism, curr_species.organisms.items);
-            self.complexity[i] = @floatFromInt(f64, curr_species.organisms.items[0].phenotype.complexity());
+            self.complexity[i] = @as(f64, @floatFromInt(curr_species.organisms.items[0].phenotype.?.complexity()));
             self.fitness[i] = curr_species.organisms.items[0].fitness;
 
             // finds the best organism in epoch if not solved

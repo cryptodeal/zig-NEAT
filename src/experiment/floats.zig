@@ -30,7 +30,7 @@ pub fn mean(comptime T: type, x: []T) T {
     for (x) |v| {
         total += v;
     }
-    return total / @floatFromInt(T, x.len);
+    return total / @as(T, @floatFromInt(x.len));
 }
 
 fn has_nan(comptime T: type, x: []T) bool {
@@ -58,8 +58,8 @@ pub fn mean_variance(allocator: std.mem.Allocator, comptime T: type, x: []T) ![]
         ss += d * d;
         compensation += d;
     }
-    var unnormalized_variance: T = (ss - compensation * compensation / @floatFromInt(T, x.len));
-    res[1] = unnormalized_variance / (@floatFromInt(T, x.len) - 1);
+    var unnormalized_variance: T = (ss - compensation * compensation / @as(T, @floatFromInt(x.len)));
+    res[1] = unnormalized_variance / (@as(T, @floatFromInt(x.len)) - 1);
     return res;
 }
 
@@ -148,7 +148,7 @@ fn quantile(comptime T: type, p: T, c: CumulantKind, x: []T, weights: ?[]T) !T {
     }
     var sum_weights: T = undefined;
     if (weights == null) {
-        sum_weights = @floatFromInt(T, x.len);
+        sum_weights = @as(T, @floatFromInt(x.len));
     } else {
         sum_weights = sum(T, weights.?);
     }

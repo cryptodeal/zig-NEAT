@@ -33,17 +33,21 @@ pub const Experiment = struct {
     allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator, id: usize) !*Experiment {
-        var self = try allocator.alloc(Experiment);
+        var self = try allocator.create(Experiment);
         self.* = .{
             .allocator = allocator,
             .id = id,
-            .trials = try std.ArrayList(*Trial).init(allocator),
+            .trials = std.ArrayList(*Trial).init(allocator),
         };
+        return self;
     }
 
     pub fn deinit(self: *Experiment) void {
+        for (self.trials.items) |t| {
+            t.deinit();
+        }
         self.trials.deinit();
-        self.allocator.free(self);
+        self.allocator.destroy(self);
     }
 
     /// `avg_trial_duration` Calculates average duration of experiment's trial. Returns EmptyDuration for experiment with no trials.
@@ -55,7 +59,7 @@ pub const Experiment = struct {
             total += t.duration;
         }
         if (self.trials.items.len > 0) {
-            return @intCast(i64, total / @intCast(u64, self.trials.items.len));
+            return @as(i64, @intCast(total / @as(u64, @intCast(self.trials.items.len))));
         } else {
             return -1;
         }
@@ -68,7 +72,7 @@ pub const Experiment = struct {
             total += t.avg_epoch_duration();
         }
         if (self.trials.items.len > 0) {
-            return @intCast(i64, total / @intCast(u64, self.trials.items.len));
+            return @as(i64, @intCast(total / @as(u64, @intCast(self.trials.items.len))));
         } else {
             return -1;
         }
@@ -80,10 +84,10 @@ pub const Experiment = struct {
     pub fn avg_generations_per_trial(self: *Experiment) f64 {
         var total: f64 = 0;
         for (self.trials.items) |t| {
-            total += @floatFromInt(f64, t.generations.items.len);
+            total += @as(f64, @floatFromInt(t.generations.items.len));
         }
         if (self.trials.items.len > 0) {
-            return total / @floatFromInt(f64, self.trials.items.len);
+            return total / @as(f64, @floatFromInt(self.trials.items.len));
         } else {
             return 0;
         }
@@ -158,7 +162,7 @@ pub const Experiment = struct {
         for (self.trials.items, 0..) |t, i| {
             var org = try t.best_organism(false);
             if (org != null) {
-                x[i] = @floatFromInt(f64, org.species.age);
+                x[i] = @as(f64, @floatFromInt(org.species.age));
             }
         }
         return x;
@@ -170,7 +174,7 @@ pub const Experiment = struct {
         for (self.trials.items, 0..) |t, i| {
             var org = try t.best_organism(false);
             if (org != null) {
-                x[i] = @floatFromInt(f64, org.phenotype.complexity());
+                x[i] = @as(f64, @floatFromInt(org.phenotype.complexity()));
             }
         }
         return x;
@@ -192,7 +196,7 @@ pub const Experiment = struct {
     pub fn epochs_per_trial(self: *Experiment, allocator: std.mem.Allocator) ![]f64 {
         var x = try allocator.alloc(f64, self.trials.items.len);
         for (self.trials.items, 0..) |t, i| {
-            x[i] = @floatFromInt(f64, t.generations.items.len);
+            x[i] = @as(f64, @floatFromInt(t.generations.items.len));
         }
         return x;
     }
@@ -211,9 +215,9 @@ pub const Experiment = struct {
     /// `success_rate` calculates the success rate of the experiment as ratio
     /// of trials with successful solvers per total number of trials executed.
     pub fn success_rate(self: *Experiment) f64 {
-        var is_solved = @floatFromInt(f64, self.trials_solved());
+        var is_solved = @as(f64, @floatFromInt(self.trials_solved()));
         if (self.trials.items.len > 0) {
-            return is_solved / @floatFromInt(f64, self.trials.items.len);
+            return is_solved / @as(f64, @floatFromInt(self.trials.items.len));
         } else {
             return 0;
         }
@@ -242,10 +246,10 @@ pub const Experiment = struct {
             }
         }
         if (count > 0) {
-            avg_winner_stats.avg_nodes = @floatFromInt(f64, total_nodes) / count;
-            avg_winner_stats.avg_genes = @floatFromInt(f64, total_genes) / count;
-            avg_winner_stats.avg_evals = @floatFromInt(f64, total_evals) / count;
-            avg_winner_stats.avg_diversity = @floatFromInt(f64, total_diversity) / count;
+            avg_winner_stats.avg_nodes = @as(f64, @floatFromInt(total_nodes)) / count;
+            avg_winner_stats.avg_genes = @as(f64, @floatFromInt(total_genes)) / count;
+            avg_winner_stats.avg_evals = @as(f64, @floatFromInt(total_evals)) / count;
+            avg_winner_stats.avg_diversity = @as(f64, @floatFromInt(total_diversity)) / count;
         }
         return avg_winner_stats;
     }
@@ -262,7 +266,7 @@ pub const Experiment = struct {
                         var stats = try t.winner_statistics();
                         defer stats.deinit();
                     }
-                    mean_complexity += @floatFromInt(f64, t.winner_generation.?.champion.phenotype.?.complexity());
+                    mean_complexity += @as(f64, @floatFromInt(t.winner_generation.?.champion.phenotype.?.complexity()));
                     mean_fitness += t.winner_generation.?.champion.fitness;
 
                     count += 1;
@@ -289,10 +293,10 @@ pub const Experiment = struct {
     }
 
     fn penalty_score(self: *Experiment, mean_complexity: f64) f64 {
-        return @floatFromInt(f64, self.avg_epoch_duration()) * self.avg_generations_per_trial() * mean_complexity;
+        return @as(f64, @floatFromInt(self.avg_epoch_duration())) * self.avg_generations_per_trial() * mean_complexity;
     }
 
-    pub fn execute(self: *Experiment, allocator: std.mem.Allocator, opts: *Options, start_genome: *Genome, evaluator: GenerationEvaluator) !void {
+    pub fn execute(self: *Experiment, allocator: std.mem.Allocator, opts: *Options, start_genome: *Genome, comptime evaluator: GenerationEvaluator) !void {
         var run: usize = 0;
         while (run < opts.num_runs) : (run += 1) {
             var trial_start_time = try std.time.Instant.now();
@@ -301,6 +305,7 @@ pub const Experiment = struct {
                 std.debug.print("Failed to spawn new population from start genome\n", .{});
                 return err;
             };
+            defer pop.deinit();
             std.debug.print("OK <<<<<\n>>>>> Verifying spawned population:", .{});
             _ = pop.verify() catch |err| {
                 std.debug.print("\n!!!!! Population verification failed !!!!!", .{});
@@ -314,16 +319,18 @@ pub const Experiment = struct {
 
             // start new trial
             var trial = try Trial.init(self.allocator, run);
+            errdefer trial.deinit();
 
             // TODO: implement/notify TrialObserver that run started
 
             var generation_id: usize = 0;
             while (generation_id < opts.num_generations) : (generation_id += 1) {
-                std.debug.print(">>>>> Generation:{d}\tRun: {d}\n", .{ generation_id, run });
+                std.debug.print("\n>>>>> Generation:{d}\tRun: {d}\n", .{ generation_id, run });
                 var generation = try Generation.init(allocator, generation_id, run);
                 var gen_start_time = std.time.Instant.now() catch unreachable;
                 evaluator.generation_evaluate(opts, pop, generation) catch |err| {
                     std.debug.print("!!!!! Generation [{d}] evaluation failed !!!!!\n", .{generation_id});
+                    generation.deinit_early();
                     return err;
                 };
 
@@ -331,7 +338,8 @@ pub const Experiment = struct {
 
                 // Turnover population of organisms to the next epoch if appropriate
                 if (!generation.solved) {
-                    std.debug.print(">>>>> start next generation", .{});
+                    // std.debug.print(">>>>> start next generation\n", .{});
+                    std.debug.print("\n\nNEXT EPOCH:\n\n", .{});
                     epoch_executor.next_epoch(opts, generation_id, pop) catch |err| {
                         std.debug.print("!!!!! Epoch execution failed in generation [{d}] !!!!!\n", .{generation_id});
                         return err;
@@ -346,8 +354,9 @@ pub const Experiment = struct {
 
                 if (generation.solved) {
                     // stop further evaluation if already solved
-                    std.debug.print(">>>>> The winner organism found in [{d}] generation, fitness: {d} <<<<<\n", .{ generation_id, generation.champion.fitness });
+                    std.debug.print(">>>>> The winner organism found in [{d}] generation, fitness: {d} <<<<<\n", .{ generation_id, generation.champion.?.fitness });
                     // TODO: implement/notify TrialObserver
+                    break;
                 }
             }
             // holds trial duration
@@ -371,10 +380,32 @@ pub const AvgWinnerStats = struct {
     allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator) !*AvgWinnerStats {
-        var self: *AvgWinnerStats = allocator.alloc(AvgWinnerStats);
+        var self: *AvgWinnerStats = try allocator.create(AvgWinnerStats);
         self.* = .{
             .allocator = allocator,
         };
         return self;
     }
+
+    pub fn deinit(self: *AvgWinnerStats) void {
+        self.allocator.destroy(self);
+    }
 };
+
+test "Experiment avg Trial duration" {
+    var allocator = std.testing.allocator;
+    var exp = try Experiment.init(allocator, 1);
+    defer exp.deinit();
+    var trial1 = try Trial.init(allocator, 1);
+    trial1.duration = 3;
+    try exp.trials.append(trial1);
+    var trial2 = try Trial.init(allocator, 2);
+    trial2.duration = 10;
+    try exp.trials.append(trial2);
+    var trial3 = try Trial.init(allocator, 3);
+    trial3.duration = 2;
+    try exp.trials.append(trial3);
+
+    var duration = exp.avg_trial_duration();
+    try std.testing.expect(duration == 5);
+}

@@ -88,7 +88,7 @@ pub const NNode = struct {
     pub fn set_activation(self: *NNode, input: f64) void {
         self.save_activations();
         self.activation = input;
-        self.activation_count += 1;
+        self.activations_count += 1;
     }
 
     pub fn save_activations(self: *NNode) void {

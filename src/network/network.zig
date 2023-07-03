@@ -262,7 +262,7 @@ pub const Network = struct {
 
     pub fn output_is_off(self: *Network) bool {
         for (self.outputs) |node| {
-            if (node.activation_count == 0) {
+            if (node.activations_count == 0) {
                 return true;
             }
         }
@@ -279,7 +279,7 @@ pub const Network = struct {
         // ensure activate at least once
         var one_time = false;
         // used if output is truncated from network
-        var abort_count = 0;
+        var abort_count: i64 = 0;
 
         // loop until all the outputs are activated
         while (self.output_is_off() or !one_time) {
@@ -293,15 +293,15 @@ pub const Network = struct {
                     np.activation_sum = 0.0;
 
                     // For each node's incoming connection, add the activity from the connection to the activesum
-                    for (np.incoming) |link| {
+                    for (np.incoming.items) |link| {
                         // handle potential time delayed cxns
                         if (!link.is_time_delayed) {
-                            add_amount = link.cxn_weight * link.in_node.get_active_out();
-                            if (link.in_node.is_active or link.in_node.is_sensor()) {
+                            add_amount = link.cxn_weight * link.in_node.?.get_active_out();
+                            if (link.in_node.?.is_active or link.in_node.?.is_sensor()) {
                                 np.is_active = true;
                             }
                         } else {
-                            add_amount = link.cxn_weight * link.in_node.get_active_out_td();
+                            add_amount = link.cxn_weight * link.in_node.?.get_active_out_td();
                         }
                         np.activation_sum += add_amount;
                     }
@@ -317,11 +317,13 @@ pub const Network = struct {
             }
 
             // activate all MIMO control genes to propagate activation through genome modules
-            for (self.control_nodes) |cn| {
-                cn.is_active = false;
-                // activate control MIMO node as control module
-                try common.activate_module(cn);
-                cn.is_active = true;
+            if (self.has_control_nodes) {
+                for (self.control_nodes) |cn| {
+                    cn.is_active = false;
+                    // activate control MIMO node as control module
+                    try common.activate_module(cn);
+                    cn.is_active = true;
+                }
             }
 
             one_time = true;
@@ -341,7 +343,7 @@ pub const Network = struct {
         }
         var i: usize = 0;
         while (i < steps) : (i += 1) {
-            try self.activate_steps(steps);
+            _ = try self.activate_steps(steps);
         }
         return true;
     }
@@ -362,7 +364,7 @@ pub const Network = struct {
             // BIAS value provided as input
             for (self.inputs) |node| {
                 if (node.is_sensor()) {
-                    node.sensor_load(sensors[counter]);
+                    _ = node.sensor_load(sensors[counter]);
                     counter += 1;
                 }
             }
@@ -370,11 +372,11 @@ pub const Network = struct {
             // use default BIAS value
             for (self.inputs) |node| {
                 if (node.neuron_type == NodeNeuronType.InputNeuron) {
-                    node.sensor_load(sensors[counter]);
+                    _ = node.sensor_load(sensors[counter]);
                     counter += 1;
                 } else {
                     // default BIAS value
-                    node.sensor_load(1.0);
+                    _ = node.sensor_load(1.0);
                 }
             }
         }
@@ -439,7 +441,7 @@ pub const Network = struct {
     }
 
     pub fn max_activation_depth(self: *Network) !i64 {
-        if (self.all_nodes.len == self.inputs.len + self.outputs.len and self.control_nodes.len == 0) {
+        if (self.all_nodes.len == self.inputs.len + self.outputs.len and !self.has_control_nodes or self.control_nodes.len == 0) {
             return 1;
         }
 
@@ -447,12 +449,12 @@ pub const Network = struct {
     }
 
     pub fn max_activation_depth_fast(self: *Network, max_depth: i64) !i64 {
-        if (self.control_nodes.len > 0) {
+        if (self.has_control_nodes and self.control_nodes.len > 0) {
             std.debug.print("unsupported for modular networks", .{});
             return error.ErrModularNetworkUnsupported;
         }
 
-        if (self.all_nodes.len == self.inputs.len + self.outputs.len and self.control_nodes.len == 0) {
+        if (self.all_nodes.len == self.inputs.len + self.outputs.len and !self.has_control_nodes or self.control_nodes.len == 0) {
             return 1;
         }
 

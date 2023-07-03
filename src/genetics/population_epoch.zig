@@ -57,6 +57,8 @@ pub const SequentialPopulationEpochExecutor = struct {
 
     pub fn next_epoch(self: *SequentialPopulationEpochExecutor, opts: *Options, generation: usize, population: *Population) !void {
         try self.prepare_for_reproduction(opts, generation, population);
+        try self.reproduce(opts, generation, population);
+        try self.finalize_reproduction(opts, population);
     }
 
     pub fn prepare_for_reproduction(self: *SequentialPopulationEpochExecutor, opts: *Options, generation: usize, p: *Population) !void {
@@ -79,7 +81,6 @@ pub const SequentialPopulationEpochExecutor = struct {
         self.sorted_species.expandToCapacity();
 
         @memcpy(self.sorted_species.items, p.species.items);
-
         // Sort the Species by max original fitness of its first organism
         std.mem.sort(*Species, self.sorted_species.items, {}, fitness_comparison);
         std.mem.reverse(*Species, self.sorted_species.items);
@@ -116,18 +117,19 @@ pub const SequentialPopulationEpochExecutor = struct {
         std.debug.print("POPULATION: Start Sequential Reproduction Cycle >>>>>\n", .{});
 
         // Perform reproduction. Reproduction is done on a per-Species basis
-        var offspring = std.ArrayList(*Organism).init(self.allocator);
+        var offspring = try std.ArrayList(*Organism).initCapacity(self.allocator, opts.pop_size);
         defer offspring.deinit();
 
         for (p.species.items) |sp| {
-            var rep_offspring = try sp.reproduce(opts, generation, p, self.sorted_species);
+            var rep_offspring = try sp.reproduce(opts, generation, p, self.sorted_species.items);
+            defer self.allocator.free(rep_offspring);
             if (sp.id == self.best_species_id) {
                 // store flag if best species reproduced - it will be used to determine if best species
                 // produced offspring before died
                 self.best_species_reproduced = true;
             }
             // store offspring
-            try offspring.appendSliceAssumeCapacity(rep_offspring);
+            offspring.appendSliceAssumeCapacity(rep_offspring);
         }
 
         // sanity check - make sure that population size keep the same
@@ -137,6 +139,7 @@ pub const SequentialPopulationEpochExecutor = struct {
         }
 
         try p.speciate(opts, offspring.items);
+
         std.debug.print("POPULATION: >>>>> Reproduction Complete\n", .{});
     }
 
