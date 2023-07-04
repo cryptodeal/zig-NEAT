@@ -11,6 +11,7 @@ const neat_genome = @import("../genetics/genome.zig");
 const neat_experiment = @import("../experiment/experiment.zig");
 const neat_exp_common = @import("../experiment/common.zig");
 const neat_common = @import("../network/common.zig");
+const logger = @constCast(neat_opts.logger);
 
 const Options = neat_opts.Options;
 const GenerationEvaluator = neat_exp_common.GenerationEvaluator;
@@ -42,7 +43,7 @@ fn org_eval(organism: *Organism) !bool {
     // The max depth of the network to be activated
     var net_depth = try organism.phenotype.?.max_activation_depth_fast(0);
     if (net_depth == 0) {
-        std.debug.print("Network depth: {d} for organism: {d}\n", .{ net_depth, organism.genotype.id });
+        logger.err("Network depth: {d} for organism: {d}\n", .{ net_depth, organism.genotype.id }, @src());
         return false;
     }
 
@@ -95,7 +96,8 @@ fn eval(opts: *Options, pop: *Population, epoch: *Generation) !void {
     // Evaluate each organism on a test
     for (pop.organisms.items) |org| {
         var res = try org_eval(org);
-        std.debug.print("\nGenome id: {d} ---- Organism fitness: {d}\n", .{ org.genotype.id, org.fitness });
+        var complexity = org.phenotype.?.complexity();
+        _ = complexity;
 
         if (res and (epoch.champion == null or org.fitness > epoch.champion.?.fitness)) {
             epoch.solved = true;
@@ -131,6 +133,12 @@ pub fn main() !void {
     var allocator = std.heap.c_allocator;
     var opts: *Options = try allocator.create(Options);
     defer allocator.destroy(opts);
+    var node_activators = try allocator.alloc(neat_math.NodeActivationType, 1);
+    defer allocator.free(node_activators);
+    node_activators[0] = neat_math.NodeActivationType.SigmoidSteepenedActivation;
+    var node_activators_prob = try allocator.alloc(f64, 1);
+    defer allocator.free(node_activators_prob);
+    node_activators_prob[0] = 1.0;
     opts.* = .{
         .trait_param_mut_prob = 0.5,
         .trait_mut_power = 1.0,
@@ -164,6 +172,8 @@ pub fn main() !void {
         .babies_stolen = 0,
         .num_runs = 100,
         .num_generations = 100,
+        .node_activators = node_activators,
+        .node_activators_prob = node_activators_prob,
         .epoch_executor_type = EpochExecutorType.EpochExecutorTypeSequential,
         .gen_compat_method = GenomeCompatibilityMethod.GenomeCompatibilityMethodFast,
     };
@@ -173,7 +183,7 @@ pub fn main() !void {
     for (traits, 0..) |_, i| {
         traits[i] = try Trait.init(allocator, 8);
         traits[i].id = @as(i64, @intCast(i)) + 1;
-        traits[i].params[0] = 0.1 * @as(f64, @floatFromInt(i));
+        traits[i].params[0] = 0.1 * @as(f64, @floatFromInt(i + 1));
     }
 
     // initialize Nodes for Genome
@@ -247,6 +257,8 @@ test "XOR" {
         .babies_stolen = 0,
         .num_runs = 100,
         .num_generations = 100,
+        .node_activators = [_]neat_math.NodeActivationType{neat_math.NodeActivationType.SigmoidSteepenedActivation},
+        .node_activators_prob = [_]f64{1.0},
         .epoch_executor_type = EpochExecutorType.EpochExecutorTypeSequential,
         .gen_compat_method = GenomeCompatibilityMethod.GenomeCompatibilityMethodFast,
     };

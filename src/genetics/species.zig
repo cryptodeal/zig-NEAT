@@ -3,13 +3,15 @@ const orgn = @import("organism.zig");
 const neat_population = @import("population.zig");
 const neat_common = @import("common.zig");
 const neat_genome = @import("genome.zig");
+const opt = @import("../opts.zig");
 
 const Organism = orgn.Organism;
 const Genome = neat_genome.Genome;
-const Options = @import("../opts.zig").Options;
+const Options = opt.Options;
 const Population = neat_population.Population;
 const MutatorType = neat_common.MutatorType;
 const fitness_comparison = orgn.fitness_comparison;
+const logger = @constCast(opt.logger);
 
 pub const MaxAvgFitness = struct {
     max: f64,
@@ -117,7 +119,7 @@ pub const Species = struct {
         }
 
         if (orgs.items.len != old_orgs.items.len - 1) {
-            std.debug.print("attempt to remove nonexistent Organism from Species with #of organisms: {d}\n", .{old_orgs.items.len});
+            logger.info("attempt to remove nonexistent Organism from Species with #of organisms: {d}\n", .{old_orgs.items.len}, @src());
             return error.FailedToRemoveOrganism;
         } else {
             old_orgs.deinit();
@@ -262,7 +264,7 @@ pub const Species = struct {
     pub fn reproduce(self: *Species, opts: *Options, generation: usize, pop: *Population, sorted_species: []*Species) ![]*Organism {
         // Check for a mistake
         if (self.expected_offspring > 0 and self.organisms.items.len == 0) {
-            std.debug.print("attempt to reproduce out of empty species", .{});
+            logger.err("attempt to reproduce out of empty species", .{}, @src());
             return ReproductionError.CannotReproduceEmptySpecies;
         }
 
@@ -286,15 +288,24 @@ pub const Species = struct {
 
         // Create the designated number of offspring for the Species one at a time
         var count: usize = 0;
+        logger.debug("SPECIES ID: {d} ---- Expected Offspring #{d}", .{ self.id, self.expected_offspring }, @src());
         while (count < @as(usize, @intCast(self.expected_offspring))) : (count += 1) {
+            logger.debug("SPECIES: Offspring #{d} from {d}, (species: {d})", .{ count, self.expected_offspring, self.id }, @src());
             var mut_struct_offspring = false;
             var mate_offspring = false;
 
+            // debug trap
+            if (self.expected_offspring > opts.pop_size) {
+                logger.warn("SPECIES: Species [{d}] expected offspring: {d} exceeds population size limit: {d}", .{ self.id, self.expected_offspring, opts.pop_size }, @src());
+            }
+
             var baby: ?*Organism = null;
             if (the_champ.super_champ_offspring > 0) {
+                logger.debug("SPECIES: Reproduce super champion", .{}, @src());
+
                 // If we have a super_champ (Population champion), finish off some special clones
-                var parent1 = the_champ;
-                var new_genome = try parent1.genotype.duplicate(@as(i64, @intCast(count)));
+                var mom = the_champ;
+                var new_genome = try mom.genotype.duplicate(@as(i64, @intCast(count)));
 
                 // Most superchamp offspring will have their connection weights mutated only
                 // The last offspring will be an exact duplicate of this super_champ
@@ -311,41 +322,53 @@ pub const Species = struct {
                         mut_struct_offspring = true;
                     }
                 }
+
                 // Create the new baby organism
                 baby = try Organism.init(self.allocator, 0.0, new_genome, generation);
                 if (the_champ.super_champ_offspring == 1 and the_champ.is_population_champion) {
                     baby.?.is_population_champion_child = true;
-                    baby.?.highest_fitness = parent1.og_fitness;
+                    baby.?.highest_fitness = mom.og_fitness;
                 }
                 the_champ.super_champ_offspring -= 1;
             } else if (!champ_clone_done and self.expected_offspring > 5) {
+                logger.debug("SPECIES: Clone species champion", .{}, @src());
                 // If we have a Species champion, just clone it
-                var parent1 = the_champ;
-                var new_genome = try parent1.genotype.duplicate(@as(i64, @intCast(count)));
+                var mom = the_champ; // Mom is the champ
+                var new_genome = try mom.genotype.duplicate(@as(i64, @intCast(count)));
+                // Baby is just like mom
                 champ_clone_done = true;
                 // create the new baby organism
                 baby = try Organism.init(self.allocator, 0.0, new_genome, generation);
             } else if (rand.float(f64) < opts.mut_only_prob or pool_size == 1) {
+                logger.debug("SPECIES: Reproduce by applying random mutation:", .{}, @src());
                 // Apply mutations
-                var org_num = rand.uintLessThan(usize, pool_size);
-                var parent1 = self.organisms.items[org_num];
-                var new_genome = try parent1.genotype.duplicate(@as(i64, @intCast(count)));
+                var org_num = rand.uintLessThan(usize, pool_size); // select random mom
+                var mom = self.organisms.items[org_num];
+                var new_genome = try mom.genotype.duplicate(@as(i64, @intCast(count)));
 
                 // Do the mutation depending on probabilities of various mutations
                 if (rand.float(f64) < opts.mut_add_node_prob) {
+                    logger.debug("SPECIES: ---> mutate_add_node", .{}, @src());
+
                     // Mutate add node
                     _ = try new_genome.mutate_add_node(pop, opts);
                     mut_struct_offspring = true;
                 } else if (rand.float(f64) < opts.mut_add_link_prob) {
+                    logger.debug("SPECIES: ---> mutate_add_link", .{}, @src());
+
                     // Mutate add link
                     _ = try new_genome.genesis(@as(i64, @intCast(generation)));
                     _ = try new_genome.mutate_add_link(pop, opts);
                     mut_struct_offspring = true;
                 } else if (rand.float(f64) < opts.mut_connect_sensors) {
+                    logger.debug("SPECIES: ---> mutate_connect_sensors", .{}, @src());
+
                     mut_struct_offspring = try new_genome.mutate_connect_sensors(pop, opts);
                 }
 
                 if (!mut_struct_offspring) {
+                    logger.debug("SPECIES: ---> mutate_all_nonstructural", .{}, @src());
+
                     // If we didn't do a structural mutation, we do the other kinds
                     _ = try new_genome.mutate_all_nonstructural(opts);
                 }
@@ -353,17 +376,23 @@ pub const Species = struct {
                 // Create the new baby organism
                 baby = try Organism.init(self.allocator, 0.0, new_genome, generation);
             } else {
-                // Otherwise we should mate
-                var org_num = rand.uintLessThan(usize, pool_size);
-                var parent1 = self.organisms.items[org_num];
+                logger.debug("SPECIES: Reproduce by mating:", .{}, @src());
 
-                // choose random parent2
-                var parent2: *Organism = undefined;
+                // Otherwise we should mate
+                var org_num = rand.uintLessThan(usize, pool_size); // select random mom
+                var mom = self.organisms.items[org_num];
+
+                // choose random dad
+                var dad: *Organism = undefined;
                 if (rand.float(f64) > opts.interspecies_mate_rate) {
+                    logger.debug("SPECIES: ---> mate within species", .{}, @src());
+
                     // Mate within Species
                     org_num = rand.uintLessThan(usize, pool_size);
-                    parent2 = self.organisms.items[org_num];
+                    dad = self.organisms.items[org_num];
                 } else {
+                    logger.debug("SPECIES: ---> mate outside species", .{}, @src());
+
                     // Mate outside Species
                     var rand_species = self;
 
@@ -371,57 +400,71 @@ pub const Species = struct {
                     var give_up: usize = 0;
                     while (rand_species.id == self.id and give_up < 5) : (give_up += 1) {
                         // Choose a random species tending towards better species
-                        var rand_mult = rand.float(f64) / 4.0;
+                        var rand_mult = rand.float(f64) / 4;
                         // This tends to select better species
                         var rand_species_num: usize = @as(usize, @intFromFloat(@floor(rand_mult * @as(f64, @floatFromInt(sorted_species.len)))));
                         rand_species = sorted_species[rand_species_num];
                     }
-                    parent2 = rand_species.organisms.items[0];
+                    dad = rand_species.organisms.items[0];
                 }
 
                 // Perform mating based on probabilities of different mating types
                 var new_genome: *Genome = undefined;
                 if (rand.float(f64) < opts.mate_multipoint_prob) {
+                    logger.debug("SPECIES: ------> mate_multipoint", .{}, @src());
+
                     // mate multipoint baby
-                    new_genome = try parent1.genotype.mate_multipoint(parent2.genotype, @as(i64, @intCast(count)), parent1.og_fitness, parent2.og_fitness);
+                    new_genome = try mom.genotype.mate_multipoint(dad.genotype, @as(i64, @intCast(count)), mom.og_fitness, dad.og_fitness);
                 } else if (rand.float(f64) < opts.mate_multipoint_avg_prob / (opts.mate_multipoint_avg_prob + opts.mate_singlepoint_prob)) {
+                    logger.debug("SPECIES: ------> mate_multipoint_avg", .{}, @src());
+
                     // mate multipoint_avg baby
-                    new_genome = try parent1.genotype.mate_multipoint_avg(parent2.genotype, @as(i64, @intCast(count)), parent1.og_fitness, parent2.og_fitness);
+                    new_genome = try mom.genotype.mate_multipoint_avg(dad.genotype, @as(i64, @intCast(count)), mom.og_fitness, dad.og_fitness);
                 } else {
+                    logger.debug("SPECIES: ------> mate_singlepoint", .{}, @src());
+
                     // mate singlepoint baby
-                    new_genome = try parent1.genotype.mate_singlepoint(parent2.genotype, @as(i64, @intCast(count)));
+                    new_genome = try mom.genotype.mate_singlepoint(dad.genotype, @as(i64, @intCast(count)));
                 }
 
                 mate_offspring = true;
 
                 // Determine whether to mutate the baby's Genome
                 // This is done randomly or if the mom and dad are the same organism
-                if (rand.float(f64) > opts.mate_only_prob or parent2.genotype.id == parent1.genotype.id or parent2.genotype.compatability(parent1.genotype, opts) == 0.0) {
+                if (rand.float(f64) > opts.mate_only_prob or dad.genotype.id == mom.genotype.id or dad.genotype.compatability(mom.genotype, opts) == 0.0) {
+                    logger.debug("SPECIES: ------> Mutate baby genome:", .{}, @src());
+
                     // Do the mutation depending on probabilities of  various mutations
                     if (rand.float(f64) < opts.mut_add_node_prob) {
+                        logger.debug("SPECIES: ---------> mutate_add_node", .{}, @src());
+
                         // mutate_add_node
                         _ = try new_genome.mutate_add_node(pop, opts);
                         mut_struct_offspring = true;
                     } else if (rand.float(f64) < opts.mut_add_link_prob) {
+                        logger.debug("SPECIES: ---------> mutate_add_link", .{}, @src());
+
                         // mutate_add_link
                         _ = try new_genome.genesis(@as(i64, @intCast(generation)));
                         _ = try new_genome.mutate_add_link(pop, opts);
                         mut_struct_offspring = true;
                     } else if (rand.float(f64) < opts.mut_connect_sensors) {
+                        logger.debug("SPECIES: ---------> mutate_connect_sensors", .{}, @src());
                         mut_struct_offspring = try new_genome.mutate_connect_sensors(pop, opts);
                     }
 
                     if (!mut_struct_offspring) {
+                        logger.debug("SPECIES: ---------> mutate_all_nonstructural", .{}, @src());
                         // If we didn't do a structural mutation, we do the other kinds
                         _ = try new_genome.mutate_all_nonstructural(opts);
                     }
                 }
                 baby = try Organism.init(self.allocator, 0.0, new_genome, generation);
-            }
+            } // end else
             baby.?.mutation_struct_baby = mut_struct_offspring;
             baby.?.mate_baby = mate_offspring;
             try offspring.append(baby.?);
-        }
+        } // end for (count == 0)
         return offspring.toOwnedSlice();
     }
 };

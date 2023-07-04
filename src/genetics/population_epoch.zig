@@ -11,6 +11,7 @@ const Population = neat_population.Population;
 const Species = neat_species.Species;
 const Organism = neat_organism.Organism;
 const WaitGroup = std.Thread.WaitGroup;
+const logger = @constCast(opt.logger);
 
 pub const ReproductionResult = struct {
     babies_stored: usize,
@@ -114,7 +115,7 @@ pub const SequentialPopulationEpochExecutor = struct {
     }
 
     pub fn reproduce(self: *SequentialPopulationEpochExecutor, opts: *Options, generation: usize, p: *Population) !void {
-        std.debug.print("POPULATION: Start Sequential Reproduction Cycle >>>>>\n", .{});
+        logger.info("POPULATION: Start Sequential Reproduction Cycle >>>>>", .{}, @src());
 
         // Perform reproduction. Reproduction is done on a per-Species basis
         var offspring = try std.ArrayList(*Organism).initCapacity(self.allocator, opts.pop_size);
@@ -140,7 +141,7 @@ pub const SequentialPopulationEpochExecutor = struct {
 
         try p.speciate(opts, offspring.items);
 
-        std.debug.print("POPULATION: >>>>> Reproduction Complete\n", .{});
+        logger.info("POPULATION: >>>>> Reproduction Complete\n", .{}, @src());
     }
 
     pub fn finalize_reproduction(self: *SequentialPopulationEpochExecutor, _: *Options, pop: *Population) !void {

@@ -884,7 +884,7 @@ pub const Genome = struct {
 
     pub fn mutate_connect_sensors(self: *Genome, innovations: *Population, _: *Options) !bool {
         if (self.genes.len == 0) {
-            std.debug.print("Genome has no genes", .{});
+            logger.debug("GENOME ID: {d} ---- mutate connect sensors FAILED; Genome has no Genes!", .{self.id}, @src());
             return false;
         }
 
@@ -926,18 +926,20 @@ pub const Genome = struct {
             }
         }
 
+        // if all sensors are connected - stop
         if (disconnected_sensors.items.len == 0) {
+            logger.debug("GENOME ID: {d} ---- mutate connect sensors FAILED; all sensors are connected!", .{self.id}, @src());
             return false;
         }
 
         // pick randomly from disconnected sensors
         var sensor = disconnected_sensors.items[rand.uintLessThan(usize, disconnected_sensors.items.len)];
-        // add new link to chosen sensor
+        // add new links to chosen sensor, avoid duplicates
         var link_added = false;
         for (outputs.items) |output| {
             var found = false;
             for (self.genes) |gene| {
-                if (std.meta.eql(gene.link.in_node.?, sensor) and std.meta.eql(gene.link.out_node.?, output)) {
+                if (gene.link.in_node.? == sensor and gene.link.out_node == output) {
                     found = true;
                     break;
                 }
@@ -988,10 +990,10 @@ pub const Genome = struct {
     pub fn mutate_add_link(self: *Genome, innovations: *Population, opt: *Options) !bool {
         var nodes_len = self.nodes.len;
         if (self.phenotype == null) {
-            std.debug.print("attempt to add link to genome without phenotype", .{});
+            logger.debug("GENOME ID: {d} ---- mutate add link FAILED; cannot add link to Genome missing phenotype (Network)!", .{self.id}, @src());
             return GenomeError.GenomeMissingPhenotype;
         } else if (nodes_len == 0) {
-            std.debug.print("Genome has no nodes to be connected by new link", .{});
+            logger.debug("GENOME ID: {d} ---- mutate add link FAILED; cannot add link to Genome missing nodes (NNode)!", .{self.id}, @src());
             return GenomeError.GenomeHasNoNodes;
         }
 
@@ -1004,19 +1006,14 @@ pub const Genome = struct {
 
         // decide whether to make link recurrent
         var do_recur = false;
-        var random_float = rand.float(f64);
-        if (random_float < opt.recur_only_prob) {
+        if (rand.float(f64) < opt.recur_only_prob) {
             do_recur = true;
         }
 
         // find first non-sensor so the `to-node` won't look at sensors as destination
         var first_non_sensor: usize = 0;
         for (self.nodes) |n| {
-            if (n.is_sensor()) {
-                first_non_sensor += 1;
-            } else {
-                break;
-            }
+            if (n.is_sensor()) first_non_sensor += 1 else break;
         }
 
         // tracks # of attempts to find unconnected pair
@@ -1122,7 +1119,7 @@ pub const Genome = struct {
                 var innovation = try Innovation.init_for_recurrent_link(self.allocator, node1.?.id, node2.?.id, next_innov_id, new_weight, trait_num, do_recur);
                 try innovations.store_innovation(innovation);
             } else if (gene != null and try self.has_gene(gene.?)) {
-                logger.debug("GENOME: Mutate add link innovation found [{any}] in the same genome [{d}] for gene: {any}\n{any}\n", .{ innovation_found, self.id, gene.?, self }, @src());
+                logger.info("GENOME: Mutate add link innovation found [{any}] in the same genome [{d}] for gene: {any}\n{any}\n", .{ innovation_found, self.id, gene.?, self }, @src());
                 return false;
             }
 
@@ -1171,7 +1168,7 @@ pub const Genome = struct {
             }
         } else {
             var try_count: usize = 0;
-            // when the genome is not tiny, it is safe to randomly select
+            // alternative uniform random choice of genes. When the genome is not tiny, it is safe to choose randomly.
             while (try_count < 20 and !found) {
                 var gene_num = rand.uintLessThan(usize, self.genes.len);
                 gene = self.genes[gene_num];
@@ -1183,6 +1180,7 @@ pub const Genome = struct {
         }
         if (!found or gene == null) {
             // failed to find appropriate gene
+            logger.debug("GENOME ID: {d} ---- mutate add node FAILED; unable to find appropriate gene!", .{self.id}, @src());
             return false;
         }
 
@@ -1195,12 +1193,15 @@ pub const Genome = struct {
         // get old link's trait
         var _trait = link.trait;
 
+        if (link.in_node == null or link.out_node == null) {
+            // anomalous Link found missing In or Out Node
+            logger.debug("GENOME ID: {d} ---- mutate add node FAILED; Anomalous link found with either IN or OUT node not set!", .{self.id}, @src());
+            return false;
+        }
+
         // extract the nodes
         var in_node = link.in_node.?;
         var out_node = link.out_node.?;
-
-        // TODO: might need to make `link.in_node` and `link.out_node` optional
-        // TODO: if so, add null check and throw error
 
         var gene1: ?*Gene = null;
         var gene2: ?*Gene = null;
@@ -1209,6 +1210,13 @@ pub const Genome = struct {
         // check whether this innovation already occurred in the population
         var innovation_found = false;
         for (innovations.innovations.items) |inn| {
+            // We check to see if an innovation already occurred that was:
+            //   - A new node
+            //   - Stuck between the same nodes as were chosen for this mutation
+            //   - Splitting the same gene as chosen for this mutation
+            // If so, we know this mutation is not a novel innovation in this generation
+            // so we make it match the original, identical mutation which occurred
+            // elsewhere in the population by coincidence
             if (inn.innovation_type == InnovationType.NewNodeInnType and inn.in_node_id == in_node.id and inn.out_node_id == out_node.id and inn.old_innov_num == gene.?.innovation_num) {
                 // create the new Node
                 node = try NNode.new_NNode(self.allocator, inn.new_node_id, NodeNeuronType.HiddenNeuron);
@@ -1252,6 +1260,12 @@ pub const Genome = struct {
             var innovation = try Innovation.init_for_node(self.allocator, in_node.id, out_node.id, gene1_innovation, gene2_innovation, node.?.id, gene.?.innovation_num);
             try innovations.store_innovation(innovation);
         } else if (node != null and try self.has_node(node.?)) {
+            // The same add node innovation occurred in the same genome (parent) - just skip.
+            // This may happen when parent of this organism experienced the same mutation in current epoch earlier
+            // and after that parent's genome was duplicated to child by mating and the same mutation parameters
+            // was selected again (in_node.Id, out_node.Id, gene.InnovationNum). As result the innovation with given
+            // parameters will be found and new node will be created with ID which already exists in child genome.
+            // If proceed than we will have duplicated Node and genes - so we're skipping this.
             logger.info("GENOME: Add node innovation found [{any}] in the same genome [{d}] for node [{d}]\n{any}\n", .{ innovation_found, self.id, node.?.id, self }, @src());
             return false;
         }
@@ -1293,6 +1307,12 @@ pub const Genome = struct {
         var gauss_point: f64 = undefined;
         var cold_gauss_point: f64 = undefined;
         for (self.genes) |gene| {
+            // The following if determines the probabilities of doing cold gaussian
+            // mutation, meaning the probability of replacing a link weight with
+            // another, entirely random weight. It is meant to bias such mutations
+            // to the tail of a genome, because that is where less time-tested genes
+            // reside. The gauss_point and cold_gauss_point represent values above
+            // which a random float will signify that kind of mutation.
             if (severe) {
                 gauss_point = 0.3;
                 cold_gauss_point = 0.1;
@@ -1308,6 +1328,7 @@ pub const Genome = struct {
                     cold_gauss_point = gauss_point; // no cold mutation possible (see later)
                 }
             }
+
             var random = @as(f64, @floatFromInt(math.rand_sign(i32))) * rand.float(f64) * power;
             if (mutation_type == MutatorType.GaussianMutator) {
                 var rand_choice = rand.float(f64);
@@ -1379,12 +1400,14 @@ pub const Genome = struct {
             logger.err("Genome has either no traits or nodes", .{}, @src());
             return GenomeError.GenomeHasNoTraitsOrNodes;
         }
+
         var prng = std.rand.DefaultPrng.init(blk: {
             var seed: u64 = undefined;
             try std.os.getrandom(std.mem.asBytes(&seed));
             break :blk seed;
         });
         const rand = prng.random();
+
         var i: usize = 0;
         while (i < times) : (i += 1) {
             // choose random trait
@@ -1403,12 +1426,14 @@ pub const Genome = struct {
             logger.err("Genome has no genes to toggle", .{}, @src());
             return GenomeError.GenomeHasNoGenes;
         }
+
         var prng = std.rand.DefaultPrng.init(blk: {
             var seed: u64 = undefined;
             try std.os.getrandom(std.mem.asBytes(&seed));
             break :blk seed;
         });
         const rand = prng.random();
+
         var i: usize = 0;
         while (i < times) : (i += 1) {
             // choose random gene
@@ -1447,12 +1472,14 @@ pub const Genome = struct {
 
     pub fn mutate_all_nonstructural(self: *Genome, ctx: *Options) !bool {
         var res = false;
+
         var prng = std.rand.DefaultPrng.init(blk: {
             var seed: u64 = undefined;
             try std.os.getrandom(std.mem.asBytes(&seed));
             break :blk seed;
         });
         const rand = prng.random();
+
         if (rand.float(f64) < ctx.mut_random_trait_prob) {
             // mutate random trait
             res = try self.mutate_random_trait(ctx);
@@ -1508,6 +1535,7 @@ pub const Genome = struct {
         var child_nodes_map = std.AutoHashMap(i64, *NNode).init(self.allocator);
         defer child_nodes_map.deinit();
 
+        // ensure all sensors and outputs are included (in case some inputs are disconnected)
         for (og.nodes) |node| {
             if (node.neuron_type == NodeNeuronType.InputNeuron or node.neuron_type == NodeNeuronType.BiasNeuron or node.neuron_type == NodeNeuronType.OutputNeuron) {
                 var node_trait_num: usize = 0;
@@ -1520,7 +1548,7 @@ pub const Genome = struct {
 
                 // add the node
                 new_nodes = try self.node_insert(self.allocator, new_nodes, o_node);
-                try child_nodes_map.put(node.id, o_node);
+                try child_nodes_map.put(o_node.id, o_node);
             }
         }
 
@@ -1590,7 +1618,7 @@ pub const Genome = struct {
             }
 
             // Uncomment this line to let growth go faster (from both parents excesses)
-            // skip=false
+            // skip = false;
 
             // check whether chosen gene conflicts with an already
             // chosen gene; i.e. do they represent the same link
@@ -1601,7 +1629,7 @@ pub const Genome = struct {
                 }
             }
 
-            // add the chosen gene to the body
+            // add the chosen gene to the offspring
             if (!skip) {
                 // check for the nodes, add if not already in new Genome offspring
                 var in_node = chosen_gene.link.in_node.?;
@@ -1615,6 +1643,7 @@ pub const Genome = struct {
                         break;
                     }
                 }
+
                 if (new_in_node == null) {
                     // node doesn't exist in new Genome, add it's normalized trait
                     // num for new NNode
@@ -1635,6 +1664,7 @@ pub const Genome = struct {
                         break;
                     }
                 }
+
                 if (new_out_node == null) {
                     // node doesn't exist in new Genome, add it's normalized trait
                     // num for new NNode
@@ -1650,6 +1680,7 @@ pub const Genome = struct {
                 // add the gene
                 var gene_trait_num: usize = 0;
                 if (chosen_gene.link.trait != null) {
+                    // The subtracted number normalizes depending on whether traits start counting at 1 or 0
                     gene_trait_num = @as(usize, @intCast(chosen_gene.link.trait.?.id.? - self.traits[0].id.?));
                 }
 
@@ -1707,17 +1738,19 @@ pub const Genome = struct {
                 var node_trait_num: usize = 0;
                 if (node.trait != null) {
                     node_trait_num = @as(usize, @intCast(node.trait.?.id.? - self.traits[0].id.?));
-                    // create a new node off the sensor or output
-                    var new_node = try NNode.new_NNode_copy(self.allocator, node, new_traits[node_trait_num]);
-                    // add the new node
-                    new_nodes = try self.node_insert(self.allocator, new_nodes, new_node);
-                    try child_nodes_map.put(new_node.id, new_node);
                 }
+                // create a new node off the sensor or output
+                var new_node = try NNode.new_NNode_copy(self.allocator, node, new_traits[node_trait_num]);
+                // add the new node
+                new_nodes = try self.node_insert(self.allocator, new_nodes, new_node);
+                try child_nodes_map.put(new_node.id, new_node);
             }
         }
 
-        // determine which genome is better
-        var p1_better = false;
+        // Determine which genome is better.
+        // The worse genome should not be allowed to add extra structural baggage.
+        // If they are the same, use the smaller one's disjoint and excess genes only.
+        var p1_better = false; // indicates whether the first genome is better or not
         if (fitness1 > fitness2 or (fitness1 == fitness2 and self.genes.len < og.genes.len)) {
             p1_better = true;
         }
@@ -1755,6 +1788,7 @@ pub const Genome = struct {
                 // extract current innovation numbers
                 var p1_innov = p1_gene.innovation_num;
                 var p2_innov = p2_gene.innovation_num;
+
                 if (p1_innov == p2_innov) {
                     // average them into the avg_gene
                     if (rand.float(f64) > 0.5) {
@@ -1762,7 +1796,7 @@ pub const Genome = struct {
                     } else {
                         avg_gene.link.trait = p2_gene.link.trait;
                     }
-                    avg_gene.link.cxn_weight = (p1_gene.link.cxn_weight + p2_gene.link.cxn_weight) / 2.0;
+                    avg_gene.link.cxn_weight = (p1_gene.link.cxn_weight + p2_gene.link.cxn_weight) / 2;
 
                     if (rand.float(f64) > 0.5) {
                         avg_gene.link.in_node = p1_gene.link.in_node;
@@ -1781,7 +1815,7 @@ pub const Genome = struct {
                     }
 
                     avg_gene.innovation_num = p1_innov;
-                    avg_gene.mutation_num = (p1_gene.mutation_num + p2_gene.mutation_num) / 2.0;
+                    avg_gene.mutation_num = (p1_gene.mutation_num + p2_gene.mutation_num) / 2;
                     if (!p1_gene.is_enabled or !p2_gene.is_enabled and rand.float(f64) < 0.75) {
                         avg_gene.is_enabled = false;
                     }
@@ -1803,8 +1837,9 @@ pub const Genome = struct {
                     }
                 }
             }
+
             // Uncomment this line to let growth go faster (from both parents excesses)
-            // skip=false;
+            // skip = false;
 
             // check whether chosen gene conflicts with an already chosen gene (i.e. do they represent the same link)
             for (new_genes) |gene| {
@@ -1829,6 +1864,7 @@ pub const Genome = struct {
                         break;
                     }
                 }
+
                 if (new_in_node == null) {
                     // node doesn't exist, so we have to add its normalized trait
                     // number for new NNode
@@ -1849,6 +1885,7 @@ pub const Genome = struct {
                         break;
                     }
                 }
+
                 if (new_out_node == null) {
                     // node doesn't exist, so we have to add its normalized trait
                     // number for new NNode
@@ -1864,6 +1901,7 @@ pub const Genome = struct {
                 // add the gene
                 var gene_trait_num: usize = 0;
                 if (chosen_gene.link.trait != null) {
+                    // the subtracted number normalizes depending on whether traits start counting at 1 or 0
                     gene_trait_num = @as(usize, @intCast(chosen_gene.link.trait.?.id.? - self.traits[0].id.?));
                 }
                 var gene = try Gene.init_copy(self.allocator, chosen_gene, new_traits[gene_trait_num], new_in_node, new_out_node);
@@ -1959,10 +1997,10 @@ pub const Genome = struct {
         var gene_counter: usize = 0;
         var i_1: usize = 0;
         var i_2: usize = 0;
+        // walk through the Genes of each parent until both Genomes end
         while (i_2 < stopper) {
             var skip = false;
-            // default to enabled
-            avg_gene.is_enabled = true;
+            avg_gene.is_enabled = true; // default to enabled
             if (i_1 == p1_stop) {
                 chosen_gene = p2_genes[i_2];
                 i_2 += 1;
@@ -1990,7 +2028,8 @@ pub const Genome = struct {
                         } else {
                             avg_gene.link.trait = p2_gene.link.trait;
                         }
-                        avg_gene.link.cxn_weight = (p1_gene.link.cxn_weight + p2_gene.link.cxn_weight) / 2.0;
+                        // average weights
+                        avg_gene.link.cxn_weight = (p1_gene.link.cxn_weight + p2_gene.link.cxn_weight) / 2;
 
                         if (rand.float(f64) > 0.5) {
                             avg_gene.link.in_node = p1_gene.link.in_node;
@@ -2009,7 +2048,7 @@ pub const Genome = struct {
                         }
 
                         avg_gene.innovation_num = p1_innov;
-                        avg_gene.mutation_num = (p1_gene.mutation_num + p2_gene.mutation_num) / 2.0;
+                        avg_gene.mutation_num = (p1_gene.mutation_num + p2_gene.mutation_num) / 2;
                         if (!p1_gene.is_enabled or !p2_gene.is_enabled and rand.float(f64) < 0.75) {
                             avg_gene.is_enabled = false;
                         }
@@ -2062,6 +2101,7 @@ pub const Genome = struct {
                         break;
                     }
                 }
+
                 if (new_in_node == null) {
                     // Here we know the node doesn't exist so we have to add it normalized trait
                     // number for new NNode
@@ -2071,7 +2111,7 @@ pub const Genome = struct {
                     }
                     new_in_node = try NNode.new_NNode_copy(self.allocator, in_node, new_traits[in_node_trait_num]);
                     new_nodes = try self.node_insert(self.allocator, new_nodes, new_in_node);
-                    try child_nodes_map.put(in_node.id, new_in_node.?);
+                    try child_nodes_map.put(new_in_node.?.id, new_in_node.?);
                 }
 
                 // check for existence of `out_node`
@@ -2091,7 +2131,7 @@ pub const Genome = struct {
                     }
                     new_out_node = try NNode.new_NNode_copy(self.allocator, out_node, new_traits[out_node_trait_num]);
                     new_nodes = try self.node_insert(self.allocator, new_nodes, new_out_node);
-                    try child_nodes_map.put(out_node.id, new_out_node.?);
+                    try child_nodes_map.put(new_out_node.?.id, new_out_node.?);
                 }
 
                 // add the gene
@@ -2110,8 +2150,7 @@ pub const Genome = struct {
             var control_data = try self.mate_modules(&child_nodes_map, og);
             defer control_data.deinit();
             if (control_data.nodes.len > 0) {
-                var tmp_nodes = std.ArrayList(*NNode).init(self.allocator);
-                try tmp_nodes.appendSlice(new_nodes);
+                var tmp_nodes = std.ArrayList(*NNode).fromOwnedSlice(self.allocator, new_nodes);
                 try tmp_nodes.appendSlice(control_data.nodes);
                 new_nodes = try tmp_nodes.toOwnedSlice();
             }

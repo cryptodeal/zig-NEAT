@@ -38,7 +38,7 @@ pub const Organism = struct {
     is_champion: bool = false,
 
     // number of reserved offspring for a population leader
-    super_champ_offspring: usize = undefined,
+    super_champ_offspring: usize = 0,
     // marks the best in population
     is_population_champion: bool = false,
     // marks the duplicate child of a champion (for tracking purposes)
@@ -57,11 +57,9 @@ pub const Organism = struct {
     allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator, fit: f64, g: *Genome, generation: usize) !*Organism {
-        var phenotype: *Network = undefined;
-        if (g.phenotype == null) {
+        var phenotype: ?*Network = g.phenotype;
+        if (phenotype == null) {
             phenotype = try g.genesis(g.id);
-        } else {
-            phenotype = g.phenotype.?;
         }
         var res = try allocator.create(Organism);
         res.* = .{
@@ -80,8 +78,10 @@ pub const Organism = struct {
     }
 
     pub fn update_phenotype(self: *Organism) !void {
-        // TODO: might need to free phenotype
-        self.phenotype = null;
+        if (self.phenotype != null) {
+            self.phenotype.deinit();
+            self.phenotype = null;
+        }
         // recreate phenotype off new genotype
         self.phenotype = try self.genotype.genesis(self.genotype.id);
     }

@@ -19,7 +19,7 @@ pub fn log_fn(
     nosuspend stderr.print(prefix ++ format ++ "\n", args) catch return;
 }
 
-log_level: std.log.Level = std.log.Level.debug,
+log_level: std.log.Level = std.log.Level.err,
 
 pub fn debug(self: *NeatLogger, comptime msg: []const u8, args: anytype, src: ?std.builtin.SourceLocation) void {
     if (@intFromEnum(self.log_level) >= @intFromEnum(std.log.Level.debug)) {

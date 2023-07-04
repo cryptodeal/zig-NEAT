@@ -20,7 +20,7 @@ pub const Population = struct {
     // organisms in the population
     organisms: std.ArrayList(*Organism),
     // highest species number
-    last_species: i64 = undefined,
+    last_species: i64 = 0,
     // integer that, when greater than 0, indicates when the first winner appeared
     winner_gen: usize = 0,
     // last generation run
