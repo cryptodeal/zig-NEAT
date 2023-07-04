@@ -28,7 +28,7 @@ const Generation = exp_generation.Generation;
 const Population = neat_population.Population;
 const Organism = neat_organism.Organism;
 
-pub const fitness_threshold: f64 = 15.5;
+const fitness_threshold: f64 = 15.5;
 
 fn org_eval(organism: *Organism) !bool {
     // The four possible input combinations to xor
@@ -189,14 +189,18 @@ pub fn main() !void {
     // initialize Nodes for Genome
     var nodes = try allocator.alloc(*NNode, 4);
     nodes[0] = try NNode.new_NNode(allocator, 1, NodeNeuronType.BiasNeuron);
+    nodes[0].trait = traits[0];
     nodes[0].activation_type = NodeActivationType.NullActivation;
     // input Nodes
     nodes[1] = try NNode.new_NNode(allocator, 2, NodeNeuronType.InputNeuron);
+    nodes[1].trait = traits[0];
     nodes[1].activation_type = NodeActivationType.NullActivation;
     nodes[2] = try NNode.new_NNode(allocator, 3, NodeNeuronType.InputNeuron);
+    nodes[2].trait = traits[0];
     nodes[2].activation_type = NodeActivationType.NullActivation;
     // output Node
     nodes[3] = try NNode.new_NNode(allocator, 4, NodeNeuronType.OutputNeuron);
+    nodes[3].trait = traits[0];
     nodes[3].activation_type = NodeActivationType.SigmoidSteepenedActivation;
 
     // initialize Genes for Genome
@@ -224,6 +228,12 @@ test "XOR" {
     var allocator = std.testing.allocator;
     var opts: *Options = try allocator.create(Options);
     defer allocator.destroy(opts);
+    var node_activators = try allocator.alloc(neat_math.NodeActivationType, 1);
+    defer allocator.free(node_activators);
+    node_activators[0] = neat_math.NodeActivationType.SigmoidSteepenedActivation;
+    var node_activators_prob = try allocator.alloc(f64, 1);
+    defer allocator.free(node_activators_prob);
+    node_activators_prob[0] = 1.0;
     opts.* = .{
         .trait_param_mut_prob = 0.5,
         .trait_mut_power = 1.0,
@@ -257,8 +267,8 @@ test "XOR" {
         .babies_stolen = 0,
         .num_runs = 100,
         .num_generations = 100,
-        .node_activators = [_]neat_math.NodeActivationType{neat_math.NodeActivationType.SigmoidSteepenedActivation},
-        .node_activators_prob = [_]f64{1.0},
+        .node_activators = node_activators,
+        .node_activators_prob = node_activators_prob,
         .epoch_executor_type = EpochExecutorType.EpochExecutorTypeSequential,
         .gen_compat_method = GenomeCompatibilityMethod.GenomeCompatibilityMethodFast,
     };

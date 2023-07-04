@@ -24,7 +24,7 @@ log_level: std.log.Level = std.log.Level.err,
 pub fn debug(self: *NeatLogger, comptime msg: []const u8, args: anytype, src: ?std.builtin.SourceLocation) void {
     if (@intFromEnum(self.log_level) >= @intFromEnum(std.log.Level.debug)) {
         if (src != null) {
-            std.log.debug("@ ({s}:{d}): " ++ msg, .{ src.?.file, src.?.line } ++ args);
+            std.log.debug("({s}:{d}) " ++ msg, .{ src.?.file, src.?.line } ++ args);
         } else {
             std.log.debug(msg, args);
         }
@@ -34,7 +34,7 @@ pub fn debug(self: *NeatLogger, comptime msg: []const u8, args: anytype, src: ?s
 pub fn err(self: *NeatLogger, comptime msg: []const u8, args: anytype, src: ?std.builtin.SourceLocation) void {
     if (@intFromEnum(self.log_level) >= @intFromEnum(std.log.Level.err)) {
         if (src != null) {
-            std.log.err("@ ({s}:{d}): " ++ msg, .{ src.?.file, src.?.line } ++ args);
+            std.log.err("({s}:{d}) " ++ msg, .{ src.?.file, src.?.line } ++ args);
         } else {
             std.log.err(msg, args);
         }
@@ -44,7 +44,7 @@ pub fn err(self: *NeatLogger, comptime msg: []const u8, args: anytype, src: ?std
 pub fn info(self: *NeatLogger, comptime msg: []const u8, args: anytype, src: ?std.builtin.SourceLocation) void {
     if (@intFromEnum(self.log_level) >= @intFromEnum(std.log.Level.info)) {
         if (src != null) {
-            std.log.info("@ ({s}:{d}): " ++ msg, .{ src.?.file, src.?.line } ++ args);
+            std.log.info("({s}:{d}) " ++ msg, .{ src.?.file, src.?.line } ++ args);
         } else {
             std.log.info(msg, args);
         }
@@ -54,7 +54,7 @@ pub fn info(self: *NeatLogger, comptime msg: []const u8, args: anytype, src: ?st
 pub fn warn(self: *NeatLogger, comptime msg: []const u8, args: anytype, src: ?std.builtin.SourceLocation) void {
     if (@intFromEnum(self.log_level) >= @intFromEnum(std.log.Level.warn)) {
         if (src != null) {
-            std.log.warn("@ ({s}:{d}): " ++ msg, .{ src.?.file, src.?.line } ++ args);
+            std.log.warn("({s}:{d}) " ++ msg, .{ src.?.file, src.?.line } ++ args);
         } else {
             std.log.warn(msg, args);
         }
