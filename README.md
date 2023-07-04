@@ -21,3 +21,21 @@ Specifically, this project aims to port the [goNEAT](https://github.com/yaricom/
 | Requirement | Notes   |
 | ----------- | ------- |
 | Zig version | Nightly |
+
+I recommend using [zigup](https://github.com/marler8997/zigup) to manage the version of Zig running locally.
+
+## Run Examples
+
+**TODO: move examples into root directory with separate build scripts**
+
+To run the XOR example, run the following command:
+
+```bash
+zig run src/examples/xor.zig --main-pkg-path src/.
+```
+
+To run the CartPole example, run the following command:
+
+```bash
+zig run src/examples/cartpole.zig --main-pkg-path src/.
+```
