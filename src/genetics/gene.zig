@@ -97,10 +97,10 @@ pub const Gene = struct {
 test "new Gene copy" {
     var allocator = std.testing.allocator;
     // init nodes
-    var node1 = try NNode.new_NNode(allocator, 1, NodeNeuronType.InputNeuron);
+    var node1 = try NNode.init(allocator, 1, NodeNeuronType.InputNeuron);
     defer node1.deinit();
     node1.activation_type = neat_math.NodeActivationType.NullActivation;
-    var node2 = try NNode.new_NNode(allocator, 2, NodeNeuronType.OutputNeuron);
+    var node2 = try NNode.init(allocator, 2, NodeNeuronType.OutputNeuron);
     defer node2.deinit();
     node2.activation_type = neat_math.NodeActivationType.SigmoidSteepenedActivation;
 

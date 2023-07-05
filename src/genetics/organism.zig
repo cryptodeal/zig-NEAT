@@ -79,7 +79,7 @@ pub const Organism = struct {
 
     pub fn update_phenotype(self: *Organism) !void {
         if (self.phenotype != null) {
-            self.phenotype.deinit();
+            self.phenotype.?.deinit();
             self.phenotype = null;
         }
         // recreate phenotype off new genotype

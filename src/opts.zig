@@ -13,7 +13,7 @@ pub const GenomeCompatibilityMethod = enum {
     GenomeCompatibilityMethodFast,
 };
 
-pub const logger = &NeatLogger{ .log_level = std.log.Level.debug };
+pub const logger = &NeatLogger{ .log_level = std.log.Level.info };
 
 pub const Options = struct {
     // probability of mutating single trait param

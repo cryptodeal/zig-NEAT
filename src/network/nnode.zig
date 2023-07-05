@@ -51,7 +51,7 @@ pub const NNode = struct {
 
     allocator: std.mem.Allocator,
 
-    pub fn init(allocator: std.mem.Allocator) !*NNode {
+    pub fn raw_init(allocator: std.mem.Allocator) !*NNode {
         var node = try allocator.create(NNode);
         node.* = .{
             .allocator = allocator,
@@ -63,15 +63,15 @@ pub const NNode = struct {
         return node;
     }
 
-    pub fn new_NNode(allocator: std.mem.Allocator, node_id: i64, neuron_type: NodeNeuronType) !*NNode {
-        var node = try NNode.init(allocator);
+    pub fn init(allocator: std.mem.Allocator, node_id: i64, neuron_type: NodeNeuronType) !*NNode {
+        var node = try NNode.raw_init(allocator);
         node.id = node_id;
         node.neuron_type = neuron_type;
         return node;
     }
 
-    pub fn new_NNode_copy(allocator: std.mem.Allocator, n: *NNode, t: ?*Trait) !*NNode {
-        var node = try NNode.init(allocator);
+    pub fn init_copy(allocator: std.mem.Allocator, n: *NNode, t: ?*Trait) !*NNode {
+        var node = try NNode.raw_init(allocator);
         node.id = n.id;
         node.neuron_type = n.neuron_type;
         node.activation_type = n.activation_type;
@@ -267,7 +267,7 @@ pub const NNode = struct {
 
 test "NNode `init`" {
     const allocator = testing.allocator;
-    var node = try NNode.init(allocator);
+    var node = try NNode.raw_init(allocator);
     defer node.deinit();
     try testing.expectEqual(node.activation_type, NodeActivationType.SigmoidSteepenedActivation);
     try testing.expectEqual(node.neuron_type, NodeNeuronType.HiddenNeuron);
@@ -275,7 +275,7 @@ test "NNode `init`" {
 
 test "NNode `new_NNode`" {
     const allocator = testing.allocator;
-    var node = try NNode.new_NNode(allocator, 1, NodeNeuronType.InputNeuron);
+    var node = try NNode.init(allocator, 1, NodeNeuronType.InputNeuron);
     defer node.deinit();
 
     try testing.expectEqual(node.id, 1);
@@ -285,7 +285,7 @@ test "NNode `new_NNode`" {
 
 test "NNode `new_NNode_copy`" {
     const allocator = testing.allocator;
-    var node = try NNode.new_NNode(allocator, 1, NodeNeuronType.InputNeuron);
+    var node = try NNode.init(allocator, 1, NodeNeuronType.InputNeuron);
     defer node.deinit();
 
     var trait: *Trait = try Trait.init(allocator, 6);
@@ -298,7 +298,7 @@ test "NNode `new_NNode_copy`" {
     trait.params[4] = 5.5;
     trait.params[5] = 6.7;
 
-    var node_copy = try NNode.new_NNode_copy(allocator, node, trait);
+    var node_copy = try NNode.init_copy(allocator, node, trait);
     defer node_copy.deinit();
 
     try testing.expectEqual(node.id, node_copy.id);
@@ -309,7 +309,7 @@ test "NNode `new_NNode_copy`" {
 
 test "NNode `sensor_load`" {
     const allocator = testing.allocator;
-    var node = try NNode.new_NNode(allocator, 1, NodeNeuronType.InputNeuron);
+    var node = try NNode.init(allocator, 1, NodeNeuronType.InputNeuron);
     defer node.deinit();
 
     var load: f64 = 21.0;
@@ -329,7 +329,7 @@ test "NNode `sensor_load`" {
     try testing.expectEqual(load, node.get_active_out_td());
 
     // validate attempting to load incorrect node type returns false
-    var hidden_node = try NNode.new_NNode(allocator, 1, NodeNeuronType.HiddenNeuron);
+    var hidden_node = try NNode.init(allocator, 1, NodeNeuronType.HiddenNeuron);
     defer hidden_node.deinit();
     res = hidden_node.sensor_load(load);
     try testing.expect(!res);
@@ -337,9 +337,9 @@ test "NNode `sensor_load`" {
 
 test "NNode `add_incoming`" {
     const allocator = testing.allocator;
-    var node = try NNode.new_NNode(allocator, 1, NodeNeuronType.InputNeuron);
+    var node = try NNode.init(allocator, 1, NodeNeuronType.InputNeuron);
     defer node.deinit();
-    var node_2 = try NNode.new_NNode(allocator, 2, NodeNeuronType.HiddenNeuron);
+    var node_2 = try NNode.init(allocator, 2, NodeNeuronType.HiddenNeuron);
     defer node_2.deinit();
     var weight: f64 = 1.5;
 
@@ -358,9 +358,9 @@ test "NNode `add_incoming`" {
 
 test "NNode `add_outgoing`" {
     const allocator = testing.allocator;
-    var node = try NNode.new_NNode(allocator, 1, NodeNeuronType.InputNeuron);
+    var node = try NNode.init(allocator, 1, NodeNeuronType.InputNeuron);
     defer node.deinit();
-    var node_2 = try NNode.new_NNode(allocator, 2, NodeNeuronType.HiddenNeuron);
+    var node_2 = try NNode.init(allocator, 2, NodeNeuronType.HiddenNeuron);
     defer node_2.deinit();
     var weight: f64 = 1.5;
 
@@ -379,9 +379,9 @@ test "NNode `add_outgoing`" {
 
 test "NNode `connect_from`" {
     const allocator = testing.allocator;
-    var node = try NNode.new_NNode(allocator, 1, NodeNeuronType.InputNeuron);
+    var node = try NNode.init(allocator, 1, NodeNeuronType.InputNeuron);
     defer node.deinit();
-    var node_2 = try NNode.new_NNode(allocator, 2, NodeNeuronType.HiddenNeuron);
+    var node_2 = try NNode.init(allocator, 2, NodeNeuronType.HiddenNeuron);
     defer node_2.deinit();
 
     var weight: f64 = 1.5;
@@ -402,11 +402,11 @@ test "NNode `connect_from`" {
 
 test "NNode `depth`" {
     const allocator = testing.allocator;
-    var node = try NNode.new_NNode(allocator, 1, NodeNeuronType.InputNeuron);
+    var node = try NNode.init(allocator, 1, NodeNeuronType.InputNeuron);
     defer node.deinit();
-    var node_2 = try NNode.new_NNode(allocator, 2, NodeNeuronType.HiddenNeuron);
+    var node_2 = try NNode.init(allocator, 2, NodeNeuronType.HiddenNeuron);
     defer node_2.deinit();
-    var node_3 = try NNode.new_NNode(allocator, 3, NodeNeuronType.OutputNeuron);
+    var node_3 = try NNode.init(allocator, 3, NodeNeuronType.OutputNeuron);
     defer node_3.deinit();
 
     var link_1 = try node_2.add_incoming(node, 15.0);
@@ -420,11 +420,11 @@ test "NNode `depth`" {
 
 test "NNode `depth` with loop" {
     const allocator = testing.allocator;
-    var node = try NNode.new_NNode(allocator, 1, NodeNeuronType.InputNeuron);
+    var node = try NNode.init(allocator, 1, NodeNeuronType.InputNeuron);
     defer node.deinit();
-    var node_2 = try NNode.new_NNode(allocator, 2, NodeNeuronType.HiddenNeuron);
+    var node_2 = try NNode.init(allocator, 2, NodeNeuronType.HiddenNeuron);
     defer node_2.deinit();
-    var node_3 = try NNode.new_NNode(allocator, 3, NodeNeuronType.OutputNeuron);
+    var node_3 = try NNode.init(allocator, 3, NodeNeuronType.OutputNeuron);
     defer node_3.deinit();
 
     var link_1 = try node_2.add_incoming(node, 15.0);
@@ -440,11 +440,11 @@ test "NNode `depth` with loop" {
 
 test "NNode `depth` with max depth" {
     const allocator = testing.allocator;
-    var node = try NNode.new_NNode(allocator, 1, NodeNeuronType.InputNeuron);
+    var node = try NNode.init(allocator, 1, NodeNeuronType.InputNeuron);
     defer node.deinit();
-    var node_2 = try NNode.new_NNode(allocator, 2, NodeNeuronType.HiddenNeuron);
+    var node_2 = try NNode.init(allocator, 2, NodeNeuronType.HiddenNeuron);
     defer node_2.deinit();
-    var node_3 = try NNode.new_NNode(allocator, 3, NodeNeuronType.OutputNeuron);
+    var node_3 = try NNode.init(allocator, 3, NodeNeuronType.OutputNeuron);
     defer node_3.deinit();
 
     var link_1 = try node_2.add_incoming(node, 15.0);
@@ -459,7 +459,7 @@ test "NNode `depth` with max depth" {
 
 test "NNode `flushback`" {
     const allocator = testing.allocator;
-    var node = try NNode.new_NNode(allocator, 1, NodeNeuronType.InputNeuron);
+    var node = try NNode.init(allocator, 1, NodeNeuronType.InputNeuron);
     defer node.deinit();
 
     var load: f64 = 34.0;
@@ -490,7 +490,7 @@ test "NNode `flushback`" {
 test "NNode `get_active_out`" {
     const allocator = testing.allocator;
     var activation: f64 = 1293.98;
-    var node = try NNode.new_NNode(allocator, 1, NodeNeuronType.InputNeuron);
+    var node = try NNode.init(allocator, 1, NodeNeuronType.InputNeuron);
     defer node.deinit();
     node.activation = activation;
 
@@ -505,7 +505,7 @@ test "NNode `get_active_out`" {
 test "NNode `get_active_out_td`" {
     const allocator = testing.allocator;
     var activation: f64 = 1293.98;
-    var node = try NNode.new_NNode(allocator, 1, NodeNeuronType.InputNeuron);
+    var node = try NNode.init(allocator, 1, NodeNeuronType.InputNeuron);
     defer node.deinit();
     node.activation = activation;
     node.activations_count = 1;
@@ -540,7 +540,7 @@ test "NNode `is_sensor`" {
     };
 
     for (test_cases) |case| {
-        var node = try NNode.new_NNode(allocator, 1, case.n_type);
+        var node = try NNode.init(allocator, 1, case.n_type);
         defer node.deinit();
         try testing.expectEqual(case.is_sensor, node.is_sensor());
     }
@@ -568,7 +568,7 @@ test "NNode `is_neuron`" {
     };
 
     for (test_cases) |case| {
-        var node = try NNode.new_NNode(allocator, 1, case.n_type);
+        var node = try NNode.init(allocator, 1, case.n_type);
         defer node.deinit();
         try testing.expectEqual(case.is_neuron, node.is_neuron());
     }
@@ -598,7 +598,7 @@ test "NNode node type" {
     };
 
     for (test_cases) |case| {
-        var node = try NNode.new_NNode(allocator, 1, case.neuron_type);
+        var node = try NNode.init(allocator, 1, case.neuron_type);
         defer node.deinit();
         try testing.expectEqual(case.node_type, node.node_type());
     }

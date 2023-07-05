@@ -1,32 +1,6 @@
 const std = @import("std");
 const InnovationType = @import("common.zig").InnovationType;
 
-pub const InnovationsObserver = struct {
-    allocator: std.mem.Allocator,
-    innov: std.ArrayList(*Innovation),
-
-    pub fn init(allocator: std.mem.Allocator) !*InnovationsObserver {
-        var self = try allocator.create(InnovationsObserver);
-        self.* = .{
-            .allocator = allocator,
-            .innov = std.ArrayList(*Innovation).init(allocator),
-        };
-        return self;
-    }
-
-    pub fn innovations(self: *InnovationsObserver) []*Innovation {
-        return self.innov.items;
-    }
-
-    pub fn store_innovation(self: *InnovationsObserver, innovation: *Innovation) !void {
-        try self.innov.append(innovation);
-    }
-
-    pub fn next_innovation_number(self: *InnovationsObserver) i64 {
-        return @as(i64, @intCast(self.innov.items.len));
-    }
-};
-
 pub const Innovation = struct {
     // specify where the innovation occurred
     in_node_id: i64,

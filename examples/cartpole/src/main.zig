@@ -1,34 +1,24 @@
 const std = @import("std");
-const neat_options = @import("../opts.zig");
-const neat_population = @import("../genetics/population.zig");
-const neat_organism = @import("../genetics/organism.zig");
-const neat_genome = @import("../genetics/genome.zig");
-const neat_network = @import("../network/network.zig");
-const exp_generation = @import("../experiment/generation.zig");
-const neat_math = @import("../math/activations.zig");
-const neat_trait = @import("../trait.zig");
-const neat_node = @import("../network/nnode.zig");
-const neat_common = @import("../network/common.zig");
-const neat_gene = @import("../genetics/gene.zig");
-const neat_experiment = @import("../experiment/experiment.zig");
-const neat_exp_common = @import("../experiment/common.zig");
+const zig_neat = @import("zig-NEAT");
 
-const Options = neat_options.Options;
-const logger = @constCast(neat_options.logger);
-const Trait = neat_trait.Trait;
-const Population = neat_population.Population;
-const NNode = neat_node.NNode;
-const Network = neat_network.Network;
-const Organism = neat_organism.Organism;
-const Generation = exp_generation.Generation;
-const EpochExecutorType = neat_options.EpochExecutorType;
-const GenomeCompatibilityMethod = neat_options.GenomeCompatibilityMethod;
-const NodeActivationType = neat_math.NodeActivationType;
-const NodeNeuronType = neat_common.NodeNeuronType;
-const Gene = neat_gene.Gene;
-const Experiment = neat_experiment.Experiment;
-const Genome = neat_genome.Genome;
-const GenerationEvaluator = neat_exp_common.GenerationEvaluator;
+const NeatLogger = zig_neat.NeatLogger;
+const Population = zig_neat.genetics.Population;
+const Organism = zig_neat.genetics.Organism;
+const Options = zig_neat.Options;
+const EpochExecutorType = zig_neat.EpochExecutorType;
+const GenomeCompatibilityMethod = zig_neat.GenomeCompatibilityMethod;
+const GenerationEvaluator = zig_neat.experiment.GenerationEvaluator;
+const Genome = zig_neat.genetics.Genome;
+const Experiment = zig_neat.experiment.Experiment;
+const Generation = zig_neat.experiment.Generation;
+const Gene = zig_neat.genetics.Gene;
+const NodeActivationType = zig_neat.math.NodeActivationType;
+const NodeNeuronType = zig_neat.network.NodeNeuronType;
+const NNode = zig_neat.network.NNode;
+const Trait = zig_neat.Trait;
+const Network = zig_neat.network.Network;
+
+var logger = NeatLogger{ .log_level = std.log.Level.info };
 
 const twelve_degrees: f64 = 12 * @as(f64, std.math.pi) / 180;
 const win_balance_steps: usize = 500000;
@@ -204,9 +194,9 @@ pub fn main() !void {
     var allocator = std.heap.c_allocator;
     var opts: *Options = try allocator.create(Options);
     defer allocator.destroy(opts);
-    var node_activators = try allocator.alloc(neat_math.NodeActivationType, 1);
+    var node_activators = try allocator.alloc(NodeActivationType, 1);
     defer allocator.free(node_activators);
-    node_activators[0] = neat_math.NodeActivationType.SigmoidSteepenedActivation;
+    node_activators[0] = NodeActivationType.SigmoidSteepenedActivation;
     var node_activators_prob = try allocator.alloc(f64, 1);
     defer allocator.free(node_activators_prob);
     node_activators_prob[0] = 1.0;
@@ -259,19 +249,19 @@ pub fn main() !void {
 
     // initialize Nodes for Genome
     var nodes = try allocator.alloc(*NNode, 7);
-    nodes[0] = try NNode.new_NNode(allocator, 1, NodeNeuronType.BiasNeuron);
+    nodes[0] = try NNode.init(allocator, 1, NodeNeuronType.BiasNeuron);
     nodes[0].trait = traits[0];
-    nodes[1] = try NNode.new_NNode(allocator, 2, NodeNeuronType.InputNeuron);
+    nodes[1] = try NNode.init(allocator, 2, NodeNeuronType.InputNeuron);
     nodes[1].trait = traits[0];
-    nodes[2] = try NNode.new_NNode(allocator, 3, NodeNeuronType.InputNeuron);
+    nodes[2] = try NNode.init(allocator, 3, NodeNeuronType.InputNeuron);
     nodes[2].trait = traits[0];
-    nodes[3] = try NNode.new_NNode(allocator, 4, NodeNeuronType.InputNeuron);
+    nodes[3] = try NNode.init(allocator, 4, NodeNeuronType.InputNeuron);
     nodes[3].trait = traits[0];
-    nodes[4] = try NNode.new_NNode(allocator, 5, NodeNeuronType.InputNeuron);
+    nodes[4] = try NNode.init(allocator, 5, NodeNeuronType.InputNeuron);
     nodes[4].trait = traits[0];
-    nodes[5] = try NNode.new_NNode(allocator, 6, NodeNeuronType.OutputNeuron);
+    nodes[5] = try NNode.init(allocator, 6, NodeNeuronType.OutputNeuron);
     nodes[5].trait = traits[0];
-    nodes[6] = try NNode.new_NNode(allocator, 7, NodeNeuronType.OutputNeuron);
+    nodes[6] = try NNode.init(allocator, 7, NodeNeuronType.OutputNeuron);
     nodes[6].trait = traits[0];
 
     // initialize Genes for Genome

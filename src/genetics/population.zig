@@ -48,6 +48,7 @@ pub const Population = struct {
     // threadsafe allocator; enabling concurrent allocations/deallocations
     threadsafe_allocator: std.heap.ThreadSafeAllocator,
     allocator: std.mem.Allocator,
+    org_mem_pool: ?std.heap.MemoryPoolExtra(Organism, .{}) = null,
 
     pub fn raw_init(allocator: std.mem.Allocator) !*Population {
         var multi_thread_alloc = std.heap.ThreadSafeAllocator{ .child_allocator = allocator };

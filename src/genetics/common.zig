@@ -1,6 +1,27 @@
 const std = @import("std");
 const Trait = @import("../trait.zig").Trait;
 const NNode = @import("../network/nnode.zig").NNode;
+const common = @import("common.zig");
+const genome = @import("genome.zig");
+const pop_epoch = @import("population_epoch.zig");
+const species = @import("species.zig");
+
+// exports
+pub const Gene = @import("gene.zig").Gene;
+pub const GenomeError = genome.GenomeError;
+pub const Genome = genome.Genome;
+pub const ModuleMate = genome.ModuleMate;
+pub const Innovation = @import("innovation.zig").Innovation;
+pub const MIMOControlGene = @import("mimo_gene.zig").MIMOControlGene;
+pub const Organism = @import("organism.zig").Organism;
+pub const ReproductionResult = pop_epoch.ReproductionResult;
+pub const SequentialPopulationEpochExecutor = pop_epoch.SequentialPopulationEpochExecutor;
+// pub const ParallelPopulationEpochExecutor = pop_epoch.ParallelPopulationEpochExecutor;
+// pub const WorkerCtx = pop_epoch.WorkerCtx;
+pub const Population = @import("population.zig").Population;
+pub const MaxAvgFitness = species.MaxAvgFitness;
+pub const OffspringCount = species.OffspringCount;
+pub const Species = species.Species;
 
 pub const InnovationType = enum(u8) {
     NewNodeInnType,

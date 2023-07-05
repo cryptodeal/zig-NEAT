@@ -3,13 +3,24 @@ const pop_epoch = @import("../genetics/population_epoch.zig");
 const neat_options = @import("../opts.zig");
 const neat_population = @import("../genetics/population.zig");
 const exp_generation = @import("generation.zig");
+const experiment = @import("experiment.zig");
+const trial = @import("trial.zig");
+
+// exports
+pub const Experiment = experiment.Experiment;
+pub const AvgWinnerStats = experiment.AvgWinnerStats;
+pub const floats = @import("floats.zig");
+pub const Generation = exp_generation.Generation;
+pub const GenerationAvg = exp_generation.GenerationAvg;
+pub const Trial = trial.Trial;
+pub const WinnerStats = trial.WinnerStats;
+pub const TrialAvg = trial.TrialAvg;
 
 const SequentialPopulationEpochExecutor = pop_epoch.SequentialPopulationEpochExecutor;
 const ParallelPopulationEpochExecutor = pop_epoch.ParallelPopulationEpochExecutor;
 const Options = neat_options.Options;
 const EpochExecutorType = neat_options.EpochExecutorType;
 const Population = neat_population.Population;
-const Generation = exp_generation.Generation;
 
 pub const EpochExecutor = union(enum) {
     sequential: *SequentialPopulationEpochExecutor,

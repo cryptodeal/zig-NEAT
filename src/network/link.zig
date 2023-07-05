@@ -126,9 +126,9 @@ pub const Link = struct {
 
 test "is genetically equal" {
     const allocator = std.testing.allocator;
-    var in = try NNode.new_NNode(allocator, 1, NodeNeuronType.InputNeuron);
+    var in = try NNode.init(allocator, 1, NodeNeuronType.InputNeuron);
     defer in.deinit();
-    var out = try NNode.new_NNode(allocator, 2, NodeNeuronType.OutputNeuron);
+    var out = try NNode.init(allocator, 2, NodeNeuronType.OutputNeuron);
     defer out.deinit();
 
     var link1 = try Link.init(allocator, 1.0, in, out, false);
@@ -144,14 +144,14 @@ test "is genetically equal" {
     equals = link1.is_genetically_eql(link3);
     try std.testing.expect(!equals);
 
-    var hidden = try NNode.new_NNode(allocator, 3, NodeNeuronType.HiddenNeuron);
+    var hidden = try NNode.init(allocator, 3, NodeNeuronType.HiddenNeuron);
     defer hidden.deinit();
     var link4 = try Link.init(allocator, 2.0, in, hidden, false);
     defer link4.deinit();
     equals = link1.is_genetically_eql(link4);
     try std.testing.expect(!equals);
 
-    var in2 = try NNode.new_NNode(allocator, 3, NodeNeuronType.InputNeuron);
+    var in2 = try NNode.init(allocator, 3, NodeNeuronType.InputNeuron);
     defer in2.deinit();
     var link5 = try Link.init(allocator, 2.0, in2, out, false);
     defer link5.deinit();
@@ -161,9 +161,9 @@ test "is genetically equal" {
 
 test "new link copy" {
     const allocator = std.testing.allocator;
-    var in = try NNode.new_NNode(allocator, 1, NodeNeuronType.InputNeuron);
+    var in = try NNode.init(allocator, 1, NodeNeuronType.InputNeuron);
     defer in.deinit();
-    var out = try NNode.new_NNode(allocator, 2, NodeNeuronType.OutputNeuron);
+    var out = try NNode.init(allocator, 2, NodeNeuronType.OutputNeuron);
     defer out.deinit();
 
     var trait: *Trait = try Trait.init(allocator, 6);
@@ -179,9 +179,9 @@ test "new link copy" {
     var link = try Link.init_with_trait(allocator, trait, 1.0, in, out, false);
     defer link.deinit();
 
-    var in_copy = try NNode.new_NNode(allocator, 3, NodeNeuronType.InputNeuron);
+    var in_copy = try NNode.init(allocator, 3, NodeNeuronType.InputNeuron);
     defer in_copy.deinit();
-    var out_copy = try NNode.new_NNode(allocator, 4, NodeNeuronType.HiddenNeuron);
+    var out_copy = try NNode.init(allocator, 4, NodeNeuronType.HiddenNeuron);
     defer out_copy.deinit();
     var link_copy = try Link.init_copy(allocator, link, in_copy, out_copy);
     defer link_copy.deinit();
@@ -195,9 +195,9 @@ test "new link copy" {
 
 test "new link w trait" {
     const allocator = std.testing.allocator;
-    var in = try NNode.new_NNode(allocator, 1, NodeNeuronType.InputNeuron);
+    var in = try NNode.init(allocator, 1, NodeNeuronType.InputNeuron);
     defer in.deinit();
-    var out = try NNode.new_NNode(allocator, 2, NodeNeuronType.OutputNeuron);
+    var out = try NNode.init(allocator, 2, NodeNeuronType.OutputNeuron);
     defer out.deinit();
 
     const w: f64 = 10.9;
@@ -224,9 +224,9 @@ test "new link w trait" {
 
 test "new link" {
     const allocator = std.testing.allocator;
-    var in = try NNode.new_NNode(allocator, 1, NodeNeuronType.InputNeuron);
+    var in = try NNode.init(allocator, 1, NodeNeuronType.InputNeuron);
     defer in.deinit();
-    var out = try NNode.new_NNode(allocator, 2, NodeNeuronType.OutputNeuron);
+    var out = try NNode.init(allocator, 2, NodeNeuronType.OutputNeuron);
     defer out.deinit();
 
     const w: f64 = 10.9;
@@ -242,9 +242,9 @@ test "new link" {
 
 test "stringify link" {
     const allocator = std.testing.allocator;
-    var in = try NNode.new_NNode(allocator, 1, NodeNeuronType.InputNeuron);
+    var in = try NNode.init(allocator, 1, NodeNeuronType.InputNeuron);
     defer in.deinit();
-    var out = try NNode.new_NNode(allocator, 2, NodeNeuronType.OutputNeuron);
+    var out = try NNode.init(allocator, 2, NodeNeuronType.OutputNeuron);
     defer out.deinit();
 
     const w: f64 = 10.9;
@@ -260,9 +260,9 @@ test "stringify link" {
 
 test "link id string" {
     const allocator = std.testing.allocator;
-    var in = try NNode.new_NNode(allocator, 1, NodeNeuronType.InputNeuron);
+    var in = try NNode.init(allocator, 1, NodeNeuronType.InputNeuron);
     defer in.deinit();
-    var out = try NNode.new_NNode(allocator, 2, NodeNeuronType.OutputNeuron);
+    var out = try NNode.init(allocator, 2, NodeNeuronType.OutputNeuron);
     defer out.deinit();
 
     var link = try Link.init(allocator, 0, in, out, true);

@@ -20,7 +20,6 @@ const Network = @import("../network/network.zig").Network;
 const Gene = @import("gene.zig").Gene;
 const Link = @import("../network/link.zig").Link;
 const MIMOControlGene = @import("mimo_gene.zig").MIMOControlGene;
-const InnovationsObserver = innov.InnovationsObserver;
 const Innovation = innov.Innovation;
 const Population = neat_pop.Population;
 
@@ -124,9 +123,9 @@ pub const Genome = struct {
         while (i <= in) : (i += 1) {
             var new_node: *NNode = undefined;
             if (i < in) {
-                new_node = try NNode.new_NNode(allocator, @as(i64, @intCast(i)), NodeNeuronType.InputNeuron);
+                new_node = try NNode.init(allocator, @as(i64, @intCast(i)), NodeNeuronType.InputNeuron);
             } else {
-                new_node = try NNode.new_NNode(allocator, @as(i64, @intCast(i)), NodeNeuronType.BiasNeuron);
+                new_node = try NNode.init(allocator, @as(i64, @intCast(i)), NodeNeuronType.BiasNeuron);
             }
             new_node.trait = new_trait;
             try nodes.append(new_node);
@@ -135,7 +134,7 @@ pub const Genome = struct {
         // build hidden nodes
         i = @as(usize, @intCast(in)) + 1;
         while (i <= in + n) : (i += 1) {
-            var new_node = try NNode.new_NNode(allocator, @as(i64, @intCast(i)), NodeNeuronType.HiddenNeuron);
+            var new_node = try NNode.init(allocator, @as(i64, @intCast(i)), NodeNeuronType.HiddenNeuron);
             new_node.trait = new_trait;
             try nodes.append(new_node);
         }
@@ -143,7 +142,7 @@ pub const Genome = struct {
         // build the output nodes
         i = first_output;
         while (i <= total_nodes) : (i += 1) {
-            var new_node = try NNode.new_NNode(allocator, @as(i64, @intCast(i)), NodeNeuronType.OutputNeuron);
+            var new_node = try NNode.init(allocator, @as(i64, @intCast(i)), NodeNeuronType.OutputNeuron);
             new_node.trait = new_trait;
             try nodes.append(new_node);
         }
@@ -403,7 +402,7 @@ pub const Genome = struct {
         var new_node: *NNode = undefined;
         // create the network nodes
         for (self.nodes) |n| {
-            new_node = try NNode.new_NNode_copy(self.allocator, n, n.trait);
+            new_node = try NNode.init_copy(self.allocator, n, n.trait);
             if (n.neuron_type == NodeNeuronType.InputNeuron or n.neuron_type == NodeNeuronType.BiasNeuron) {
                 try in_list.append(new_node);
             } else if (n.neuron_type == NodeNeuronType.OutputNeuron) {
@@ -451,7 +450,7 @@ pub const Genome = struct {
             var c_nodes = std.ArrayList(*NNode).init(self.allocator);
             for (self.control_genes.?) |cg| {
                 if (cg.is_enabled) {
-                    var new_copy_node = try NNode.new_NNode_copy(self.allocator, cg.control_node, cg.control_node.trait);
+                    var new_copy_node = try NNode.init_copy(self.allocator, cg.control_node, cg.control_node.trait);
                     // connect inputs
                     for (cg.control_node.incoming.items) |l| {
                         in_node = l.in_node.?.phenotype_analogue;
@@ -499,7 +498,7 @@ pub const Genome = struct {
             if (assoc_trait != null) {
                 assoc_trait = common.trait_with_id(assoc_trait.?.id.?, traits_dup);
             }
-            nodes_dup[i] = try NNode.new_NNode_copy(self.allocator, nd, assoc_trait);
+            nodes_dup[i] = try NNode.init_copy(self.allocator, nd, assoc_trait);
         }
 
         // duplicate Genes
@@ -538,7 +537,7 @@ pub const Genome = struct {
                 if (assoc_trait != null) {
                     assoc_trait = common.trait_with_id(assoc_trait.?.id.?, traits_dup);
                 }
-                var node_copy = try NNode.new_NNode_copy(self.allocator, control_node, assoc_trait);
+                var node_copy = try NNode.init_copy(self.allocator, control_node, assoc_trait);
                 // add incoming links
                 for (control_node.incoming.items) |l| {
                     var in_node = common.node_with_id(l.in_node.?.id, nodes_dup);
@@ -1219,7 +1218,7 @@ pub const Genome = struct {
             // elsewhere in the population by coincidence
             if (inn.innovation_type == InnovationType.NewNodeInnType and inn.in_node_id == in_node.id and inn.out_node_id == out_node.id and inn.old_innov_num == gene.?.innovation_num) {
                 // create the new Node
-                node = try NNode.new_NNode(self.allocator, inn.new_node_id, NodeNeuronType.HiddenNeuron);
+                node = try NNode.init(self.allocator, inn.new_node_id, NodeNeuronType.HiddenNeuron);
                 // by convention, it will point to the first trait
                 // N.B. in future, may want to change this
                 node.?.trait = self.traits[0];
@@ -1239,7 +1238,7 @@ pub const Genome = struct {
             var new_node_id = innovations.get_next_node_id();
 
             // create the new NNode
-            node = try NNode.new_NNode(self.allocator, new_node_id, NodeNeuronType.HiddenNeuron);
+            node = try NNode.init(self.allocator, new_node_id, NodeNeuronType.HiddenNeuron);
             // by convention, it will point to the first trait
             node.?.trait = self.traits[0];
             // set node activation function as random from a list of types registered with opts
@@ -1544,7 +1543,7 @@ pub const Genome = struct {
                 }
 
                 // create a new node off of the sensor or output
-                var o_node = try NNode.new_NNode_copy(self.allocator, node, new_traits[node_trait_num]);
+                var o_node = try NNode.init_copy(self.allocator, node, new_traits[node_trait_num]);
 
                 // add the node
                 new_nodes = try self.node_insert(self.allocator, new_nodes, o_node);
@@ -1651,7 +1650,7 @@ pub const Genome = struct {
                     if (in_node.trait != null) {
                         in_node_trait_num = @as(usize, @intCast(in_node.trait.?.id.? - self.traits[0].id.?));
                     }
-                    new_in_node = try NNode.new_NNode_copy(self.allocator, in_node, new_traits[in_node_trait_num]);
+                    new_in_node = try NNode.init_copy(self.allocator, in_node, new_traits[in_node_trait_num]);
                     new_nodes = try self.node_insert(self.allocator, new_nodes, new_in_node);
                     try child_nodes_map.put(new_in_node.?.id, new_in_node.?);
                 }
@@ -1672,7 +1671,7 @@ pub const Genome = struct {
                     if (out_node.trait != null) {
                         out_node_trait_num = @as(usize, @intCast(out_node.trait.?.id.? - self.traits[0].id.?));
                     }
-                    new_out_node = try NNode.new_NNode_copy(self.allocator, out_node, new_traits[out_node_trait_num]);
+                    new_out_node = try NNode.init_copy(self.allocator, out_node, new_traits[out_node_trait_num]);
                     new_nodes = try self.node_insert(self.allocator, new_nodes, new_out_node);
                     try child_nodes_map.put(new_out_node.?.id, new_out_node.?);
                 }
@@ -1740,7 +1739,7 @@ pub const Genome = struct {
                     node_trait_num = @as(usize, @intCast(node.trait.?.id.? - self.traits[0].id.?));
                 }
                 // create a new node off the sensor or output
-                var new_node = try NNode.new_NNode_copy(self.allocator, node, new_traits[node_trait_num]);
+                var new_node = try NNode.init_copy(self.allocator, node, new_traits[node_trait_num]);
                 // add the new node
                 new_nodes = try self.node_insert(self.allocator, new_nodes, new_node);
                 try child_nodes_map.put(new_node.id, new_node);
@@ -1872,7 +1871,7 @@ pub const Genome = struct {
                     if (in_node.trait != null) {
                         in_node_trait_num = @as(usize, @intCast(in_node.trait.?.id.? - self.traits[0].id.?));
                     }
-                    new_in_node = try NNode.new_NNode_copy(self.allocator, in_node, new_traits[in_node_trait_num]);
+                    new_in_node = try NNode.init_copy(self.allocator, in_node, new_traits[in_node_trait_num]);
                     new_nodes = try self.node_insert(self.allocator, new_nodes, new_in_node);
                     try child_nodes_map.put(new_in_node.?.id, new_in_node.?);
                 }
@@ -1893,7 +1892,7 @@ pub const Genome = struct {
                     if (out_node.trait != null) {
                         out_node_trait_num = @as(usize, @intCast(out_node.trait.?.id.? - self.traits[0].id.?));
                     }
-                    new_out_node = try NNode.new_NNode_copy(self.allocator, out_node, new_traits[out_node_trait_num]);
+                    new_out_node = try NNode.init_copy(self.allocator, out_node, new_traits[out_node_trait_num]);
                     new_nodes = try self.node_insert(self.allocator, new_nodes, new_out_node);
                     try child_nodes_map.put(new_out_node.?.id, new_out_node.?);
                 }
@@ -1958,7 +1957,7 @@ pub const Genome = struct {
                     node_trait_num = @as(usize, @intCast(node.trait.?.id.? - self.traits[0].id.?));
                 }
                 // create a enw node off the sensor/output
-                var new_node = try NNode.new_NNode_copy(self.allocator, node, new_traits[node_trait_num]);
+                var new_node = try NNode.init_copy(self.allocator, node, new_traits[node_trait_num]);
                 // add the new node
                 new_nodes = try self.node_insert(self.allocator, new_nodes, new_node);
                 try child_nodes_map.put(new_node.id, new_node);
@@ -2109,7 +2108,7 @@ pub const Genome = struct {
                     if (in_node.trait != null) {
                         in_node_trait_num = @as(usize, @intCast(in_node.trait.?.id.? - self.traits[0].id.?));
                     }
-                    new_in_node = try NNode.new_NNode_copy(self.allocator, in_node, new_traits[in_node_trait_num]);
+                    new_in_node = try NNode.init_copy(self.allocator, in_node, new_traits[in_node_trait_num]);
                     new_nodes = try self.node_insert(self.allocator, new_nodes, new_in_node);
                     try child_nodes_map.put(new_in_node.?.id, new_in_node.?);
                 }
@@ -2129,7 +2128,7 @@ pub const Genome = struct {
                     if (out_node.trait != null) {
                         out_node_trait_num = @as(usize, @intCast(out_node.trait.?.id.? - self.traits[0].id.?));
                     }
-                    new_out_node = try NNode.new_NNode_copy(self.allocator, out_node, new_traits[out_node_trait_num]);
+                    new_out_node = try NNode.init_copy(self.allocator, out_node, new_traits[out_node_trait_num]);
                     new_nodes = try self.node_insert(self.allocator, new_nodes, new_out_node);
                     try child_nodes_map.put(new_out_node.?.id, new_out_node.?);
                 }
@@ -2206,7 +2205,7 @@ pub const Genome = struct {
         for (genes) |cg| {
             if (cg.has_intersection(nodes)) {
                 // attempt copying the MIMOControlGene
-                var new_cg = try MIMOControlGene.init_from_copy(allocator, cg, try NNode.new_NNode_copy(allocator, cg.control_node, cg.control_node.trait));
+                var new_cg = try MIMOControlGene.init_from_copy(allocator, cg, try NNode.init_copy(allocator, cg.control_node, cg.control_node.trait));
                 try modules.append(new_cg);
             }
         }
@@ -2262,13 +2261,13 @@ pub fn build_test_genome(allocator: std.mem.Allocator, id: usize) !*Genome {
 
     // init nodes
     var nodes = try allocator.alloc(*NNode, 4);
-    nodes[0] = try NNode.new_NNode(allocator, 1, NodeNeuronType.InputNeuron);
+    nodes[0] = try NNode.init(allocator, 1, NodeNeuronType.InputNeuron);
     nodes[0].activation_type = neat_math.NodeActivationType.NullActivation;
-    nodes[1] = try NNode.new_NNode(allocator, 2, NodeNeuronType.InputNeuron);
+    nodes[1] = try NNode.init(allocator, 2, NodeNeuronType.InputNeuron);
     nodes[1].activation_type = neat_math.NodeActivationType.NullActivation;
-    nodes[2] = try NNode.new_NNode(allocator, 3, NodeNeuronType.BiasNeuron);
+    nodes[2] = try NNode.init(allocator, 3, NodeNeuronType.BiasNeuron);
     nodes[2].activation_type = neat_math.NodeActivationType.SigmoidSteepenedActivation;
-    nodes[3] = try NNode.new_NNode(allocator, 4, NodeNeuronType.OutputNeuron);
+    nodes[3] = try NNode.init(allocator, 4, NodeNeuronType.OutputNeuron);
     nodes[3].activation_type = neat_math.NodeActivationType.SigmoidSteepenedActivation;
 
     // init genes
@@ -2285,11 +2284,11 @@ pub fn build_test_modular_genome(allocator: std.mem.Allocator, id: usize) !*Geno
     // append module with it's IO nodes
     var io_nodes = try allocator.alloc(*NNode, 3);
     defer allocator.free(io_nodes);
-    io_nodes[0] = try NNode.new_NNode(allocator, 5, NodeNeuronType.HiddenNeuron);
+    io_nodes[0] = try NNode.init(allocator, 5, NodeNeuronType.HiddenNeuron);
     io_nodes[0].activation_type = neat_math.NodeActivationType.LinearActivation;
-    io_nodes[1] = try NNode.new_NNode(allocator, 6, NodeNeuronType.HiddenNeuron);
+    io_nodes[1] = try NNode.init(allocator, 6, NodeNeuronType.HiddenNeuron);
     io_nodes[1].activation_type = neat_math.NodeActivationType.LinearActivation;
-    io_nodes[2] = try NNode.new_NNode(allocator, 7, NodeNeuronType.HiddenNeuron);
+    io_nodes[2] = try NNode.init(allocator, 7, NodeNeuronType.HiddenNeuron);
     io_nodes[2].activation_type = neat_math.NodeActivationType.NullActivation;
 
     var tmp_nodes = std.ArrayList(*NNode).fromOwnedSlice(allocator, genome.nodes);
@@ -2307,7 +2306,7 @@ pub fn build_test_modular_genome(allocator: std.mem.Allocator, id: usize) !*Geno
     genome.genes = try tmp_genes.toOwnedSlice();
 
     // add control gene
-    var control_node = try NNode.new_NNode(allocator, 8, NodeNeuronType.HiddenNeuron);
+    var control_node = try NNode.init(allocator, 8, NodeNeuronType.HiddenNeuron);
     control_node.activation_type = neat_math.NodeActivationType.MultiplyModuleActivation;
     try control_node.incoming.append(try Link.init(allocator, 1.0, io_nodes[0], control_node, false));
     try control_node.incoming.append(try Link.init(allocator, 1.0, io_nodes[1], control_node, false));
@@ -2413,9 +2412,9 @@ test "Genome verify" {
     try std.testing.expect(res);
 
     // check gene missing input node failure
-    var new_in_node = try NNode.new_NNode(allocator, 100, NodeNeuronType.InputNeuron);
+    var new_in_node = try NNode.init(allocator, 100, NodeNeuronType.InputNeuron);
     defer new_in_node.deinit();
-    var new_out_node = try NNode.new_NNode(allocator, 4, NodeNeuronType.OutputNeuron);
+    var new_out_node = try NNode.init(allocator, 4, NodeNeuronType.OutputNeuron);
     defer new_out_node.deinit();
     var gene = try Gene.init(allocator, 1.0, new_in_node, new_out_node, false, 1, 1.0);
     var tmp_genes = std.ArrayList(*Gene).fromOwnedSlice(allocator, gnome.genes);
@@ -2427,9 +2426,9 @@ test "Genome verify" {
     // check gene missing output node failure
     var gnome2 = try build_test_genome(allocator, 1);
     defer gnome2.deinit();
-    var new_in_node2 = try NNode.new_NNode(allocator, 4, NodeNeuronType.InputNeuron);
+    var new_in_node2 = try NNode.init(allocator, 4, NodeNeuronType.InputNeuron);
     defer new_in_node2.deinit();
-    var new_out_node2 = try NNode.new_NNode(allocator, 400, NodeNeuronType.OutputNeuron);
+    var new_out_node2 = try NNode.init(allocator, 400, NodeNeuronType.OutputNeuron);
     defer new_out_node2.deinit();
     var gene2 = try Gene.init(allocator, 1.0, new_in_node2, new_out_node2, false, 1, 1.0);
     tmp_genes = std.ArrayList(*Gene).fromOwnedSlice(allocator, gnome2.genes);
@@ -2441,13 +2440,13 @@ test "Genome verify" {
     // test duplicate genes failure
     var gnome3 = try build_test_genome(allocator, 1);
     defer gnome3.deinit();
-    var new_in_node3 = try NNode.new_NNode(allocator, 1, NodeNeuronType.InputNeuron);
+    var new_in_node3 = try NNode.init(allocator, 1, NodeNeuronType.InputNeuron);
     defer new_in_node3.deinit();
-    var new_out_node3 = try NNode.new_NNode(allocator, 1, NodeNeuronType.OutputNeuron);
+    var new_out_node3 = try NNode.init(allocator, 1, NodeNeuronType.OutputNeuron);
     defer new_out_node3.deinit();
-    var new_in_node4 = try NNode.new_NNode(allocator, 1, NodeNeuronType.InputNeuron);
+    var new_in_node4 = try NNode.init(allocator, 1, NodeNeuronType.InputNeuron);
     defer new_in_node4.deinit();
-    var new_out_node4 = try NNode.new_NNode(allocator, 1, NodeNeuronType.OutputNeuron);
+    var new_out_node4 = try NNode.init(allocator, 1, NodeNeuronType.OutputNeuron);
     defer new_out_node4.deinit();
     tmp_genes = std.ArrayList(*Gene).fromOwnedSlice(allocator, gnome3.genes);
     var gene3 = try Gene.init(allocator, 1.0, new_in_node3, new_out_node3, false, 1, 1.0);
@@ -2496,9 +2495,9 @@ test "Genome compatability linear" {
 
     // test incompatible
     var tmp_list = std.ArrayList(*Gene).fromOwnedSlice(allocator, gnome2.genes); // hacky means to append to slice
-    var new_in_node = try NNode.new_NNode(allocator, 1, NodeNeuronType.InputNeuron);
+    var new_in_node = try NNode.init(allocator, 1, NodeNeuronType.InputNeuron);
     defer new_in_node.deinit();
-    var new_out_node = try NNode.new_NNode(allocator, 1, NodeNeuronType.OutputNeuron);
+    var new_out_node = try NNode.init(allocator, 1, NodeNeuronType.OutputNeuron);
     defer new_out_node.deinit();
     var new_gene = try Gene.init(allocator, 1.0, new_in_node, new_out_node, false, 10, 1.0);
     try tmp_list.append(new_gene);
@@ -2507,9 +2506,9 @@ test "Genome compatability linear" {
     try std.testing.expect(comp == 0.5);
 
     tmp_list = std.ArrayList(*Gene).fromOwnedSlice(allocator, gnome2.genes);
-    var new_in_node1 = try NNode.new_NNode(allocator, 1, NodeNeuronType.InputNeuron);
+    var new_in_node1 = try NNode.init(allocator, 1, NodeNeuronType.InputNeuron);
     defer new_in_node1.deinit();
-    var new_out_node1 = try NNode.new_NNode(allocator, 1, NodeNeuronType.OutputNeuron);
+    var new_out_node1 = try NNode.init(allocator, 1, NodeNeuronType.OutputNeuron);
     defer new_out_node1.deinit();
     var new_gene2 = try Gene.init(allocator, 1.0, new_in_node1, new_out_node1, false, 5, 1.0);
     try tmp_list.append(new_gene2);
@@ -2543,9 +2542,9 @@ test "Genome compatability fast" {
 
     // test incompatible
     var tmp_list = std.ArrayList(*Gene).fromOwnedSlice(allocator, gnome2.genes); // hacky means to append to slice
-    var new_in_node = try NNode.new_NNode(allocator, 1, NodeNeuronType.InputNeuron);
+    var new_in_node = try NNode.init(allocator, 1, NodeNeuronType.InputNeuron);
     defer new_in_node.deinit();
-    var new_out_node = try NNode.new_NNode(allocator, 1, NodeNeuronType.OutputNeuron);
+    var new_out_node = try NNode.init(allocator, 1, NodeNeuronType.OutputNeuron);
     defer new_out_node.deinit();
     var new_gene = try Gene.init(allocator, 1.0, new_in_node, new_out_node, false, 10, 1.0);
     try tmp_list.append(new_gene);
@@ -2554,9 +2553,9 @@ test "Genome compatability fast" {
     try std.testing.expect(comp == 0.5);
 
     tmp_list = std.ArrayList(*Gene).fromOwnedSlice(allocator, gnome2.genes);
-    var new_in_node1 = try NNode.new_NNode(allocator, 1, NodeNeuronType.InputNeuron);
+    var new_in_node1 = try NNode.init(allocator, 1, NodeNeuronType.InputNeuron);
     defer new_in_node1.deinit();
-    var new_out_node1 = try NNode.new_NNode(allocator, 1, NodeNeuronType.OutputNeuron);
+    var new_out_node1 = try NNode.init(allocator, 1, NodeNeuronType.OutputNeuron);
     defer new_out_node1.deinit();
     var new_gene2 = try Gene.init(allocator, 1.0, new_in_node1, new_out_node1, false, 5, 1.0);
     try tmp_list.append(new_gene2);
@@ -2621,9 +2620,9 @@ test "Genome mutate add link" {
     options.recur_only_prob = 0.0;
     var nodes = try allocator.alloc(*NNode, 2);
     defer allocator.free(nodes);
-    nodes[0] = try NNode.new_NNode(allocator, 5, NodeNeuronType.HiddenNeuron);
+    nodes[0] = try NNode.init(allocator, 5, NodeNeuronType.HiddenNeuron);
     nodes[0].activation_type = neat_math.NodeActivationType.SigmoidSteepenedActivation;
-    nodes[1] = try NNode.new_NNode(allocator, 6, NodeNeuronType.InputNeuron);
+    nodes[1] = try NNode.init(allocator, 6, NodeNeuronType.InputNeuron);
     nodes[1].activation_type = neat_math.NodeActivationType.SigmoidSteepenedActivation;
 
     var tmp_nodes = std.ArrayList(*NNode).fromOwnedSlice(allocator, gnome1.nodes);
@@ -2671,7 +2670,7 @@ test "Genome mutate connect sensors" {
     try std.testing.expect(res == false); // all inputs are already connected; always returns false
 
     // test with disconnected input
-    var new_node = try NNode.new_NNode(allocator, 5, NodeNeuronType.InputNeuron);
+    var new_node = try NNode.init(allocator, 5, NodeNeuronType.InputNeuron);
     new_node.activation_type = neat_math.NodeActivationType.SigmoidSteepenedActivation;
     var tmp_nodes = std.ArrayList(*NNode).fromOwnedSlice(allocator, gnome1.nodes);
     try tmp_nodes.append(new_node);

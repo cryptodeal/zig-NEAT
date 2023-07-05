@@ -31,11 +31,15 @@ I recommend using [zigup](https://github.com/marler8997/zigup) to manage the ver
 To run the XOR example, run the following command:
 
 ```bash
-zig run src/examples/xor.zig --main-pkg-path src/.
+cd examples/xor
+# alternatively, use -Doptimize=ReleaseSafe
+zig build run -Doptimize=ReleaseFast
 ```
 
 To run the CartPole example, run the following command:
 
 ```bash
-zig run src/examples/cartpole.zig --main-pkg-path src/.
+cd examples/cartpole
+# alternatively, use -Doptimize=ReleaseSafe
+zig build run -Doptimize=ReleaseFast
 ```

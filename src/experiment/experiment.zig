@@ -3,7 +3,7 @@ const exp_trial = @import("trial.zig");
 const neat_organism = @import("../genetics/organism.zig");
 const maths = @import("floats.zig");
 const neat_population = @import("../genetics/population.zig");
-const Options = @import("../opts.zig").Options;
+const neat_options = @import("../opts.zig");
 const exp_common = @import("common.zig");
 const neat_genome = @import("../genetics/genome.zig");
 const exp_generation = @import("generation.zig");
@@ -13,6 +13,8 @@ const Organism = neat_organism.Organism;
 const Population = neat_population.Population;
 const Genome = neat_genome.Genome;
 const EpochExecutor = exp_common.EpochExecutor;
+const Options = neat_options.Options;
+const logger = @constCast(neat_options.logger);
 const GenerationEvaluator = exp_common.GenerationEvaluator;
 const Generation = exp_generation.Generation;
 const fitness_comparison = neat_organism.fitness_comparison;
@@ -53,26 +55,26 @@ pub const Experiment = struct {
     /// `avg_trial_duration` Calculates average duration of experiment's trial. Returns EmptyDuration for experiment with no trials.
     /// Note, that most trials finish after solution solved, so this metric can be used to represent how efficient the solvers
     /// was generated
-    pub fn avg_trial_duration(self: *Experiment) i64 {
+    pub fn avg_trial_duration(self: *Experiment) f64 {
         var total: u64 = 0;
         for (self.trials.items) |t| {
             total += t.duration;
         }
         if (self.trials.items.len > 0) {
-            return @as(i64, @intCast(total / @as(u64, @intCast(self.trials.items.len))));
+            return @as(f64, @floatFromInt(total)) / @as(f64, @floatFromInt(self.trials.items.len));
         } else {
             return -1;
         }
     }
 
     /// `avg_epoch_duration` Calculates average duration of evaluations among all generations of organism populations in this experiment
-    pub fn avg_epoch_duration(self: *Experiment) i64 {
-        var total: u64 = 0;
+    pub fn avg_epoch_duration(self: *Experiment) f64 {
+        var total: i64 = 0;
         for (self.trials.items) |t| {
             total += t.avg_epoch_duration();
         }
         if (self.trials.items.len > 0) {
-            return @as(i64, @intCast(total / @as(u64, @intCast(self.trials.items.len))));
+            return @as(f64, @floatFromInt(total)) / @as(f64, @floatFromInt(self.trials.items.len));
         } else {
             return -1;
         }
@@ -300,9 +302,9 @@ pub const Experiment = struct {
         var run: usize = 0;
         while (run < opts.num_runs) : (run += 1) {
             var trial_start_time = try std.time.Instant.now();
-            std.debug.print("\n>>>>> Spawning new population: ", .{});
+            logger.info("\n>>>>> Spawning new population: ", .{}, @src());
             var pop = Population.init(allocator, start_genome, opts) catch |err| {
-                std.debug.print("Failed to spawn new population from start genome\n", .{});
+                logger.info("Failed to spawn new population from start genome\n", .{}, @src());
                 return err;
             };
             defer pop.deinit();
@@ -319,7 +321,6 @@ pub const Experiment = struct {
 
             // start new trial
             var trial = try Trial.init(self.allocator, run);
-            errdefer trial.deinit();
 
             // TODO: implement/notify TrialObserver that run started
 

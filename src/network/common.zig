@@ -1,6 +1,10 @@
 const std = @import("std");
-const NNode = @import("nnode.zig").NNode;
 const neat_math = @import("../math/activations.zig");
+
+// exports
+pub const Link = @import("link.zig").Link;
+pub const Network = @import("network.zig").Network;
+pub const NNode = @import("nnode.zig").NNode;
 
 pub const NodeType = enum(u8) {
     // neuron type

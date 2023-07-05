@@ -14,16 +14,14 @@ const fitness_comparison = orgn.fitness_comparison;
 const logger = @constCast(opt.logger);
 
 pub const MaxAvgFitness = struct {
-    max: f64,
-    avg: f64,
+    max: f64 = 0.0,
+    avg: f64 = 0.0,
     allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator) !*MaxAvgFitness {
         var res = try allocator.create(MaxAvgFitness);
         res.* = .{
             .allocator = allocator,
-            .max = 0.0,
-            .avg = 0.0,
         };
         return res;
     }
@@ -34,16 +32,14 @@ pub const MaxAvgFitness = struct {
 };
 
 pub const OffspringCount = struct {
-    expected: i64,
-    skim: f64,
+    expected: i64 = 0,
+    skim: f64 = 0.0,
     allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator) !*OffspringCount {
         var res = try allocator.create(OffspringCount);
         res.* = .{
             .allocator = allocator,
-            .expected = 0,
-            .skim = 0.0,
         };
         return res;
     }

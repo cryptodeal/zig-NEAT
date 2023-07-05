@@ -1,5 +1,7 @@
 const std = @import("std");
 
+pub const NodeActivationType = @import("activations.zig").NodeActivationType;
+
 pub fn rand_sign(comptime T: type) T {
     var prng = std.rand.DefaultPrng.init(blk: {
         var seed: u64 = undefined;

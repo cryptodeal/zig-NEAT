@@ -14,15 +14,13 @@ const WaitGroup = std.Thread.WaitGroup;
 const logger = @constCast(opt.logger);
 
 pub const ReproductionResult = struct {
-    babies_stored: usize,
-    babies: ?[]*Organism,
+    babies_stored: usize = 0,
+    babies: ?[]*Organism = undefined,
     species_id: i64,
 
     pub fn init(allocator: std.mem.Allocator, id: i64) !*ReproductionResult {
         var self = try allocator.create(ReproductionResult);
         self.* = .{
-            .babies_stored = 0,
-            .babies = undefined,
             .species_id = id,
         };
         return self;
@@ -64,7 +62,7 @@ pub const SequentialPopulationEpochExecutor = struct {
 
     pub fn prepare_for_reproduction(self: *SequentialPopulationEpochExecutor, opts: *Options, generation: usize, p: *Population) !void {
         // clear executor state from previous run
-        self.sorted_species.clearAndFree();
+        self.sorted_species.clearRetainingCapacity();
 
         // Use Species' ages to modify the objective fitness of organisms in other words, make it more fair for younger
         // species, so they have a chance to take hold and also penalize stagnant species. Then adjust the fitness using
@@ -79,7 +77,7 @@ pub const SequentialPopulationEpochExecutor = struct {
 
         // stick species pointers into new Species list for sorting
         try self.sorted_species.ensureTotalCapacityPrecise(p.species.items.len);
-        self.sorted_species.expandToCapacity();
+        try self.sorted_species.resize(p.species.items.len);
 
         @memcpy(self.sorted_species.items, p.species.items);
         // Sort the Species by max original fitness of its first organism
@@ -135,7 +133,7 @@ pub const SequentialPopulationEpochExecutor = struct {
 
         // sanity check - make sure that population size keep the same
         if (offspring.items.len != opts.pop_size) {
-            std.debug.print("progeny size after reproduction cycle dimished, expected: {d}, but got: {d}\n", .{ opts.pop_size, offspring.items.len });
+            logger.err("progeny size after reproduction cycle dimished, expected: {d}, but got: {d}", .{ opts.pop_size, offspring.items.len }, @src());
             return error.ReproductionPopSizeMismatch;
         }
 
@@ -187,7 +185,7 @@ pub const ParallelPopulationEpochExecutor = struct {
 
         // Do parallel reproduction
         try self.reproduce(opts, generation, population);
-        std.debug.print("POPULATION: >>>>> Epoch {d} complete\n", .{generation});
+        logger.info("POPULATION: >>>>> Epoch {d} complete", .{generation}, @src());
     }
 
     pub fn reproduce(self: *ParallelPopulationEpochExecutor, opts: *Options, generation: usize, pop: *Population) !void {

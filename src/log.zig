@@ -1,10 +1,6 @@
 const std = @import("std");
 pub const NeatLogger = @This();
 
-pub const std_options = struct {
-    pub const logFn = log_fn;
-};
-
 pub fn log_fn(
     comptime level: std.log.Level,
     comptime scope: @TypeOf(.EnumLiteral),
