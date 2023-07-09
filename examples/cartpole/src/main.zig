@@ -239,50 +239,13 @@ pub fn main() !void {
         .gen_compat_method = GenomeCompatibilityMethod.GenomeCompatibilityMethodLinear,
     };
 
-    // initialize Traits for Genome
-    var traits = try allocator.alloc(*Trait, 3);
-    for (traits, 0..) |_, i| {
-        traits[i] = try Trait.init(allocator, 8);
-        traits[i].id = @as(i64, @intCast(i)) + 1;
-        traits[i].params[0] = 0.1 * @as(f64, @floatFromInt(i + 1));
-    }
-
-    // initialize Nodes for Genome
-    var nodes = try allocator.alloc(*NNode, 7);
-    nodes[0] = try NNode.init(allocator, 1, NodeNeuronType.BiasNeuron);
-    nodes[0].trait = traits[0];
-    nodes[1] = try NNode.init(allocator, 2, NodeNeuronType.InputNeuron);
-    nodes[1].trait = traits[0];
-    nodes[2] = try NNode.init(allocator, 3, NodeNeuronType.InputNeuron);
-    nodes[2].trait = traits[0];
-    nodes[3] = try NNode.init(allocator, 4, NodeNeuronType.InputNeuron);
-    nodes[3].trait = traits[0];
-    nodes[4] = try NNode.init(allocator, 5, NodeNeuronType.InputNeuron);
-    nodes[4].trait = traits[0];
-    nodes[5] = try NNode.init(allocator, 6, NodeNeuronType.OutputNeuron);
-    nodes[5].trait = traits[0];
-    nodes[6] = try NNode.init(allocator, 7, NodeNeuronType.OutputNeuron);
-    nodes[6].trait = traits[0];
-
-    // initialize Genes for Genome
-    var genes = try allocator.alloc(*Gene, 10);
-    genes[0] = try Gene.init_with_trait(allocator, traits[0], 0.0, nodes[0], nodes[5], false, 1, 0);
-    genes[1] = try Gene.init_with_trait(allocator, traits[1], 0.0, nodes[1], nodes[5], false, 2, 0);
-    genes[2] = try Gene.init_with_trait(allocator, traits[2], 0.0, nodes[2], nodes[5], false, 3, 0);
-    genes[3] = try Gene.init_with_trait(allocator, traits[0], 0.0, nodes[3], nodes[5], false, 4, 0);
-    genes[4] = try Gene.init_with_trait(allocator, traits[1], 0.0, nodes[4], nodes[5], false, 5, 0);
-    genes[5] = try Gene.init_with_trait(allocator, traits[2], 0.0, nodes[0], nodes[6], false, 6, 0);
-    genes[6] = try Gene.init_with_trait(allocator, traits[0], 0.0, nodes[1], nodes[6], false, 7, 0);
-    genes[7] = try Gene.init_with_trait(allocator, traits[1], 0.0, nodes[2], nodes[6], false, 8, 0);
-    genes[8] = try Gene.init_with_trait(allocator, traits[2], 0.0, nodes[3], nodes[6], false, 9, 0);
-    genes[9] = try Gene.init_with_trait(allocator, traits[0], 0.0, nodes[4], nodes[6], false, 10, 0);
-
     // initialize Genome
-    var start_genome = try Genome.init(allocator, 1, traits, nodes, genes);
+    var start_genome = try Genome.read_from_file(allocator, "data/pole1startgenes");
     defer start_genome.deinit();
+
     var experiment = try Experiment.init(allocator, 0);
-    try experiment.trials.ensureTotalCapacityPrecise(opts.num_runs);
     defer experiment.deinit();
+    try experiment.trials.ensureTotalCapacityPrecise(opts.num_runs);
 
     const evaluator = GenerationEvaluator{ .generation_evaluate = eval };
 

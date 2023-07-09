@@ -56,8 +56,7 @@ pub fn neuron_type_by_name(name: []const u8) NodeNeuronType {
     if (std.mem.eql(u8, name, "BIAS")) {
         return NodeNeuronType.BiasNeuron;
     }
-
-    @compileError("Unknown neuron type name: " ++ name);
+    unreachable;
 }
 
 pub fn activate_node(node: *NNode) !void {
@@ -84,4 +83,8 @@ pub fn activate_module(module: *NNode) !void {
         module.outgoing.items[i].out_node.?.set_activation(out);
         module.outgoing.items[i].out_node.?.is_active = true;
     }
+}
+
+test {
+    std.testing.refAllDecls(@This());
 }

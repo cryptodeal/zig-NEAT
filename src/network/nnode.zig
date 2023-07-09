@@ -6,6 +6,7 @@ const neat_trait = @import("../trait.zig");
 
 const testing = std.testing;
 
+const trait_with_id = @import("../genetics/common.zig").trait_with_id;
 const NodeNeuronType = net_common.NodeNeuronType;
 const NodeActivationType = neat_math.NodeActivationType;
 const NodeType = net_common.NodeType;
@@ -76,6 +77,34 @@ pub const NNode = struct {
         node.neuron_type = n.neuron_type;
         node.activation_type = n.activation_type;
         node.trait = t;
+        return node;
+    }
+
+    pub fn read_from_file(allocator: std.mem.Allocator, data: []const u8, traits: []*Trait) !*NNode {
+        var node = try NNode.raw_init(allocator);
+        errdefer node.deinit();
+        var split = std.mem.split(u8, data, " ");
+        // parse node id
+        var count: usize = 0;
+        while (split.next()) |d| : (count += 1) {
+            if (count == 2) continue;
+            switch (count) {
+                0 => node.id = try std.fmt.parseInt(i64, d, 10),
+                1 => {
+                    var trait_id = try std.fmt.parseInt(i64, d, 10);
+                    node.trait = trait_with_id(trait_id, traits);
+                },
+                3 => {
+                    var neuron_type_u8 = try std.fmt.parseInt(u8, d, 10);
+                    node.neuron_type = @as(NodeNeuronType, @enumFromInt(neuron_type_u8));
+                },
+                4 => {
+                    node.activation_type = neat_math.NodeActivationType.activation_type_by_name(d);
+                },
+                else => continue,
+            }
+        }
+        if (count < 3) return error.MalformedNodeInGenomeFile;
         return node;
     }
 

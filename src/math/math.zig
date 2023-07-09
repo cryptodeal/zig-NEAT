@@ -68,3 +68,7 @@ test "network math tests" {
         hist[idx] += 1;
     }
 }
+
+test {
+    std.testing.refAllDecls(@This());
+}

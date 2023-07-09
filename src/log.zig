@@ -57,20 +57,16 @@ pub fn warn(self: *NeatLogger, comptime msg: []const u8, args: anytype, src: ?st
     }
 }
 
-pub fn init(self: *NeatLogger, comptime level: []const u8) void {
-    if (comptime std.mem.eql(u8, level, std.log.Level.err.asText())) {
+pub fn init(self: *NeatLogger, level: []const u8) !void {
+    if (std.mem.eql(u8, level, std.log.Level.err.asText())) {
         self.log_level = std.log.Level.err;
-    } else if (comptime std.mem.eql(u8, level, std.log.Level.warn.asText())) {
+    } else if (std.mem.eql(u8, level, std.log.Level.warn.asText())) {
         self.log_level = std.log.Level.warn;
-    } else if (comptime std.mem.eql(u8, level, std.log.Level.info.asText())) {
+    } else if (std.mem.eql(u8, level, std.log.Level.info.asText())) {
         self.log_level = std.log.Level.info;
-    } else if (comptime std.mem.eql(u8, level, std.log.Level.debug.asText())) {
-        self.og_level = std.log.Level.debug;
+    } else if (std.mem.eql(u8, level, std.log.Level.debug.asText())) {
+        self.log_level = std.log.Level.debug;
     } else {
         return error.NeatLoggerInvalidLogLevel;
     }
-}
-
-pub fn deinit(self: *NeatLogger) void {
-    self.allocator.destroy(self);
 }

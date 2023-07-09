@@ -67,3 +67,7 @@ pub fn genome_encoding_from_file_name(file_name: []const u8) GenomeEncoding {
         return GenomeEncoding.PlainGenomeEncoding;
     }
 }
+
+test {
+    std.testing.refAllDecls(@This());
+}

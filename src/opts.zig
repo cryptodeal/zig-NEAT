@@ -129,25 +129,27 @@ pub const Options = struct {
         self.node_activators_prob = try allocator.alloc(f64, act_fns.len);
         for (act_fns, 0..) |line, i| {
             var field_iterator = std.mem.split(u8, line, " ");
-            self.node_activators[i] = math.node_activation_type_from_str(field_iterator.first());
+            self.node_activators[i] = math.NodeActivationType.activation_type_by_name(field_iterator.first());
             self.node_activators_prob[i] = try std.fmt.parseFloat(f64, field_iterator.rest());
         }
     }
 
     // TODO: maybe??? pub fn validate(self: *Options) !void {}
 
-    pub fn load_json_opts(allocator: std.mem.Allocator, path: []const u8) !*Options {
-        const data: []const u8 = try std.fs.cwd().readFileAlloc(allocator, path, 512);
-        defer allocator.free(data);
-
-        var self: *Options = try std.json.parseFromSlice(Options, allocator, data, .{});
-        self.allocator = allocator;
-
-        logger = try NeatLogger.init(allocator, self.log_level);
-
-        // read node activators
-        try self.init_node_activators(allocator);
-
-        return &self;
-    }
 };
+
+pub fn load_json_opts(allocator: std.mem.Allocator, path: []const u8) !*Options {
+    const data: []const u8 = try std.fs.cwd().readFileAlloc(allocator, path, 512);
+    defer allocator.free(data);
+
+    var self: Options = try std.json.parseFromSliceLeaky(Options, allocator, data, .{});
+
+    self.allocator = allocator;
+
+    try @constCast(logger).init(self.log_level);
+
+    // read node activators
+    try self.init_node_activators(allocator);
+
+    return &self;
+}

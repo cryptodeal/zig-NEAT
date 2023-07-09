@@ -2220,6 +2220,120 @@ pub const Genome = struct {
         }
         return new_traits;
     }
+
+    pub fn write_to_file(self: *Genome, path: []const u8) !void {
+        const dir_path = std.fs.path.dirname(path);
+        const file_name = std.fs.path.basename(path);
+        var file_dir: std.fs.Dir = undefined;
+        if (dir_path != null) {
+            file_dir = try std.fs.cwd().makeOpenPath(dir_path.?, .{});
+        } else {
+            file_dir = std.fs.cwd();
+        }
+        var output_file = try file_dir.createFile(file_name, .{});
+        defer output_file.close();
+
+        // marks the start of genome encoding written to file
+        try output_file.writer().print("genomestart {d}\n", .{self.id});
+
+        // write traits
+        for (self.traits) |tr| {
+            try output_file.writer().print("trait {d} ", .{tr.id.?});
+            for (tr.params, 0..) |p, i| {
+                if (i < tr.params.len - 1) {
+                    try output_file.writer().print("{d} ", .{p});
+                } else {
+                    try output_file.writer().print("{d}\n", .{p});
+                }
+            }
+        }
+
+        // write nodes
+        for (self.nodes) |nd| {
+            _ = try output_file.write("node ");
+            var trait_id: i64 = 0;
+            if (nd.trait != null) {
+                trait_id = nd.trait.?.id.?;
+            }
+            var act_str = nd.activation_type.activation_name_by_type();
+            try output_file.writer().print("{d} {d} {d} {d} {s}\n", .{ nd.id, trait_id, @intFromEnum(nd.node_type()), @intFromEnum(nd.neuron_type), act_str });
+        }
+
+        // write genes
+        for (self.genes) |gn| {
+            _ = try output_file.write("gene ");
+            var link = gn.link;
+            var trait_id: i64 = 0;
+            if (link.trait != null) {
+                trait_id = link.trait.?.id.?;
+            }
+            var in_node_id = link.in_node.?.id;
+            var out_node_id = link.out_node.?.id;
+            var weight = link.cxn_weight;
+            var recurrent = link.is_recurrent;
+            var innov_num = gn.innovation_num;
+            var mut_num = gn.mutation_num;
+            var enabled = gn.is_enabled;
+            try output_file.writer().print("{d} {d} {d} {d} {any} {d} {d} {any}\n", .{ trait_id, in_node_id, out_node_id, weight, recurrent, innov_num, mut_num, enabled });
+        }
+
+        // marks the end of genome encoding written to file
+        try output_file.writer().print("genomeend {d}", .{self.id});
+    }
+
+    pub fn read_from_file(allocator: std.mem.Allocator, path: []const u8) !*Genome {
+        const dir_path = std.fs.path.dirname(path);
+        const file_name = std.fs.path.basename(path);
+        var file_dir: std.fs.Dir = undefined;
+        if (dir_path != null) {
+            file_dir = try std.fs.cwd().makeOpenPath(dir_path.?, .{});
+        } else {
+            file_dir = std.fs.cwd();
+        }
+        var file = try file_dir.openFile(file_name, .{});
+        const file_size = (try file.stat()).size;
+        var buf = try allocator.alloc(u8, file_size);
+        defer allocator.free(buf);
+        try file.reader().readNoEof(buf);
+        var genome_id: i64 = undefined;
+        var trait_list = std.ArrayList(*Trait).init(allocator);
+        var node_list = std.ArrayList(*NNode).init(allocator);
+        var gene_list = std.ArrayList(*Gene).init(allocator);
+        var new_line_iterator = std.mem.split(u8, buf, "\n");
+        while (new_line_iterator.next()) |line| {
+            var split = std.mem.split(u8, line, " ");
+            var first = split.first();
+            var rest = split.rest();
+            if (split.next() == null) {
+                std.debug.print("line: [{s}] can not be split when reading Genome", .{line});
+                return error.MalformedGenomeFile;
+            }
+
+            // parse traits
+            if (std.mem.eql(u8, first, "trait")) {
+                var new_trait = try Trait.read_from_file(allocator, rest);
+                try trait_list.append(new_trait);
+            }
+
+            // parse nodes
+            if (std.mem.eql(u8, first, "node")) {
+                var new_node = try NNode.read_from_file(allocator, rest, trait_list.items);
+                try node_list.append(new_node);
+            }
+
+            // parse genes
+            if (std.mem.eql(u8, first, "gene")) {
+                var new_gene = try Gene.read_from_file(allocator, rest, trait_list.items, node_list.items);
+                try gene_list.append(new_gene);
+            }
+
+            // parse genome id
+            if (std.mem.eql(u8, first, "genomeend")) {
+                genome_id = try std.fmt.parseInt(i64, rest, 10);
+            }
+        }
+        return Genome.init(allocator, genome_id, try trait_list.toOwnedSlice(), try node_list.toOwnedSlice(), try gene_list.toOwnedSlice());
+    }
 };
 
 pub const ModuleMate = struct {

@@ -1,9 +1,5 @@
-const genetics_common = @import("genetics/common.zig");
-const genetics_genome = @import("genetics/genome.zig");
-const genetics_pop_epoch = @import("genetics/population_epoch.zig");
-const genetics_species = @import("genetics/species.zig");
-const experiment_common = @import("experiment/common.zig");
 const options = @import("opts.zig");
+const trait_common = @import("trait.zig");
 
 // export all Experiment Structs/Types/Fns
 pub const experiment = @import("experiment/common.zig");
@@ -25,4 +21,13 @@ pub const EpochExecutorType = options.EpochExecutorType;
 pub const GenomeCompatibilityMethod = options.GenomeCompatibilityMethod;
 pub const Options = options.Options;
 pub const NeatLogger = @import("log.zig");
-pub const Trait = @import("trait.zig").Trait;
+pub const Trait = trait_common.Trait;
+
+test {
+    _ = genetics;
+    _ = experiment;
+    _ = graph;
+    _ = math;
+    _ = network;
+    _ = trait_common;
+}

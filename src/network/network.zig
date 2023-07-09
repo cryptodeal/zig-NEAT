@@ -1,16 +1,12 @@
 const std = @import("std");
 const net_node = @import("nnode.zig");
 const net_math = @import("../math/activations.zig");
-const fast_network = @import("fast_network.zig");
 const common = @import("common.zig");
 const network_graph = @import("../graph/graph.zig");
 
 const NodeNeuronType = common.NodeNeuronType;
 const Graph = network_graph.Graph;
 const NNode = net_node.NNode;
-const FastModularNetworkSolver = fast_network.FastModularNetworkSolver;
-const FastNetworkLink = fast_network.FastNetworkLink;
-const FastControlNode = fast_network.FastControlNode;
 
 pub const Network = struct {
     // network id]
@@ -102,125 +98,17 @@ pub const Network = struct {
     }
 
     pub fn node_id_generator(self: *Network) i64 {
-        return self.all_nodes.len;
+        return @as(i64, @intCast(self.all_nodes.len));
     }
 
-    pub fn fast_network_solver(self: *Network) !*FastModularNetworkSolver {
-        // calc neurons per layer
-        var output_neuron_count = self.outputs.len;
-        var bias_neuron_count = 0;
-
-        // initialize bias, input and hidden neurons lists
-        var in_list = std.ArrayList(*NNode).init(self.allocator);
-        defer in_list.deinit();
-        var bias_list = std.ArrayList(*NNode).init(self.allocator);
-        defer bias_list.deinit();
-        var hidden_list = std.ArrayList(*NNode).init(self.allocator);
-        defer hidden_list.deinit();
-        for (self.all_nodes) |node| {
-            switch (node.neuron_type) {
-                NodeNeuronType.BiasNeuron => {
-                    bias_neuron_count += 1;
-                    bias_list.append(node);
-                },
-                NodeNeuronType.InputNeuron => in_list.append(node),
-                NodeNeuronType.HiddenNeuron => hidden_list.append(node),
-                else => unreachable,
-            }
-        }
-        var input_neuron_count = in_list.len;
-        var total_neuron_count = self.all_nodes.len;
-
-        // create activation fn array
-        var activations = self.allocator.alloc(net_math.NodeActivationType, total_neuron_count);
-        var neuron_lookup = std.AutoHashMap(i64, i64).init(self.allocator); // Map<id, idx>
-        defer neuron_lookup.deinit();
-
-        // walk through neuron nodes in order: bias, input, output, hidden
-        var neuron_idx = try self.process_list(0, std.ArrayList(*NNode), bias_list, activations, neuron_lookup);
-        neuron_idx = try self.process_list(neuron_idx, std.ArrayList(*NNode), in_list, activations, neuron_lookup);
-        neuron_idx = try self.process_list(neuron_idx, []*NNode, self.outputs, activations, neuron_lookup);
-        _ = try self.process_list(neuron_idx, std.ArrayList(*NNode), hidden_list, activations, neuron_lookup);
-
-        // walk through neurons in order: input, output, hidden and create bias and connections lists
-        // TODO: need to handle freeing this memory
-        var biases: []f64 = self.allocator.alloc(f64, total_neuron_count);
-        var cxns = std.ArrayList(*FastNetworkLink).init(self.allocator);
-
-        var in_cxns = try self.process_incoming_cxns(std.ArrayList(*NNode), in_list, biases, neuron_lookup);
-        try cxns.appendSlice(in_cxns);
-        self.allocator.free(in_cxns);
-        in_cxns = try self.process_incoming_cxns(std.ArrayList(*NNode), hidden_list, biases, neuron_lookup);
-        try cxns.appendSlice(in_cxns);
-        self.allocator.free(in_cxns);
-        in_cxns = try self.process_incoming_cxns([]*NNode, self.outputs, biases, neuron_lookup);
-        try cxns.appendSlice(in_cxns);
-        self.allocator.free(in_cxns);
-
-        // walk through control neurons
-        var modules = try self.allocator.alloc(*FastControlNode, self.control_nodes.len);
-        for (self.control_nodes, 0..) |cn, i| {
-            // collect inputs
-            var inputs = try self.allocator.alloc(i64, cn.incoming.len);
-            for (cn.incoming, 0..) |in, j| {
-                if (neuron_lookup.contains(in.in_node.id)) {
-                    inputs[j] = neuron_lookup.get(in.in_node.id);
-                } else {
-                    std.debug.print("failed to lookup for input neuron with id: {d} at control neuron: {d}", .{ in.in_node.id, cn.id });
-                    return error.NetworkNeuronLookupFailed;
-                }
-            }
-
-            // collect outputs
-            var outputs = try self.allocator.alloc(i64, cn.outgoing.len);
-            for (cn.outgoing, 0..) |out, j| {
-                if (neuron_lookup.contains(out.out_node.id)) {
-                    outputs[j] = neuron_lookup.get(out.out_node.id);
-                } else {
-                    std.debug.print("failed to lookup for output neuron with id: {d} at control neuron: {d}", .{ out.out_node.id, cn.id });
-                    return error.NetworkNeuronLookupFailed;
-                }
-            }
-            // build control node
-            modules[i] = try FastControlNode.init(self.allocator, inputs, outputs, cn.activation_type);
-        }
-        return try FastModularNetworkSolver.init(self.allocator, bias_neuron_count, input_neuron_count, output_neuron_count, total_neuron_count, activations, cxns.toOwnedSlice(), biases, modules);
-    }
-
-    fn process_list(start_idx: usize, comptime T: type, n_list: T, activations: []net_math.NodeActivationType, neuron_lookup: std.AutoHashMap(i64, i64)) !i64 {
+    fn process_list(_: *Network, start_idx: usize, n_list: []*NNode, activations: []net_math.NodeActivationType, neuron_lookup: *std.AutoHashMap(i64, i64)) !usize {
+        var idx = start_idx;
         for (n_list) |ne| {
             activations[start_idx] = ne.activation_type;
-            try neuron_lookup.put(ne.id, start_idx);
-            start_idx += 1;
+            try neuron_lookup.put(ne.id, @as(i64, @intCast(start_idx)));
+            idx += 1;
         }
-        return start_idx;
-    }
-
-    fn process_incoming_cxns(self: *Network, comptime T: type, n_list: T, biases: []f64, neuron_lookup: std.AutoHashMap(i64, i64)) ![]*FastNetworkLink {
-        var cxns = std.ArrayList(*FastNetworkLink).init(self.allocator);
-        for (n_list) |ne| {
-            if (neuron_lookup.contains(ne.id)) {
-                var target_idx = neuron_lookup.get(ne.id);
-                for (ne.incoming) |in| {
-                    if (neuron_lookup.contains(in.in_node.id)) {
-                        var source_idx = neuron_lookup.get(in.in_node.id);
-                        if (in.in_node.neuron_type == NodeNeuronType.BiasNeuron) {
-                            biases[target_idx] += in.cxn_weight;
-                        } else {
-                            var conn = try FastNetworkLink.init(self.allocator, source_idx, target_idx, in.cxn_weight);
-                            cxns.append(conn);
-                        }
-                    } else {
-                        std.debug.print("failed to lookup for target neuron with id: {d}\n", .{in.in_node.id});
-                        return error.NetworkNeuronLookupFailed;
-                    }
-                }
-            } else {
-                std.debug.print("failed to lookup for target neuron with id: {d}\n", .{ne.id});
-                return error.NetworkNeuronLookupFailed;
-            }
-        }
-        return try cxns.toOwnedSlice();
+        return idx;
     }
 
     pub fn is_control_node(self: *Network, nid: i64) bool {
@@ -349,8 +237,8 @@ pub const Network = struct {
     }
 
     pub fn recursive_steps(self: *Network) !bool {
-        var net_depth = self.max_activation_depth_fast(0);
-        return try self.forward_steps(net_depth);
+        var net_depth = try self.max_activation_depth_fast(0);
+        return self.forward_steps(net_depth);
     }
 
     pub fn relax() !bool {
@@ -470,7 +358,7 @@ pub const Network = struct {
     }
 
     pub fn get_all_nodes(self: *Network) []*NNode {
-        return self.all_nodes_MIMO;
+        return self.all_nodes_MIMO.items;
     }
 
     pub fn get_control_nodes(self: *Network) []*NNode {

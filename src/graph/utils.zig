@@ -1,5 +1,9 @@
 const std = @import("std");
 
+pub fn IdxMapType(comptime IdType: type) type {
+    return if (IdType == []const u8) std.StringHashMap(usize) else std.AutoHashMap(IdType, usize);
+}
+
 pub fn getInfValue(comptime WeightType: type) WeightType {
     return switch (WeightType) {
         f16, f32, f64 => std.math.inf(WeightType),

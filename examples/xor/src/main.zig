@@ -75,7 +75,7 @@ fn org_eval(organism: *Organism) !bool {
 
     if (organism.fitness > fitness_threshold) {
         organism.is_winner = true;
-        logger.err(">>>> Output activations: {any}", .{out}, @src());
+        std.debug.print(">>>> Output activations: {any}\n", .{out});
     } else {
         organism.is_winner = false;
     }
@@ -87,8 +87,6 @@ fn eval(opts: *Options, pop: *Population, epoch: *Generation) !void {
     // Evaluate each organism on a test
     for (pop.organisms.items) |org| {
         var res = try org_eval(org);
-        var complexity = org.phenotype.?.complexity();
-        _ = complexity;
 
         if (res and (epoch.champion == null or org.fitness > epoch.champion.?.fitness)) {
             epoch.solved = true;
@@ -166,46 +164,16 @@ pub fn main() !void {
         .node_activators = node_activators,
         .node_activators_prob = node_activators_prob,
         .epoch_executor_type = EpochExecutorType.EpochExecutorTypeSequential,
-        .gen_compat_method = GenomeCompatibilityMethod.GenomeCompatibilityMethodFast,
+        .gen_compat_method = GenomeCompatibilityMethod.GenomeCompatibilityMethodLinear,
     };
 
-    // initialize Traits for Genome
-    var traits = try allocator.alloc(*Trait, 3);
-    for (traits, 0..) |_, i| {
-        traits[i] = try Trait.init(allocator, 8);
-        traits[i].id = @as(i64, @intCast(i)) + 1;
-        traits[i].params[0] = 0.1 * @as(f64, @floatFromInt(i + 1));
-    }
-
-    // initialize Nodes for Genome
-    var nodes = try allocator.alloc(*NNode, 4);
-    nodes[0] = try NNode.init(allocator, 1, NodeNeuronType.BiasNeuron);
-    nodes[0].trait = traits[0];
-    nodes[0].activation_type = NodeActivationType.NullActivation;
-    // input Nodes
-    nodes[1] = try NNode.init(allocator, 2, NodeNeuronType.InputNeuron);
-    nodes[1].trait = traits[0];
-    nodes[1].activation_type = NodeActivationType.NullActivation;
-    nodes[2] = try NNode.init(allocator, 3, NodeNeuronType.InputNeuron);
-    nodes[2].trait = traits[0];
-    nodes[2].activation_type = NodeActivationType.NullActivation;
-    // output Node
-    nodes[3] = try NNode.init(allocator, 4, NodeNeuronType.OutputNeuron);
-    nodes[3].trait = traits[0];
-    nodes[3].activation_type = NodeActivationType.SigmoidSteepenedActivation;
-
-    // initialize Genes for Genome
-    var genes = try allocator.alloc(*Gene, 3);
-    genes[0] = try Gene.init_with_trait(allocator, traits[0], 0.0, nodes[0], nodes[3], false, 1, 0);
-    genes[1] = try Gene.init_with_trait(allocator, traits[0], 0.0, nodes[1], nodes[3], false, 1, 0);
-    genes[2] = try Gene.init_with_trait(allocator, traits[0], 0.0, nodes[2], nodes[3], false, 1, 0);
-
-    // initialize Genome
-    var start_genome = try Genome.init(allocator, 1, traits, nodes, genes);
+    // initialize Genome from file
+    var start_genome = try Genome.read_from_file(allocator, "data/xorstartgenes");
     defer start_genome.deinit();
+
     var experiment = try Experiment.init(allocator, 0);
-    try experiment.trials.ensureTotalCapacityPrecise(opts.num_runs);
     defer experiment.deinit();
+    try experiment.trials.ensureTotalCapacityPrecise(opts.num_runs);
 
     const evaluator = GenerationEvaluator{ .generation_evaluate = eval };
 
@@ -214,6 +182,6 @@ pub fn main() !void {
     var res = try experiment.avg_winner_statistics(allocator);
     defer res.deinit();
 
-    var avg_epoch_duration = experiment.avg_epoch_duration();
-    logger.info("avg_epoch_duration: {d}", .{avg_epoch_duration}, @src());
+    // var avg_epoch_duration = experiment.avg_epoch_duration();
+    // std.debug.print("avg_epoch_duration: {d}\n", .{avg_epoch_duration});
 }

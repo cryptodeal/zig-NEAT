@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const TransientAllocator = struct {
+pub const TransientAllocator = struct {
     count: u32 = 0,
     backing_alloc: std.heap.ArenaAllocator,
 

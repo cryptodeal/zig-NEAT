@@ -39,9 +39,9 @@ pub const EpochExecutor = union(enum) {
     }
 
     pub fn reproduce(self: EpochExecutor, opts: *Options, generation: usize, population: *Population) !void {
-        switch (self) {
+        try switch (self) {
             inline else => |s| s.reproduce(opts, generation, population),
-        }
+        };
     }
 };
 
@@ -61,3 +61,7 @@ pub fn epoch_executor_for_ctx(allocator: std.mem.Allocator, ctx: *Options) !Epoc
 pub const GenerationEvaluator = struct {
     generation_evaluate: fn (*Options, *Population, *Generation) anyerror!void,
 };
+
+test {
+    std.testing.refAllDecls(@This());
+}

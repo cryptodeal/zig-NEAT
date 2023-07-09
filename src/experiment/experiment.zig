@@ -123,8 +123,8 @@ pub const Experiment = struct {
         for (self.trials.items, 0..) |t, i| {
             var org = try t.best_organism(only_solvers);
             if (org != null) {
-                try orgs.append(org);
-                org.flag = i;
+                try orgs.append(org.?);
+                org.?.flag = i;
             }
         }
         if (orgs.items.len > 0) {
@@ -152,7 +152,7 @@ pub const Experiment = struct {
         for (self.trials.items, 0..) |t, i| {
             var org = try t.best_organism(false);
             if (org != null) {
-                x[i] = org.fitness;
+                x[i] = org.?.fitness;
             }
         }
         return x;
@@ -164,7 +164,7 @@ pub const Experiment = struct {
         for (self.trials.items, 0..) |t, i| {
             var org = try t.best_organism(false);
             if (org != null) {
-                x[i] = @as(f64, @floatFromInt(org.species.age));
+                x[i] = @as(f64, @floatFromInt(org.?.species.age));
             }
         }
         return x;
@@ -176,7 +176,7 @@ pub const Experiment = struct {
         for (self.trials.items, 0..) |t, i| {
             var org = try t.best_organism(false);
             if (org != null) {
-                x[i] = @as(f64, @floatFromInt(org.phenotype.complexity()));
+                x[i] = @as(f64, @floatFromInt(org.?.phenotype.?.complexity()));
             }
         }
         return x;
@@ -256,7 +256,7 @@ pub const Experiment = struct {
         return avg_winner_stats;
     }
 
-    pub fn efficiency_score(self: *Experiment) f64 {
+    pub fn efficiency_score(self: *Experiment) !f64 {
         var mean_complexity: f64 = 0;
         var mean_fitness: f64 = 0;
         if (self.trials.items.len > 0) {
@@ -265,11 +265,11 @@ pub const Experiment = struct {
                 if (t.solved()) {
                     if (t.winner_generation == null) {
                         // find winner
-                        var stats = try t.winner_statistics();
+                        var stats = try t.winner_statistics(self.allocator);
                         defer stats.deinit();
                     }
-                    mean_complexity += @as(f64, @floatFromInt(t.winner_generation.?.champion.phenotype.?.complexity()));
-                    mean_fitness += t.winner_generation.?.champion.fitness;
+                    mean_complexity += @as(f64, @floatFromInt(t.winner_generation.?.champion.?.phenotype.?.complexity()));
+                    mean_fitness += t.winner_generation.?.champion.?.fitness;
 
                     count += 1;
                 }
@@ -280,8 +280,8 @@ pub const Experiment = struct {
 
         // normalize and scale fitness score if appropriate
         var fitness_score = mean_fitness;
-        if (self.max_fitness_score > 0) {
-            fitness_score = (fitness_score / self.max_fitness_score) * 100;
+        if (self.max_fitness_score != null and self.max_fitness_score.? > 0) {
+            fitness_score = (fitness_score / self.max_fitness_score.?) * 100;
         }
 
         var score = self.penalty_score(mean_complexity);
@@ -295,14 +295,14 @@ pub const Experiment = struct {
     }
 
     fn penalty_score(self: *Experiment, mean_complexity: f64) f64 {
-        return @as(f64, @floatFromInt(self.avg_epoch_duration())) * self.avg_generations_per_trial() * mean_complexity;
+        return self.avg_epoch_duration() * self.avg_generations_per_trial() * mean_complexity;
     }
 
     pub fn execute(self: *Experiment, allocator: std.mem.Allocator, opts: *Options, start_genome: *Genome, comptime evaluator: GenerationEvaluator) !void {
         var run: usize = 0;
         while (run < opts.num_runs) : (run += 1) {
             var trial_start_time = try std.time.Instant.now();
-            logger.info("\n>>>>> Spawning new population: ", .{}, @src());
+            logger.info(">>>>> Spawning new population: ", .{}, @src());
             var pop = Population.init(allocator, start_genome, opts) catch |err| {
                 logger.info("Failed to spawn new population from start genome\n", .{}, @src());
                 return err;

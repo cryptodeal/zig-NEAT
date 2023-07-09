@@ -11,7 +11,8 @@ const parallel_executor_next_epoch = neat_pop_executor.parallel_executor_next_ep
 
 // TODO: fix - test leaks memory and fails
 test "ParallelPopulationEpochExecutor next epoch" {
-    var allocator = std.testing.allocator;
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var allocator = gpa.allocator();
 
     var in: i64 = 3;
     var out: i64 = 2;

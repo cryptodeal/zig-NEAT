@@ -26,20 +26,27 @@ I recommend using [zigup](https://github.com/marler8997/zigup) to manage the ver
 
 ## Run Examples
 
-**TODO: move examples into root directory with separate build scripts**
-
 To run the XOR example, run the following command:
 
 ```bash
 cd examples/xor
-# alternatively, use -Doptimize=ReleaseSafe
-zig build run -Doptimize=ReleaseFast
+# alternatively, use -Doptimize=ReleaseFast
+zig build run -Doptimize=ReleaseSafe
 ```
 
 To run the CartPole example, run the following command:
 
 ```bash
 cd examples/cartpole
-# alternatively, use -Doptimize=ReleaseSafe
-zig build run -Doptimize=ReleaseFast
+# alternatively, use -Doptimize=ReleaseFast
+zig build run -Doptimize=ReleaseSafe
 ```
+
+## Roadmap
+
+- [x] Implement basic Graph Theory functionality
+- [x] Implement basic NEAT Algorithm
+- [x] Working Sequential Population Epoch Executor (single-threaded species reproduction)
+- [ ] Working Parallel Population Epoch Executor (multi-threaded; thread per species reproduction)
+- [ ] Implement Novelty Search Optimization
+- [ ] Implement HyperNEAT Algorithm

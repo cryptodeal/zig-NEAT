@@ -4,6 +4,7 @@ const NNode = @import("../network/nnode.zig").NNode;
 const Trait = @import("../trait.zig").Trait;
 const neat_math = @import("../math/activations.zig");
 const NodeNeuronType = @import("../network/common.zig").NodeNeuronType;
+const trait_with_id = @import("common.zig").trait_with_id;
 
 pub const Gene = struct {
     // link between nodes
@@ -63,6 +64,53 @@ pub const Gene = struct {
             .is_enabled = enabled,
         };
         return self;
+    }
+
+    pub fn read_from_file(allocator: std.mem.Allocator, data: []const u8, traits: []*Trait, nodes: []*NNode) !*Gene {
+        var trait_id: i64 = undefined;
+        var in_node_id: i64 = undefined;
+        var out_node_id: i64 = undefined;
+        var innovation_num: i64 = undefined;
+        var weight: f64 = undefined;
+        var mut_num: f64 = undefined;
+        var recurrent: bool = false;
+        var enabled: bool = false;
+
+        var split = std.mem.split(u8, data, " ");
+
+        var count: usize = 0;
+        while (split.next()) |d| : (count += 1) {
+            switch (count) {
+                0 => trait_id = try std.fmt.parseInt(i64, d, 10),
+                1 => in_node_id = try std.fmt.parseInt(i64, d, 10),
+                2 => out_node_id = try std.fmt.parseInt(i64, d, 10),
+                3 => weight = try std.fmt.parseFloat(f64, d),
+                4 => {
+                    if (std.mem.eql(u8, d, "true")) recurrent = true;
+                },
+                5 => innovation_num = try std.fmt.parseInt(i64, d, 10),
+                6 => mut_num = try std.fmt.parseFloat(f64, d),
+                7 => {
+                    if (std.mem.eql(u8, d, "true")) enabled = true;
+                },
+                else => break,
+            }
+        }
+        if (count < 7) return error.MalformedGeneInGenomeFile;
+        var in_node: ?*NNode = null;
+        var out_node: ?*NNode = null;
+        for (nodes) |nd| {
+            if (nd.id == in_node_id) in_node = nd;
+            if (nd.id == out_node_id) out_node = nd;
+        }
+        var trait = trait_with_id(trait_id, traits);
+        if (trait != null) {
+            var link = try Link.init_with_trait(allocator, trait, weight, in_node, out_node, recurrent);
+            return Gene.init_cxn_gene(allocator, link, innovation_num, mut_num, enabled);
+        } else {
+            var link = try Link.init(allocator, weight, in_node, out_node, recurrent);
+            return Gene.init_cxn_gene(allocator, link, innovation_num, mut_num, enabled);
+        }
     }
 
     pub fn deinit(self: *Gene) void {

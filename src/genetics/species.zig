@@ -251,7 +251,7 @@ pub const Species = struct {
     pub fn sort_find_champion(self: *Species) ?*Organism {
         var champ: ?*Organism = null;
         // sort the population (most fit first) and mark for death those after : survival_threshold * pop_size
-        std.sort.sort(*Organism, self.organisms.items, {}, fitness_comparison);
+        std.mem.sort(*Organism, self.organisms.items, {}, fitness_comparison);
         std.mem.reverse(*Organism, self.organisms.items);
         champ = self.organisms.items[0];
         return champ;

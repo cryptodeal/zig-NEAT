@@ -17,10 +17,12 @@ pub const ReproductionResult = struct {
     babies_stored: usize = 0,
     babies: ?[]*Organism = undefined,
     species_id: i64,
+    allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator, id: i64) !*ReproductionResult {
         var self = try allocator.create(ReproductionResult);
         self.* = .{
+            .allocator = allocator,
             .species_id = id,
         };
         return self;
@@ -83,9 +85,6 @@ pub const SequentialPopulationEpochExecutor = struct {
         // Sort the Species by max original fitness of its first organism
         std.mem.sort(*Species, self.sorted_species.items, {}, fitness_comparison);
         std.mem.reverse(*Species, self.sorted_species.items);
-
-        // Used in debugging to see why (if) best species dies
-        self.best_species_id = self.sorted_species.items[0].id;
 
         var curr_species = self.sorted_species.items[0];
         // Used in debugging to see why (if) best species dies
@@ -185,7 +184,7 @@ pub const ParallelPopulationEpochExecutor = struct {
 
         // Do parallel reproduction
         try self.reproduce(opts, generation, population);
-        logger.info("POPULATION: >>>>> Epoch {d} complete", .{generation}, @src());
+        logger.info("POPULATION: >>>>> Epoch {d} complete\n", .{generation}, @src());
     }
 
     pub fn reproduce(self: *ParallelPopulationEpochExecutor, opts: *Options, generation: usize, pop: *Population) !void {
@@ -242,14 +241,14 @@ pub const ParallelPopulationEpochExecutor = struct {
 };
 
 pub const WorkerCtx = struct {
-    allocator: std.heap.ThreadSafeAllocator,
+    allocator: std.mem.Allocator,
     mu: std.Thread.Mutex = .{},
     res: []?*ReproductionResult,
 
     pub fn init(allocator: std.mem.Allocator, count: usize) !*WorkerCtx {
         var self = try allocator.create(WorkerCtx);
         self.* = .{
-            .allocator = std.heap.ThreadSafeAllocator{ .child_allocator = allocator },
+            .allocator = allocator,
             .res = try allocator.alloc(?*ReproductionResult, count),
         };
         return self;
@@ -258,17 +257,17 @@ pub const WorkerCtx = struct {
     pub fn deinit(self: *WorkerCtx) void {
         for (self.res) |res| {
             if (res != null and res.?.babies != null) {
-                self.allocator.child_allocator.free(res.?.babies.?);
+                self.allocator.free(res.?.babies.?);
             }
         }
-        self.allocator.child_allocator.free(self.res);
-        self.allocator.child_allocator.destroy(self);
+        self.allocator.free(self.res);
+        self.allocator.destroy(self);
     }
 };
 
 fn workerFn(ctx: *WorkerCtx, wg: *WaitGroup, species: *Species, opts: *Options, generation: usize, pop: *Population, sorted_species: []*Species, idx: usize) void {
     defer wg.finish();
-    var res = ReproductionResult.init(ctx.allocator.allocator(), species.id) catch null;
+    var res = ReproductionResult.init(ctx.allocator, species.id) catch null;
     if (res != null) {
         res.?.babies = species.reproduce(opts, generation, pop, sorted_species) catch null;
     }

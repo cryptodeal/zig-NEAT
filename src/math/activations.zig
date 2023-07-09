@@ -4,7 +4,7 @@ const ActivationFn = fn (f64, []f64) f64;
 const ModuleActivationFn = fn ([]f64, []f64) []f64;
 
 // neuron activation function types
-pub const NodeActivationType = enum {
+pub const NodeActivationType = enum(usize) {
     // sigmoid activation functions
     SigmoidPlainActivation,
     SigmoidReducedActivation,
@@ -37,8 +37,8 @@ pub const NodeActivationType = enum {
         // sigmoid activation functions
         "SigmoidPlainActivation",
         "SigmoidReducedActivation",
-        "SigmoidSteepenedActivation",
         "SigmoidBipolarActivation",
+        "SigmoidSteepenedActivation",
         "SigmoidApproximationActivation",
         "SigmoidSteepenedApproximationActivation",
         "SigmoidInverseAbsoluteActivation",
@@ -96,16 +96,16 @@ pub const NodeActivationType = enum {
     }
 
     pub fn activation_name_by_type(self: NodeActivationType) []const u8 {
-        return ActivationNameTable[@intFromEnum(self)];
+        return @tagName(self);
     }
 
     pub fn activation_type_by_name(name: []const u8) NodeActivationType {
-        inline for (ActivationNameTable) |enum_name| {
-            if (comptime std.mem.eql(u8, name, enum_name)) {
-                return @as(NodeActivationType, @enumFromInt(@intFromEnum(enum_name)));
+        inline for (ActivationNameTable, 0..) |enum_name, idx| {
+            if (std.mem.eql(u8, name, enum_name)) {
+                return @as(NodeActivationType, @enumFromInt(idx));
             }
         }
-        @compileError(@compileError("unknown activation name: " ++ name));
+        unreachable;
     }
 };
 

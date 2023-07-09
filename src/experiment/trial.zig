@@ -67,9 +67,9 @@ pub const Trial = struct {
         defer orgs.deinit();
         for (self.generations.items) |e| {
             if (!only_solvers) {
-                try orgs.append(e.champion);
+                try orgs.append(e.champion.?);
             } else if (e.solved) {
-                try orgs.append(e.champion);
+                try orgs.append(e.champion.?);
             }
         }
         if (orgs.items.len > 0) {
@@ -93,7 +93,7 @@ pub const Trial = struct {
     pub fn champions_fitness(self: *Trial, allocator: std.mem.Allocator) ![]f64 {
         var x = try allocator.alloc(f64, self.generations.items.len);
         for (self.generations.items, 0..) |e, i| {
-            x[i] = e.champion.fitness;
+            x[i] = e.champion.?.fitness;
         }
         return x;
     }
@@ -101,7 +101,7 @@ pub const Trial = struct {
     pub fn champion_species_ages(self: *Trial, allocator: std.mem.Allocator) ![]f64 {
         var x = try allocator.alloc(f64, self.generations.items.len);
         for (self.generations.items, 0..) |e, i| {
-            x[i] = @as(f64, @floatFromInt(e.champion.species.age));
+            x[i] = @as(f64, @floatFromInt(e.champion.?.species.age));
         }
         return x;
     }
@@ -109,7 +109,7 @@ pub const Trial = struct {
     pub fn champions_complexities(self: *Trial, allocator: std.mem.Allocator) ![]f64 {
         var x = try allocator.alloc(f64, self.generations.items.len);
         for (self.generations.items, 0..) |e, i| {
-            x[i] = @as(f64, @floatFromInt(e.champion.phenotype.complexity()));
+            x[i] = @as(f64, @floatFromInt(e.champion.?.phenotype.?.complexity()));
         }
         return x;
     }

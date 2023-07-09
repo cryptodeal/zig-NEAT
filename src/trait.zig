@@ -1,7 +1,7 @@
 const std = @import("std");
 const math = @import("math/math.zig");
 
-pub const NumTraitParams: i64 = 8;
+pub const NumTraitParams: usize = 8;
 
 pub const Trait = struct {
     // Trait id
@@ -43,6 +43,20 @@ pub const Trait = struct {
             nt.params[i] = (p + trait_2.params[i]) / 2.0;
         }
         return nt;
+    }
+
+    pub fn read_from_file(allocator: std.mem.Allocator, data: []const u8) !*Trait {
+        var self = try Trait.init(allocator, NumTraitParams);
+        errdefer self.deinit();
+        var split = std.mem.split(u8, data, " ");
+        self.id = try std.fmt.parseInt(i64, split.first(), 10);
+        var count: usize = 0;
+        while (count < NumTraitParams) : (count += 1) {
+            var val = split.next();
+            if (val == null) return error.MalformedTraitInGenomeFile;
+            self.params[count] = try std.fmt.parseFloat(f64, val.?);
+        }
+        return self;
     }
 
     pub fn is_equal(self: *Trait, t: *Trait) bool {
@@ -121,4 +135,8 @@ test "new trait copy" {
     for (t2.params, 0..) |p, i| {
         try std.testing.expect(t1.params[i] == p);
     }
+}
+
+test {
+    std.testing.refAllDecls(@This());
 }
