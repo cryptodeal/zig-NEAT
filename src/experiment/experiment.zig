@@ -329,7 +329,7 @@ pub const Experiment = struct {
                 std.debug.print("\n>>>>> Generation:{d}\tRun: {d}\n", .{ generation_id, run });
                 var generation = try Generation.init(allocator, generation_id, run);
                 var gen_start_time = std.time.Instant.now() catch unreachable;
-                evaluator.generation_evaluate(opts, pop, generation) catch |err| {
+                evaluator.generation_evaluate(opts, pop, generation, evaluator.ctx) catch |err| {
                     std.debug.print("!!!!! Generation [{d}] evaluation failed !!!!!\n", .{generation_id});
                     generation.deinit_early();
                     return err;
@@ -361,7 +361,7 @@ pub const Experiment = struct {
                 }
             }
             // holds trial duration
-            var current_time = std.time.Instant.now() catch unreachable;
+            var current_time = try std.time.Instant.now();
             trial.duration = current_time.since(trial_start_time);
 
             // store trial into experiment

@@ -42,11 +42,24 @@ cd examples/cartpole
 zig build run -Doptimize=ReleaseSafe
 ```
 
+To run the Cart2Pole (Markov) example, run the following command:
+
+```bash
+cd examples/cart2pole
+# alternatively, use -Doptimize=ReleaseFast
+zig build run -Doptimize=ReleaseSafe
+```
+
 ## Roadmap
 
 - [x] Implement basic Graph Theory functionality
 - [x] Implement basic NEAT Algorithm
-- [x] Working Sequential Population Epoch Executor (single-threaded species reproduction)
-- [ ] Working Parallel Population Epoch Executor (multi-threaded; thread per species reproduction)
+  - [x] Working Sequential Population Epoch Executor (single-threaded species reproduction)
+  - [ ] Working Parallel Population Epoch Executor (multi-threaded; thread per species reproduction)
+  - [ ] Basic NEAT Examples
+    - [x] XOR Connected
+    - [x] Cartpole
+    - [x] Cart2pole (Markov)
+    - [ ] Cart2pole (Non-Markov)
 - [ ] Implement Novelty Search Optimization
 - [ ] Implement HyperNEAT Algorithm

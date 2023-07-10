@@ -11,11 +11,7 @@ const GenerationEvaluator = zig_neat.experiment.GenerationEvaluator;
 const Genome = zig_neat.genetics.Genome;
 const Experiment = zig_neat.experiment.Experiment;
 const Generation = zig_neat.experiment.Generation;
-const Gene = zig_neat.genetics.Gene;
 const NodeActivationType = zig_neat.math.NodeActivationType;
-const NodeNeuronType = zig_neat.network.NodeNeuronType;
-const NNode = zig_neat.network.NNode;
-const Trait = zig_neat.Trait;
 
 var logger = NeatLogger{ .log_level = std.log.Level.info };
 
@@ -83,7 +79,7 @@ fn org_eval(organism: *Organism) !bool {
     return organism.is_winner;
 }
 
-fn eval(opts: *Options, pop: *Population, epoch: *Generation) !void {
+fn eval(opts: *Options, pop: *Population, epoch: *Generation, _: *anyopaque) !void {
     // Evaluate each organism on a test
     for (pop.organisms.items) |org| {
         var res = try org_eval(org);

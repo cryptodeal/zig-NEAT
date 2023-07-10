@@ -16,6 +16,7 @@ pub const MIMOControlGene = @import("mimo_gene.zig").MIMOControlGene;
 pub const Organism = @import("organism.zig").Organism;
 pub const ReproductionResult = pop_epoch.ReproductionResult;
 pub const SequentialPopulationEpochExecutor = pop_epoch.SequentialPopulationEpochExecutor;
+pub const species_org_sort = pop_epoch.fitness_comparison;
 // pub const ParallelPopulationEpochExecutor = pop_epoch.ParallelPopulationEpochExecutor;
 // pub const WorkerCtx = pop_epoch.WorkerCtx;
 pub const Population = @import("population.zig").Population;

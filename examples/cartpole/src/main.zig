@@ -11,11 +11,7 @@ const GenerationEvaluator = zig_neat.experiment.GenerationEvaluator;
 const Genome = zig_neat.genetics.Genome;
 const Experiment = zig_neat.experiment.Experiment;
 const Generation = zig_neat.experiment.Generation;
-const Gene = zig_neat.genetics.Gene;
 const NodeActivationType = zig_neat.math.NodeActivationType;
-const NodeNeuronType = zig_neat.network.NodeNeuronType;
-const NNode = zig_neat.network.NNode;
-const Trait = zig_neat.Trait;
 const Network = zig_neat.network.Network;
 
 var logger = NeatLogger{ .log_level = std.log.Level.info };
@@ -23,8 +19,7 @@ var logger = NeatLogger{ .log_level = std.log.Level.info };
 const twelve_degrees: f64 = 12 * @as(f64, std.math.pi) / 180;
 const win_balance_steps: usize = 500000;
 
-fn eval(opts: *Options, pop: *Population, epoch: *Generation) !void {
-
+fn eval(opts: *Options, pop: *Population, epoch: *Generation, _: *anyopaque) !void {
     // evaluate each organism on a test
     for (pop.organisms.items) |org| {
         var res = try org_eval(org);
@@ -33,7 +28,7 @@ fn eval(opts: *Options, pop: *Population, epoch: *Generation) !void {
         if (res and (epoch.champion == null or org.fitness > epoch.champion.?.fitness)) {
             epoch.solved = true;
             epoch.winner_nodes = org.genotype.nodes.len;
-            epoch.winner_genes = org.genotype.genes.len;
+            epoch.winner_genes = @as(usize, @intCast(org.genotype.extrons()));
             epoch.winner_evals = opts.pop_size * epoch.id + @as(usize, @intCast(org.genotype.id));
             epoch.champion = org;
         }
