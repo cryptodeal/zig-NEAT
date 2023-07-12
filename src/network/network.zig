@@ -222,7 +222,7 @@ pub const Network = struct {
     }
 
     pub fn activate(self: *Network) !bool {
-        return try self.activate_steps(20);
+        return self.activate_steps(20);
     }
 
     pub fn forward_steps(self: *Network, steps: i64) !bool {
@@ -270,8 +270,8 @@ pub const Network = struct {
         }
     }
 
-    pub fn read_outputs(self: *Network) ![]f64 {
-        var outs = try self.allocator.alloc(f64, self.outputs.len);
+    pub fn read_outputs(self: *Network, allocator: std.mem.Allocator) ![]f64 {
+        var outs = try allocator.alloc(f64, self.outputs.len);
         for (self.outputs, 0..) |o, i| {
             outs[i] = o.activation;
         }
@@ -333,7 +333,7 @@ pub const Network = struct {
             return 1;
         }
 
-        return try self.calc_max_activation_depth();
+        return self.calc_max_activation_depth();
     }
 
     pub fn max_activation_depth_fast(self: *Network, max_depth: i64) !i64 {

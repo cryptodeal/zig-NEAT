@@ -375,8 +375,7 @@ fn eval(opts: *Options, pop: *Population, epoch: *Generation, ctx: *anyopaque) !
         var curr_species: ?*Species = undefined;
         for (sorted_species, 0..) |_, i| {
             curr_species = sorted_species[i];
-            var max = try curr_species.?.compute_max_and_avg_fitness();
-            defer max.deinit();
+            var max = curr_species.?.compute_max_and_avg_fitness();
             if (max.max > curr_species.?.max_fitness_ever) {
                 curr_species.?.is_checked = false;
             }
@@ -582,6 +581,5 @@ pub fn main() !void {
 
     try experiment.execute(allocator, opts, start_genome, evaluator);
 
-    var res = try experiment.avg_winner_statistics(allocator);
-    defer res.deinit();
+    // var res = experiment.avg_winner_statistics();
 }

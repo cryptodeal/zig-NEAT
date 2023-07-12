@@ -246,6 +246,5 @@ pub fn main() !void {
 
     try experiment.execute(allocator, opts, start_genome, evaluator);
 
-    var res = try experiment.avg_winner_statistics(allocator);
-    defer res.deinit();
+    // var res = experiment.avg_winner_statistics();
 }

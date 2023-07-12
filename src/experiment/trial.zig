@@ -62,8 +62,8 @@ pub const Trial = struct {
         return u;
     }
 
-    pub fn best_organism(self: *Trial, only_solvers: bool) !?*Organism {
-        var orgs = std.ArrayList(*Organism).init(self.allocator);
+    pub fn best_organism(self: *Trial, allocator: std.mem.Allocator, only_solvers: bool) !?*Organism {
+        var orgs = std.ArrayList(*Organism).init(allocator);
         defer orgs.deinit();
         for (self.generations.items) |e| {
             if (!only_solvers) {
@@ -122,11 +122,10 @@ pub const Trial = struct {
         return x;
     }
 
-    pub fn average(self: *Trial, allocator: std.mem.Allocator) !*TrialAvg {
+    pub fn average(self: *Trial, allocator: std.mem.Allocator) *TrialAvg {
         var self_avg = try TrialAvg.init(allocator, self.generations.items.len);
         for (self.generations.items, 0..) |e, i| {
-            var gen_avg = try e.average(allocator);
-            defer gen_avg.deinit();
+            var gen_avg = e.average();
             self_avg.fitness[i] = gen_avg.fitness;
             self_avg.age[i] = gen_avg.age;
             self_avg.complexity[i] = gen_avg.complexity;
@@ -134,8 +133,8 @@ pub const Trial = struct {
         return self_avg;
     }
 
-    pub fn winner_statistics(self: *Trial, allocator: std.mem.Allocator) !*WinnerStats {
-        var stats = try WinnerStats.init(allocator);
+    pub fn winner_statistics(self: *Trial) WinnerStats {
+        var stats = WinnerStats{};
         if (self.winner_generation != null) {
             stats.nodes = @as(i64, @intCast(self.winner_generation.?.winner_nodes));
             stats.genes = @as(i64, @intCast(self.winner_generation.?.winner_genes));
@@ -154,7 +153,7 @@ pub const Trial = struct {
                 }
             }
         }
-        return stats;
+        return &stats;
     }
 };
 
@@ -163,19 +162,6 @@ pub const WinnerStats = struct {
     genes: i64 = -1,
     evals: i64 = -1,
     diversity: i64 = -1,
-    allocator: std.mem.Allocator,
-
-    pub fn init(allocator: std.mem.Allocator) !*WinnerStats {
-        var self = try allocator.create(WinnerStats);
-        self.* = .{
-            .allocator = allocator,
-        };
-        return self;
-    }
-
-    pub fn deinit(self: *WinnerStats) void {
-        self.allocator.destroy(self);
-    }
 };
 
 pub const TrialAvg = struct {

@@ -59,7 +59,7 @@ pub const Organism = struct {
     pub fn init(allocator: std.mem.Allocator, fit: f64, g: *Genome, generation: usize) !*Organism {
         var phenotype: ?*Network = g.phenotype;
         if (phenotype == null) {
-            phenotype = try g.genesis(g.id);
+            phenotype = try g.genesis(allocator, g.id);
         }
         var res = try allocator.create(Organism);
         res.* = .{
@@ -77,13 +77,13 @@ pub const Organism = struct {
         self.allocator.destroy(self);
     }
 
-    pub fn update_phenotype(self: *Organism) !void {
+    pub fn update_phenotype(self: *Organism, allocator: std.mem.Allocator) !void {
         if (self.phenotype != null) {
             self.phenotype.?.deinit();
             self.phenotype = null;
         }
         // recreate phenotype off new genotype
-        self.phenotype = try self.genotype.genesis(self.genotype.id);
+        self.phenotype = try self.genotype.genesis(allocator, self.genotype.id);
     }
 
     pub fn check_champion_child_damaged(self: *Organism) bool {
@@ -128,7 +128,7 @@ test "Organisms sorting" {
     var orgs = try allocator.alloc(*Organism, count);
     defer allocator.free(orgs);
     while (i < count) : (i += 1) {
-        var new_genome = try gnome.duplicate(@as(i64, @intCast(count)));
+        var new_genome = try gnome.duplicate(allocator, @as(i64, @intCast(count)));
         orgs[i] = try Organism.init(allocator, rand.float(f64), new_genome, 1);
     }
     // sort ascending
@@ -143,7 +143,7 @@ test "Organisms sorting" {
     // sort descending
     i = 0;
     while (i < count) : (i += 1) {
-        var new_genome = try gnome.duplicate(@as(i64, @intCast(count)));
+        var new_genome = try gnome.duplicate(allocator, @as(i64, @intCast(count)));
         orgs[i] = try Organism.init(allocator, rand.float(f64), new_genome, 1);
     }
     std.mem.sort(*Organism, orgs, {}, fitness_comparison);
@@ -194,6 +194,6 @@ test "Organism update phenotype" {
 
     org.phenotype = null;
     try std.testing.expect(org.phenotype == null);
-    try org.update_phenotype();
+    try org.update_phenotype(allocator);
     try std.testing.expect(org.phenotype != null);
 }

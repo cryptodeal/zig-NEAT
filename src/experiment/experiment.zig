@@ -121,7 +121,7 @@ pub const Experiment = struct {
         var orgs = std.ArrayList(*Organism).init(allocator);
         defer orgs.deinit();
         for (self.trials.items, 0..) |t, i| {
-            var org = try t.best_organism(only_solvers);
+            var org = try t.best_organism(allocator, only_solvers);
             if (org != null) {
                 try orgs.append(org.?);
                 org.?.flag = i;
@@ -150,7 +150,7 @@ pub const Experiment = struct {
     pub fn best_fitness(self: *Experiment, allocator: std.mem.Allocator) ![]f64 {
         var x = try allocator.alloc(f64, self.trials.items.len);
         for (self.trials.items, 0..) |t, i| {
-            var org = try t.best_organism(false);
+            var org = try t.best_organism(allocator, false);
             if (org != null) {
                 x[i] = org.?.fitness;
             }
@@ -162,7 +162,7 @@ pub const Experiment = struct {
     pub fn best_species_age(self: *Experiment, allocator: std.mem.Allocator) ![]f64 {
         var x = try allocator.alloc(f64, self.trials.items.len);
         for (self.trials.items, 0..) |t, i| {
-            var org = try t.best_organism(false);
+            var org = try t.best_organism(allocator, false);
             if (org != null) {
                 x[i] = @as(f64, @floatFromInt(org.?.species.age));
             }
@@ -174,7 +174,7 @@ pub const Experiment = struct {
     pub fn best_complexity(self: *Experiment, allocator: std.mem.Allocator) ![]f64 {
         var x = try allocator.alloc(f64, self.trials.items.len);
         for (self.trials.items, 0..) |t, i| {
-            var org = try t.best_organism(false);
+            var org = try t.best_organism(allocator, false);
             if (org != null) {
                 x[i] = @as(f64, @floatFromInt(org.?.phenotype.?.complexity()));
             }
@@ -227,8 +227,8 @@ pub const Experiment = struct {
 
     /// `avg_winner_statistics` calculates the average number of nodes, genes, organisms evaluations,
     /// and species diversity of winners among all trials, i.e. for all trials where winning solution was found.
-    pub fn avg_winner_statistics(self: *Experiment, allocator: std.mem.Allocator) !*AvgWinnerStats {
-        var avg_winner_stats = try AvgWinnerStats.init(allocator);
+    pub fn avg_winner_statistics(self: *Experiment) *AvgWinnerStats {
+        var avg_winner_stats = AvgWinnerStats{};
         var count: f64 = 0;
         var total_nodes: i64 = 0;
         var total_genes: i64 = 0;
@@ -237,8 +237,7 @@ pub const Experiment = struct {
         for (self.trials.items) |t| {
             if (t.solved()) {
                 // TODO: arena allocator (w free and retain capacity, might be faster)
-                var t_stats = try t.winner_statistics(allocator);
-                defer t_stats.deinit();
+                var t_stats = t.winner_statistics();
                 total_nodes += t_stats.nodes;
                 total_genes += t_stats.genes;
                 total_evals += t_stats.evals;
@@ -256,7 +255,7 @@ pub const Experiment = struct {
         return avg_winner_stats;
     }
 
-    pub fn efficiency_score(self: *Experiment) !f64 {
+    pub fn efficiency_score(self: *Experiment) f64 {
         var mean_complexity: f64 = 0;
         var mean_fitness: f64 = 0;
         if (self.trials.items.len > 0) {
@@ -265,8 +264,7 @@ pub const Experiment = struct {
                 if (t.solved()) {
                     if (t.winner_generation == null) {
                         // find winner
-                        var stats = try t.winner_statistics(self.allocator);
-                        defer stats.deinit();
+                        _ = t.winner_statistics();
                     }
                     mean_complexity += @as(f64, @floatFromInt(t.winner_generation.?.champion.?.phenotype.?.complexity()));
                     mean_fitness += t.winner_generation.?.champion.?.fitness;
@@ -320,7 +318,7 @@ pub const Experiment = struct {
             defer epoch_executor.deinit();
 
             // start new trial
-            var trial = try Trial.init(self.allocator, run);
+            var trial = try Trial.init(allocator, run);
 
             // TODO: implement/notify TrialObserver that run started
 
@@ -341,7 +339,7 @@ pub const Experiment = struct {
                 if (!generation.solved) {
                     // std.debug.print(">>>>> start next generation\n", .{});
                     std.debug.print("\n\nNEXT EPOCH:\n\n", .{});
-                    epoch_executor.next_epoch(opts, generation_id, pop) catch |err| {
+                    epoch_executor.next_epoch(allocator, opts, generation_id, pop) catch |err| {
                         std.debug.print("!!!!! Epoch execution failed in generation [{d}] !!!!!\n", .{generation_id});
                         return err;
                     };
@@ -377,20 +375,6 @@ pub const AvgWinnerStats = struct {
     avg_genes: f64 = -1,
     avg_evals: f64 = -1,
     avg_diversity: f64 = -1,
-
-    allocator: std.mem.Allocator,
-
-    pub fn init(allocator: std.mem.Allocator) !*AvgWinnerStats {
-        var self: *AvgWinnerStats = try allocator.create(AvgWinnerStats);
-        self.* = .{
-            .allocator = allocator,
-        };
-        return self;
-    }
-
-    pub fn deinit(self: *AvgWinnerStats) void {
-        self.allocator.destroy(self);
-    }
 };
 
 test "Experiment avg Trial duration" {

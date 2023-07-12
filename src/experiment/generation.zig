@@ -67,6 +67,7 @@ pub const Generation = struct {
     pub fn fill_population_statistics(self: *Generation, pop: *Population) !void {
         var max_fitness: f64 = @as(f64, @floatFromInt(std.math.minInt(i64)));
         self.diversity = pop.species.items.len;
+        // since these set Generation struct fields, alloc using Generation allocator
         self.age = try self.allocator.alloc(f64, self.diversity);
         self.complexity = try self.allocator.alloc(f64, self.diversity);
         self.fitness = try self.allocator.alloc(f64, self.diversity);
@@ -88,8 +89,13 @@ pub const Generation = struct {
 
     // Average the average fitness, age, and complexity among the best organisms of each species in the population
     // at the end of this epoch
-    pub fn average(self: *Generation, allocator: std.mem.Allocator) !*GenerationAvg {
-        return try GenerationAvg.init(allocator, self);
+    pub fn average(self: *Generation) GenerationAvg {
+        var res = GenerationAvg{
+            .fitness = mean(f64, self.fitness),
+            .age = mean(f64, self.age),
+            .complexity = mean(f64, self.complexity),
+        };
+        return res;
     }
 };
 
@@ -97,20 +103,4 @@ pub const GenerationAvg = struct {
     fitness: f64,
     age: f64,
     complexity: f64,
-    allocator: std.mem.Allocator,
-
-    pub fn init(allocator: std.mem.Allocator, gen: *Generation) !*GenerationAvg {
-        var self: *GenerationAvg = try allocator.create(GenerationAvg);
-        self.* = .{
-            .allocator = allocator,
-            .fitness = mean(f64, gen.fitness),
-            .age = mean(f64, gen.age),
-            .complexity = mean(f64, gen.complexity),
-        };
-        return self;
-    }
-
-    pub fn deinit(self: *GenerationAvg) void {
-        self.allocator.destroy(self);
-    }
 };

@@ -69,7 +69,7 @@ pub const Population = struct {
             return error.InvalidPopulationSize;
         }
         var self = try Population.raw_init(allocator);
-        try self.spawn(g, opts);
+        try self.spawn(allocator, g, opts);
         return self;
     }
 
@@ -87,13 +87,13 @@ pub const Population = struct {
         var self = try Population.raw_init(allocator);
         var count: usize = 0;
         while (count < opts.pop_size) : (count += 1) {
-            var gen = try Genome.init_rand(self.allocator, @as(i64, @intCast(count)), @as(i64, @intCast(in)), @as(i64, @intCast(out)), rand.intRangeLessThan(i64, 0, @as(i64, @intCast(max_hidden))), @as(i64, @intCast(max_hidden)), recurrent, link_prob);
-            var org = try Organism.init(self.allocator, 0.0, gen, 1);
+            var gen = try Genome.init_rand(allocator, @as(i64, @intCast(count)), @as(i64, @intCast(in)), @as(i64, @intCast(out)), rand.intRangeLessThan(i64, 0, @as(i64, @intCast(max_hidden))), @as(i64, @intCast(max_hidden)), recurrent, link_prob);
+            var org = try Organism.init(allocator, 0.0, gen, 1);
             try self.organisms.append(org);
         }
         self.next_node_id = std.atomic.Atomic(i64).init(@as(i64, @intCast(in + out + max_hidden + 1)));
         self.next_innov_number = std.atomic.Atomic(i64).init(@as(i64, @intCast((in + out + max_hidden) * (in + out + max_hidden) + 1)));
-        try self.speciate(opts, self.organisms.items);
+        try self.speciate(allocator, opts, self.organisms.items);
         return self;
     }
 
@@ -139,15 +139,15 @@ pub const Population = struct {
         return self.innovations.items;
     }
 
-    pub fn spawn(self: *Population, g: *Genome, opts: *Options) !void {
+    pub fn spawn(self: *Population, allocator: std.mem.Allocator, g: *Genome, opts: *Options) !void {
         var count: usize = 0;
         while (count < opts.pop_size) : (count += 1) {
             // make genome duplicate for new organism
-            var new_genome = try g.duplicate(@as(i64, @intCast(count)));
+            var new_genome = try g.duplicate(allocator, @as(i64, @intCast(count)));
             // introduce initial mutations
             _ = try new_genome.mutate_link_weights(1.0, 1.0, MutatorType.GaussianMutator);
             // create organism for new genome
-            var new_organism = try Organism.init(self.allocator, 0, new_genome, 1);
+            var new_organism = try Organism.init(allocator, 0, new_genome, 1);
             try self.organisms.append(new_organism);
         }
         // keep track of innovation and node number
@@ -156,7 +156,7 @@ pub const Population = struct {
         self.next_innov_number = std.atomic.Atomic(i64).init(try g.get_next_gene_innov_num());
         _ = self.next_innov_number.fetchSub(1, .Monotonic);
 
-        try self.speciate(opts, self.organisms.items);
+        try self.speciate(allocator, opts, self.organisms.items);
     }
 
     pub fn check_best_species_alive(self: *Population, best_species_id: i64, best_species_reproduced: bool) !void {
@@ -174,7 +174,7 @@ pub const Population = struct {
         }
     }
 
-    pub fn speciate(self: *Population, opts: *Options, organisms: []*Organism) !void {
+    pub fn speciate(self: *Population, allocator: std.mem.Allocator, opts: *Options, organisms: []*Organism) !void {
         if (organisms.len == 0) {
             std.debug.print("no organisms to speciate from\n", .{});
             return error.NoOrganismsToSpeciateFrom;
@@ -184,7 +184,7 @@ pub const Population = struct {
         for (organisms) |curr_org| {
             if (self.species.items.len == 0) {
                 // create the first species
-                try create_first_species(self, curr_org);
+                try create_first_species(allocator, self, curr_org);
             } else {
                 if (opts.compat_threshold == 0) {
                     std.debug.print("compatibility threshold is set to ZERO; will not find any compatible species\n", .{});
@@ -213,13 +213,13 @@ pub const Population = struct {
                     curr_org.species = best_compatible.?;
                 } else {
                     // if we didn't find a match, create a new species
-                    try create_first_species(self, curr_org);
+                    try create_first_species(allocator, self, curr_org);
                 }
             }
         }
     }
 
-    pub fn purge_zero_offspring_species(self: *Population, generation: usize) !void {
+    pub fn purge_zero_offspring_species(self: *Population, allocator: std.mem.Allocator, generation: usize) !void {
         _ = generation;
         // used to compute avg fitness over all Organisms
         var total: f64 = 0.0;
@@ -247,7 +247,6 @@ pub const Population = struct {
         var total_expected: i64 = 0;
         for (self.species.items) |sp| {
             var offspring_count = try sp.count_offspring(skim);
-            defer offspring_count.deinit();
             sp.expected_offspring = offspring_count.expected;
             skim = offspring_count.skim;
             total_expected += sp.expected_offspring;
@@ -287,13 +286,13 @@ pub const Population = struct {
             }
         }
         // Remove stagnated species which can not produce any offspring
-        var species_to_keep = std.ArrayList(*Species).init(self.allocator);
+        var species_to_keep = std.ArrayList(*Species).init(allocator);
         for (self.species.items) |sp| {
             if (sp.expected_offspring > 0) {
                 try species_to_keep.append(sp);
             } else {
                 // TODO: ensure this frees memory of extinct species
-                var new_orgs = std.ArrayList(*Organism).init(self.allocator);
+                var new_orgs = std.ArrayList(*Organism).init(allocator);
                 for (self.organisms.items) |o| {
                     if (o.species.id != sp.id) {
                         try new_orgs.append(o);
@@ -415,12 +414,12 @@ pub const Population = struct {
     }
 
     // Purge from population all organisms marked to be eliminated
-    pub fn purge_organisms(self: *Population) !void {
-        var org_to_keep = std.ArrayList(*Organism).init(self.allocator);
+    pub fn purge_organisms(self: *Population, allocator: std.mem.Allocator) !void {
+        var org_to_keep = std.ArrayList(*Organism).init(allocator);
         for (self.organisms.items) |org| {
             if (org.to_eliminate) {
                 // Remove the organism from its Species
-                try org.species.remove_organism(org);
+                try org.species.remove_organism(allocator, org);
             } else {
                 try org_to_keep.append(org);
             }
@@ -430,19 +429,19 @@ pub const Population = struct {
     }
 
     // Destroy and remove the old generation of the organisms and of the species
-    pub fn purge_old_generation(self: *Population) !void {
+    pub fn purge_old_generation(self: *Population, allocator: std.mem.Allocator) !void {
         for (self.organisms.items) |org| {
             // Remove the organism from its Species
-            try org.species.remove_organism(org);
+            try org.species.remove_organism(allocator, org);
         }
 
         self.organisms.deinit();
-        self.organisms = std.ArrayList(*Organism).init(self.allocator);
+        self.organisms = std.ArrayList(*Organism).init(allocator);
     }
 
-    pub fn purge_or_age_species(self: *Population) !void {
+    pub fn purge_or_age_species(self: *Population, allocator: std.mem.Allocator) !void {
         var org_count: usize = 0;
-        var species_to_keep = std.ArrayList(*Species).init(self.allocator);
+        var species_to_keep = std.ArrayList(*Species).init(allocator);
         for (self.species.items) |curr_species| {
             if (curr_species.organisms.items.len > 0) {
                 // Age surviving Species

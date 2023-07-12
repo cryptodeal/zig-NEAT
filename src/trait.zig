@@ -26,9 +26,7 @@ pub const Trait = struct {
     pub fn new_trait_copy(allocator: std.mem.Allocator, trait: *Trait) !*Trait {
         var nt = try Trait.init(allocator, trait.params.len);
         nt.id = trait.id;
-        for (trait.params, 0..) |p, i| {
-            nt.params[i] = p;
-        }
+        @memcpy(nt.params, trait.params);
         return nt;
     }
 
@@ -59,17 +57,16 @@ pub const Trait = struct {
         return self;
     }
 
+    pub fn deinit(self: *Trait) void {
+        self.allocator.free(self.params);
+        self.allocator.destroy(self);
+    }
+
     pub fn is_equal(self: *Trait, t: *Trait) bool {
         if (self.params.len != t.params.len or self.id.? != t.id.?) {
             return false;
         }
-
         return std.mem.eql(f64, self.params, t.params);
-    }
-
-    pub fn deinit(self: *Trait) void {
-        self.allocator.free(self.params);
-        self.allocator.destroy(self);
     }
 
     pub fn mutate(self: *Trait, mutation_power: f64, param_mutate_prob: f64) void {

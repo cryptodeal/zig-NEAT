@@ -36,7 +36,7 @@ pub const MIMOControlGene = struct {
     }
 
     pub fn init_from_copy(allocator: std.mem.Allocator, g: *MIMOControlGene, control_node: *NNode) !*MIMOControlGene {
-        return try MIMOControlGene.init(allocator, control_node, g.innovation_num, g.mutation_num, g.is_enabled);
+        return MIMOControlGene.init(allocator, control_node, g.innovation_num, g.mutation_num, g.is_enabled);
     }
 
     pub fn deinit(self: *MIMOControlGene) void {

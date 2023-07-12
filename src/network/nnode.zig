@@ -203,20 +203,20 @@ pub const NNode = struct {
         }
     }
 
-    pub fn add_outgoing(self: *NNode, out: *NNode, weight: f64) !*Link {
-        var new_link = try Link.init(self.allocator, weight, self, out, false);
+    pub fn add_outgoing(self: *NNode, allocator: std.mem.Allocator, out: *NNode, weight: f64) !*Link {
+        var new_link = try Link.init(allocator, weight, self, out, false);
         try self.outgoing.append(new_link);
         return new_link;
     }
 
-    pub fn add_incoming(self: *NNode, in: *NNode, weight: f64) !*Link {
-        var new_link = try Link.init(self.allocator, weight, in, self, false);
+    pub fn add_incoming(self: *NNode, allocator: std.mem.Allocator, in: *NNode, weight: f64) !*Link {
+        var new_link = try Link.init(allocator, weight, in, self, false);
         try self.incoming.append(new_link);
         return new_link;
     }
 
-    pub fn connect_from(self: *NNode, in: *NNode, weight: f64) !*Link {
-        var new_link = try Link.init(self.allocator, weight, in, self, false);
+    pub fn connect_from(self: *NNode, allocator: std.mem.Allocator, in: *NNode, weight: f64) !*Link {
+        var new_link = try Link.init(allocator, weight, in, self, false);
         try self.incoming.append(new_link);
         try in.outgoing.append(new_link);
         return new_link;
@@ -372,7 +372,7 @@ test "NNode `add_incoming`" {
     defer node_2.deinit();
     var weight: f64 = 1.5;
 
-    _ = try node_2.add_incoming(node, weight);
+    _ = try node_2.add_incoming(allocator, node, weight);
 
     try testing.expectEqual(node_2.incoming.items.len, 1);
     try testing.expectEqual(node.outgoing.items.len, 0);
@@ -393,7 +393,7 @@ test "NNode `add_outgoing`" {
     defer node_2.deinit();
     var weight: f64 = 1.5;
 
-    _ = try node.add_outgoing(node_2, weight);
+    _ = try node.add_outgoing(allocator, node_2, weight);
 
     try testing.expectEqual(node.outgoing.items.len, 1);
     try testing.expectEqual(node_2.incoming.items.len, 0);
@@ -415,7 +415,7 @@ test "NNode `connect_from`" {
 
     var weight: f64 = 1.5;
 
-    _ = try node_2.connect_from(node, weight);
+    _ = try node_2.connect_from(allocator, node, weight);
 
     try testing.expectEqual(node_2.incoming.items.len, 1);
     try testing.expectEqual(node.outgoing.items.len, 1);
@@ -438,9 +438,9 @@ test "NNode `depth`" {
     var node_3 = try NNode.init(allocator, 3, NodeNeuronType.OutputNeuron);
     defer node_3.deinit();
 
-    var link_1 = try node_2.add_incoming(node, 15.0);
+    var link_1 = try node_2.add_incoming(allocator, node, 15.0);
     defer link_1.deinit();
-    var link_2 = try node_3.add_incoming(node_2, 20.0);
+    var link_2 = try node_3.add_incoming(allocator, node_2, 20.0);
     defer link_2.deinit();
 
     var depth = try node_3.depth(0, 0);
@@ -456,11 +456,11 @@ test "NNode `depth` with loop" {
     var node_3 = try NNode.init(allocator, 3, NodeNeuronType.OutputNeuron);
     defer node_3.deinit();
 
-    var link_1 = try node_2.add_incoming(node, 15.0);
+    var link_1 = try node_2.add_incoming(allocator, node, 15.0);
     defer link_1.deinit();
-    var link_2 = try node_3.add_incoming(node_2, 20.0);
+    var link_2 = try node_3.add_incoming(allocator, node_2, 20.0);
     defer link_2.deinit();
-    var link_3 = try node_3.add_incoming(node_3, 10.0);
+    var link_3 = try node_3.add_incoming(allocator, node_3, 10.0);
     defer link_3.deinit();
 
     var depth = try node_3.depth(0, 0);
@@ -476,9 +476,9 @@ test "NNode `depth` with max depth" {
     var node_3 = try NNode.init(allocator, 3, NodeNeuronType.OutputNeuron);
     defer node_3.deinit();
 
-    var link_1 = try node_2.add_incoming(node, 15.0);
+    var link_1 = try node_2.add_incoming(allocator, node, 15.0);
     defer link_1.deinit();
-    var link_2 = try node_3.add_incoming(node_2, 20.0);
+    var link_2 = try node_3.add_incoming(allocator, node_2, 20.0);
     defer link_2.deinit();
 
     var max_depth: i64 = 1;

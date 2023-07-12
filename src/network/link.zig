@@ -93,6 +93,7 @@ pub const Link = struct {
 
     pub fn derive_trait(self: *Link, t: ?*Trait) !void {
         if (t != null) {
+            // modifies Link params; use Link's allocator
             self.params = try self.allocator.alloc(f64, t.?.params.len);
             self.has_params = true;
             for (t.?.params, 0..) |p, i| {

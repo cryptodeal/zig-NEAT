@@ -55,7 +55,7 @@ zig build run -Doptimize=ReleaseSafe
 - [x] Implement basic Graph Theory functionality
 - [x] Implement basic NEAT Algorithm
   - [x] Working Sequential Population Epoch Executor (single-threaded species reproduction)
-  - [ ] Working Parallel Population Epoch Executor (multi-threaded; thread per species reproduction)
+  - [x] Working Parallel Population Epoch Executor (multi-threaded; thread per species reproduction)
   - [ ] Basic NEAT Examples
     - [x] XOR Connected
     - [x] Cartpole

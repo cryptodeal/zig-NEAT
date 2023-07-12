@@ -67,21 +67,21 @@ pub fn median(comptime T: type, x: []T) !T {
     if (x.len == 0) {
         return std.math.nan(T);
     }
-    return try quantile(T, 0.5, CumulantKind.Empirical, x, null);
+    return quantile(T, 0.5, CumulantKind.Empirical, x, null);
 }
 
 pub fn q25(comptime T: type, x: []T) !T {
     if (x.len == 0) {
         return std.math.nan(T);
     }
-    return try quantile(T, 0.25, CumulantKind.Empirical, x, null);
+    return quantile(T, 0.25, CumulantKind.Empirical, x, null);
 }
 
 pub fn q75(comptime T: type, x: []T) !T {
     if (x.len == 0) {
         return std.math.nan(T);
     }
-    return try quantile(T, 0.75, CumulantKind.Empirical, x, null);
+    return quantile(T, 0.75, CumulantKind.Empirical, x, null);
 }
 
 pub fn variance(allocator: std.mem.Allocator, comptime T: type, x: []T) !T {

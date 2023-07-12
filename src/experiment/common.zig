@@ -32,15 +32,15 @@ pub const EpochExecutor = union(enum) {
         }
     }
 
-    pub fn next_epoch(self: EpochExecutor, opts: *Options, generation: usize, population: *Population) !void {
+    pub fn next_epoch(self: EpochExecutor, allocator: std.mem.Allocator, opts: *Options, generation: usize, population: *Population) !void {
         try switch (self) {
-            inline else => |s| s.next_epoch(opts, generation, population),
+            inline else => |s| s.next_epoch(allocator, opts, generation, population),
         };
     }
 
-    pub fn reproduce(self: EpochExecutor, opts: *Options, generation: usize, population: *Population) !void {
+    pub fn reproduce(self: EpochExecutor, allocator: std.mem.Allocator, opts: *Options, generation: usize, population: *Population) !void {
         try switch (self) {
-            inline else => |s| s.reproduce(opts, generation, population),
+            inline else => |s| s.reproduce(allocator, opts, generation, population),
         };
     }
 };

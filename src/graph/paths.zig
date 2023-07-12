@@ -157,7 +157,7 @@ pub fn Shortest(comptime WeightType: type, comptime IdType: type, comptime NodeT
                 n -= 1;
             }
             std.mem.reverse(*NodeType, path.items);
-            return try PathTo(WeightType, NodeType).init(self.allocator, &path, self.dist.get(dst).?);
+            return PathTo(WeightType, NodeType).init(self.allocator, &path, self.dist.get(dst).?);
         }
     };
 }
@@ -270,7 +270,7 @@ pub fn AllShortest(comptime IdType: type, comptime WeightType: type, comptime No
             if (og == null) {
                 return std.ArrayList(usize).init(self.allocator);
             }
-            return try og.?.clone();
+            return og.?.clone();
         }
 
         pub fn set(self: *Self, src: usize, dst: usize, wt: WeightType, mid: std.ArrayList(usize)) void {
@@ -317,14 +317,14 @@ pub fn AllShortest(comptime IdType: type, comptime WeightType: type, comptime No
                 if (src == dst) {
                     var path = std.ArrayList(*NodeType).init(self.allocator);
                     try path.append(self.nodes[from.?]);
-                    return try Between(WeightType, NodeType).init(self.allocator, path, 0, true);
+                    return Between(WeightType, NodeType).init(self.allocator, path, 0, true);
                 }
-                return try Between(WeightType, NodeType).init(self.allocator, null, Inf_Val, false);
+                return Between(WeightType, NodeType).init(self.allocator, null, Inf_Val, false);
             }
 
             var wt: WeightType = self.dist[from.?][to.?];
             if (wt == -Inf_Val) {
-                return try Between(WeightType, NodeType).init(self.allocator, null, wt, false);
+                return Between(WeightType, NodeType).init(self.allocator, null, wt, false);
             }
 
             var seen = try self.allocator.alloc(i64, self.nodes.len);
@@ -372,7 +372,7 @@ pub fn AllShortest(comptime IdType: type, comptime WeightType: type, comptime No
             if (!self.forward) {
                 std.mem.reverse(*NodeType, path.items);
             }
-            return try Between(WeightType, NodeType).init(self.allocator, path, wt, unique);
+            return Between(WeightType, NodeType).init(self.allocator, path, wt, unique);
         }
 
         fn allBetweenCb(res: *AllBetween(WeightType, NodeType), path: *std.ArrayList(*NodeType)) !void {
