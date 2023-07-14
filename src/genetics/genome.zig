@@ -88,20 +88,13 @@ pub const Genome = struct {
         return genome;
     }
 
-    pub fn init_rand(allocator: std.mem.Allocator, new_id: i64, in: i64, out: i64, n: i64, max_hidden: i64, recurrent: bool, link_prob: f64) !*Genome {
+    pub fn init_rand(allocator: std.mem.Allocator, rand: std.rand.Random, new_id: i64, in: i64, out: i64, n: i64, max_hidden: i64, recurrent: bool, link_prob: f64) !*Genome {
         var total_nodes = in + out + max_hidden;
         var matrix_dim = @as(usize, @intCast(total_nodes * total_nodes));
 
         // init cxn matrix (will be randomized)
         var cm = try allocator.alloc(bool, matrix_dim);
         defer allocator.free(cm);
-
-        var prng = std.rand.DefaultPrng.init(blk: {
-            var seed: u64 = undefined;
-            try std.os.getrandom(std.mem.asBytes(&seed));
-            break :blk seed;
-        });
-        const rand = prng.random();
 
         // no nodes above this number for genome
         var max_node = in + n;
@@ -196,7 +189,7 @@ pub const Genome = struct {
                             }
                         }
                         // create gene
-                        var weight: f64 = @as(f64, @floatFromInt(math.rand_sign(i32))) * rand.float(f64);
+                        var weight: f64 = @as(f64, @floatFromInt(math.rand_sign(i32, rand))) * rand.float(f64);
                         var gene = try Gene.init(allocator, weight, in_node, out_node, flag_recurrent, @as(i64, @intCast(count)), weight);
 
                         // add gene to genome
@@ -879,18 +872,11 @@ pub const Genome = struct {
         return compat;
     }
 
-    pub fn mutate_connect_sensors(self: *Genome, allocator: std.mem.Allocator, innovations: *Population, _: *Options) !bool {
+    pub fn mutate_connect_sensors(self: *Genome, allocator: std.mem.Allocator, rand: std.rand.Random, innovations: *Population, _: *Options) !bool {
         if (self.genes.len == 0) {
             logger.debug("GENOME ID: {d} ---- mutate connect sensors FAILED; Genome has no Genes!", .{self.id}, @src());
             return false;
         }
-
-        var prng = std.rand.DefaultPrng.init(blk: {
-            var seed: u64 = undefined;
-            try std.os.getrandom(std.mem.asBytes(&seed));
-            break :blk seed;
-        });
-        const rand = prng.random();
 
         // find all sensors/outputs
         var sensors = std.ArrayList(*NNode).init(allocator);
@@ -959,7 +945,7 @@ pub const Genome = struct {
                     // choose a random trait
                     var trait_num = rand.uintLessThan(usize, self.traits.len);
                     // choose the new weight
-                    var new_weight = @as(f64, @floatFromInt(math.rand_sign(i32))) * rand.float(f64) * 10.0;
+                    var new_weight = @as(f64, @floatFromInt(math.rand_sign(i32, rand))) * rand.float(f64) * 10.0;
                     // read next innovation id
                     var next_innov_id = innovations.get_next_innovation_number();
 
@@ -984,7 +970,7 @@ pub const Genome = struct {
         return link_added;
     }
 
-    pub fn mutate_add_link(self: *Genome, allocator: std.mem.Allocator, innovations: *Population, opt: *Options) !bool {
+    pub fn mutate_add_link(self: *Genome, allocator: std.mem.Allocator, rand: std.rand.Random, innovations: *Population, opt: *Options) !bool {
         var nodes_len = self.nodes.len;
         if (self.phenotype == null) {
             logger.debug("GENOME ID: {d} ---- mutate add link FAILED; cannot add link to Genome missing phenotype (Network)!", .{self.id}, @src());
@@ -993,13 +979,6 @@ pub const Genome = struct {
             logger.debug("GENOME ID: {d} ---- mutate add link FAILED; cannot add link to Genome missing nodes (NNode)!", .{self.id}, @src());
             return GenomeError.GenomeHasNoNodes;
         }
-
-        var prng = std.rand.DefaultPrng.init(blk: {
-            var seed: u64 = undefined;
-            try std.os.getrandom(std.mem.asBytes(&seed));
-            break :blk seed;
-        });
-        const rand = prng.random();
 
         // decide whether to make link recurrent
         var do_recur = false;
@@ -1105,7 +1084,7 @@ pub const Genome = struct {
                 // choose random trait
                 var trait_num: usize = rand.uintLessThan(usize, self.traits.len);
                 // choose new weight
-                var new_weight = @as(f64, @floatFromInt(math.rand_sign(i32))) * rand.float(f64) * 10.0;
+                var new_weight = @as(f64, @floatFromInt(math.rand_sign(i32, rand))) * rand.float(f64) * 10.0;
                 // read next innovation id
                 var next_innov_id = innovations.get_next_innovation_number();
 
@@ -1136,18 +1115,11 @@ pub const Genome = struct {
         return found;
     }
 
-    pub fn mutate_add_node(self: *Genome, allocator: std.mem.Allocator, innovations: *Population, opt: *Options) !bool {
+    pub fn mutate_add_node(self: *Genome, allocator: std.mem.Allocator, rand: std.rand.Random, innovations: *Population, opt: *Options) !bool {
         // it's possible to have network without any link
         if (self.genes.len == 0) {
             return false;
         }
-
-        var prng = std.rand.DefaultPrng.init(blk: {
-            var seed: u64 = undefined;
-            try std.os.getrandom(std.mem.asBytes(&seed));
-            break :blk seed;
-        });
-        const rand = prng.random();
 
         // first, find a random Gene already in Genome
         var found = false;
@@ -1241,7 +1213,7 @@ pub const Genome = struct {
             // by convention, it will point to the first trait
             node.?.trait = self.traits[0];
             // set node activation function as random from a list of types registered with opts
-            var activation_type = try opt.random_node_activation_type();
+            var activation_type = try opt.random_node_activation_type(rand);
             node.?.activation_type = activation_type;
 
             // get next innovation id for gene 1
@@ -1280,18 +1252,11 @@ pub const Genome = struct {
         return false;
     }
 
-    pub fn mutate_link_weights(self: *Genome, power: f64, rate: f64, mutation_type: MutatorType) !bool {
+    pub fn mutate_link_weights(self: *Genome, rand: std.rand.Random, power: f64, rate: f64, mutation_type: MutatorType) !bool {
         if (self.genes.len == 0) {
             logger.err("Genome has no genes", .{}, @src());
             return GenomeError.GenomeHasNoGenes;
         }
-
-        var prng = std.rand.DefaultPrng.init(blk: {
-            var seed: u64 = undefined;
-            try std.os.getrandom(std.mem.asBytes(&seed));
-            break :blk seed;
-        });
-        const rand = prng.random();
 
         // occassionally, really mix things up
         var severe = false;
@@ -1328,7 +1293,7 @@ pub const Genome = struct {
                 }
             }
 
-            var random = @as(f64, @floatFromInt(math.rand_sign(i32))) * rand.float(f64) * power;
+            var random = @as(f64, @floatFromInt(math.rand_sign(i32, rand))) * rand.float(f64) * power;
             if (mutation_type == MutatorType.GaussianMutator) {
                 var rand_choice = rand.float(f64);
                 if (rand_choice > gauss_point) {
@@ -1347,38 +1312,24 @@ pub const Genome = struct {
         return true;
     }
 
-    pub fn mutate_random_trait(self: *Genome, ctx: *Options) !bool {
+    pub fn mutate_random_trait(self: *Genome, rand: std.rand.Random, ctx: *Options) !bool {
         if (self.traits.len == 0) {
             logger.err("Genome has no traits", .{}, @src());
             return GenomeError.GenomeHasNoTraits;
         }
 
-        var prng = std.rand.DefaultPrng.init(blk: {
-            var seed: u64 = undefined;
-            try std.os.getrandom(std.mem.asBytes(&seed));
-            break :blk seed;
-        });
-        const rand = prng.random();
-
         // choose random trait idx
         var trait_num = rand.uintLessThan(usize, self.traits.len);
         // retrieve and mutate trait
-        self.traits[trait_num].mutate(ctx.trait_mut_power, ctx.trait_param_mut_prob);
+        self.traits[trait_num].mutate(rand, ctx.trait_mut_power, ctx.trait_param_mut_prob);
         return true;
     }
 
-    pub fn mutate_link_trait(self: *Genome, times: usize) !bool {
+    pub fn mutate_link_trait(self: *Genome, rand: std.rand.Random, times: usize) !bool {
         if (self.traits.len == 0 or self.genes.len == 0) {
             logger.err("Genome has either no traits or genes", .{}, @src());
             return GenomeError.GenomeHasNoTraitsOrGenes;
         }
-
-        var prng = std.rand.DefaultPrng.init(blk: {
-            var seed: u64 = undefined;
-            try std.os.getrandom(std.mem.asBytes(&seed));
-            break :blk seed;
-        });
-        const rand = prng.random();
 
         var i: usize = 0;
         while (i < times) : (i += 1) {
@@ -1394,18 +1345,11 @@ pub const Genome = struct {
         return true;
     }
 
-    pub fn mutate_node_trait(self: *Genome, times: usize) !bool {
+    pub fn mutate_node_trait(self: *Genome, rand: std.rand.Random, times: usize) !bool {
         if (self.traits.len == 0 or self.nodes.len == 0) {
             logger.err("Genome has either no traits or nodes", .{}, @src());
             return GenomeError.GenomeHasNoTraitsOrNodes;
         }
-
-        var prng = std.rand.DefaultPrng.init(blk: {
-            var seed: u64 = undefined;
-            try std.os.getrandom(std.mem.asBytes(&seed));
-            break :blk seed;
-        });
-        const rand = prng.random();
 
         var i: usize = 0;
         while (i < times) : (i += 1) {
@@ -1415,23 +1359,17 @@ pub const Genome = struct {
             // choose random node
             var node_num = rand.uintLessThan(usize, self.nodes.len);
 
+            // set the node to point to the new trait
             self.nodes[node_num].trait = self.traits[trait_num];
         }
         return true;
     }
 
-    pub fn mutate_toggle_enable(self: *Genome, times: usize) !bool {
+    pub fn mutate_toggle_enable(self: *Genome, rand: std.rand.Random, times: usize) !bool {
         if (self.genes.len == 0) {
             logger.err("Genome has no genes to toggle", .{}, @src());
             return GenomeError.GenomeHasNoGenes;
         }
-
-        var prng = std.rand.DefaultPrng.init(blk: {
-            var seed: u64 = undefined;
-            try std.os.getrandom(std.mem.asBytes(&seed));
-            break :blk seed;
-        });
-        const rand = prng.random();
 
         var i: usize = 0;
         while (i < times) : (i += 1) {
@@ -1469,39 +1407,32 @@ pub const Genome = struct {
         return true;
     }
 
-    pub fn mutate_all_nonstructural(self: *Genome, ctx: *Options) !bool {
+    pub fn mutate_all_nonstructural(self: *Genome, rand: std.rand.Random, ctx: *Options) !bool {
         var res = false;
-
-        var prng = std.rand.DefaultPrng.init(blk: {
-            var seed: u64 = undefined;
-            try std.os.getrandom(std.mem.asBytes(&seed));
-            break :blk seed;
-        });
-        const rand = prng.random();
 
         if (rand.float(f64) < ctx.mut_random_trait_prob) {
             // mutate random trait
-            res = try self.mutate_random_trait(ctx);
+            res = try self.mutate_random_trait(rand, ctx);
         }
 
         if (rand.float(f64) < ctx.mut_link_trait_prob) {
             // mutate link trait
-            res = try self.mutate_link_trait(1);
+            res = try self.mutate_link_trait(rand, 1);
         }
 
         if (rand.float(f64) < ctx.mut_node_trait_prob) {
             // mutate node trait
-            res = try self.mutate_node_trait(1);
+            res = try self.mutate_node_trait(rand, 1);
         }
 
         if (rand.float(f64) < ctx.mut_link_weights_prob) {
             // mutate link weight
-            res = try self.mutate_link_weights(ctx.weight_mut_power, 1.0, MutatorType.GaussianMutator);
+            res = try self.mutate_link_weights(rand, ctx.weight_mut_power, 1.0, MutatorType.GaussianMutator);
         }
 
         if (rand.float(f64) < ctx.mut_toggle_enable_prob) {
             // mutate toggle enable
-            res = try self.mutate_toggle_enable(1);
+            res = try self.mutate_toggle_enable(rand, 1);
         }
 
         if (rand.float(f64) < ctx.mut_gene_reenable_prob) {
@@ -1511,19 +1442,12 @@ pub const Genome = struct {
         return res;
     }
 
-    pub fn mate_multipoint(self: *Genome, allocator: std.mem.Allocator, og: *Genome, genome_id: i64, fitness1: f64, fitness2: f64) !*Genome {
+    pub fn mate_multipoint(self: *Genome, allocator: std.mem.Allocator, rand: std.rand.Random, og: *Genome, genome_id: i64, fitness1: f64, fitness2: f64) !*Genome {
         // verify genomes have same trait count
         if (self.traits.len != og.traits.len) {
             logger.err("Genomes has different traits count, {d} != {d}", .{ self.traits.len, og.traits.len }, @src());
             return GenomeError.GenomesHaveDifferentTraitsCount;
         }
-
-        var prng = std.rand.DefaultPrng.init(blk: {
-            var seed: u64 = undefined;
-            try std.os.getrandom(std.mem.asBytes(&seed));
-            break :blk seed;
-        });
-        const rand = prng.random();
 
         // avg traits to create new traits for offspring
         var new_traits = try self.mate_traits(allocator, og);
@@ -1709,19 +1633,12 @@ pub const Genome = struct {
         return Genome.init(allocator, genome_id, new_traits, new_nodes, new_genes);
     }
 
-    pub fn mate_multipoint_avg(self: *Genome, allocator: std.mem.Allocator, og: *Genome, genome_id: i64, fitness1: f64, fitness2: f64) !*Genome {
+    pub fn mate_multipoint_avg(self: *Genome, allocator: std.mem.Allocator, rand: std.rand.Random, og: *Genome, genome_id: i64, fitness1: f64, fitness2: f64) !*Genome {
         // verify both Genomes have same number of traits
         if (self.traits.len != og.traits.len) {
             logger.err("Genomes has different traits count, {d} != {d}", .{ self.traits.len, og.traits.len }, @src());
             return GenomeError.GenomesHaveDifferentTraitsCount;
         }
-
-        var prng = std.rand.DefaultPrng.init(blk: {
-            var seed: u64 = undefined;
-            try std.os.getrandom(std.mem.asBytes(&seed));
-            break :blk seed;
-        });
-        const rand = prng.random();
 
         // avg traits to create new traits for offspring
         var new_traits = try self.mate_traits(allocator, og);
@@ -1926,19 +1843,12 @@ pub const Genome = struct {
         return Genome.init(allocator, genome_id, new_traits, new_nodes, new_genes);
     }
 
-    pub fn mate_singlepoint(self: *Genome, allocator: std.mem.Allocator, og: *Genome, genome_id: i64) !*Genome {
+    pub fn mate_singlepoint(self: *Genome, allocator: std.mem.Allocator, rand: std.rand.Random, og: *Genome, genome_id: i64) !*Genome {
         // verify both Genomes have same number of traits
         if (self.traits.len != og.traits.len) {
             logger.err("Genomes has different traits count, {d} != {d}", .{ self.traits.len, og.traits.len }, @src());
             return GenomeError.GenomesHaveDifferentTraitsCount;
         }
-
-        var prng = std.rand.DefaultPrng.init(blk: {
-            var seed: u64 = undefined;
-            try std.os.getrandom(std.mem.asBytes(&seed));
-            break :blk seed;
-        });
-        const rand = prng.random();
 
         // avg traits to create new traits for offspring
         var new_traits = try self.mate_traits(allocator, og);
@@ -2436,7 +2346,10 @@ test "Genome initialize random" {
     var in: i64 = 3;
     var out: i64 = 2;
     var n: i64 = 2;
-    var gnome = try Genome.init_rand(allocator, new_id, in, out, n, 5, false, 0.5);
+
+    var prng = std.rand.DefaultPrng.init(42);
+    const rand = prng.random();
+    var gnome = try Genome.init_rand(allocator, rand, new_id, in, out, n, 5, false, 0.5);
     defer gnome.deinit();
     try std.testing.expect(gnome.nodes.len == in + n + out);
     try std.testing.expect(gnome.genes.len >= in + n + out);
@@ -2705,6 +2618,9 @@ test "Genome mutate add link" {
     var gnome1 = try build_test_genome(allocator, 1);
     defer gnome1.deinit();
 
+    var prng = std.rand.DefaultPrng.init(3);
+    const rand = prng.random();
+
     // configuration
     var options = Options{
         .recur_only_prob = 0.5,
@@ -2714,12 +2630,12 @@ test "Genome mutate add link" {
     };
     var pop = try Population.raw_init(allocator);
     defer pop.deinit();
-    try pop.spawn(allocator, gnome1, &options);
+    try pop.spawn(allocator, rand, gnome1, &options);
 
     // create gnome phenotype
     _ = try gnome1.genesis(allocator, 1);
 
-    var res = try gnome1.mutate_add_link(allocator, pop, &options);
+    var res = try gnome1.mutate_add_link(allocator, rand, pop, &options);
     try std.testing.expect(res);
 
     // one gene was added innovNum = 3 + 1
@@ -2746,7 +2662,7 @@ test "Genome mutate add link" {
     // do network genesis with new nodes added
     _ = try gnome1.genesis(allocator, 1);
 
-    res = try gnome1.mutate_add_link(allocator, pop, &options);
+    res = try gnome1.mutate_add_link(allocator, rand, pop, &options);
     try std.testing.expect(res);
 
     // one gene was added innovNum = 4 + 1
@@ -2763,6 +2679,9 @@ test "Genome mutate add link" {
 test "Genome mutate connect sensors" {
     var allocator = std.testing.allocator;
 
+    var prng = std.rand.DefaultPrng.init(42);
+    const rand = prng.random();
+
     // test mutation with all inputs connected
     var gnome1 = try build_test_genome(allocator, 1);
     defer gnome1.deinit();
@@ -2778,9 +2697,9 @@ test "Genome mutate connect sensors" {
     // init population with one organism
     var pop = try Population.raw_init(allocator);
     defer pop.deinit();
-    try pop.spawn(allocator, gnome1, &options);
+    try pop.spawn(allocator, rand, gnome1, &options);
 
-    var res = try gnome1.mutate_connect_sensors(allocator, pop, &options);
+    var res = try gnome1.mutate_connect_sensors(allocator, rand, pop, &options);
     try std.testing.expect(res == false); // all inputs are already connected; always returns false
 
     // test with disconnected input
@@ -2792,7 +2711,7 @@ test "Genome mutate connect sensors" {
 
     // create gnome phenotype
     _ = try gnome1.genesis(allocator, 1);
-    res = try gnome1.mutate_connect_sensors(allocator, pop, &options);
+    res = try gnome1.mutate_connect_sensors(allocator, rand, pop, &options);
     try std.testing.expect(res); // new_node should be connected now
     try std.testing.expect(gnome1.genes.len == 4);
     try std.testing.expect(pop.innovations.items.len == 1);
@@ -2808,6 +2727,9 @@ test "Genome mutate add node" {
     // create gnome phenotype
     _ = try gnome1.genesis(allocator, 1);
 
+    var prng = std.rand.DefaultPrng.init(42);
+    const rand = prng.random();
+
     // configuration
     var node_activators = [_]neat_math.NodeActivationType{neat_math.NodeActivationType.SigmoidSteepenedActivation};
     var node_activators_prob = [_]f64{1.0};
@@ -2820,9 +2742,9 @@ test "Genome mutate add node" {
     // init population with one organism
     var pop = try Population.raw_init(allocator);
     defer pop.deinit();
-    try pop.spawn(allocator, gnome1, &options);
+    try pop.spawn(allocator, rand, gnome1, &options);
 
-    var res = try gnome1.mutate_add_node(allocator, pop, &options);
+    var res = try gnome1.mutate_add_node(allocator, rand, pop, &options);
     try std.testing.expect(res);
 
     // two genes were added, expecting innovation + 2 (3+2)
@@ -2841,7 +2763,10 @@ test "Genome mutate link weights" {
     var gnome1 = try build_test_genome(allocator, 1);
     defer gnome1.deinit();
 
-    var res = try gnome1.mutate_link_weights(0.5, 1.0, MutatorType.GaussianMutator);
+    var prng = std.rand.DefaultPrng.init(42);
+    const rand = prng.random();
+
+    var res = try gnome1.mutate_link_weights(rand, 0.5, 1.0, MutatorType.GaussianMutator);
     try std.testing.expect(res);
 
     for (gnome1.genes, 0..) |gn, i| {
@@ -2855,13 +2780,16 @@ test "Genome mutate random trait" {
     var gnome1 = try build_test_genome(allocator, 1);
     defer gnome1.deinit();
 
+    var prng = std.rand.DefaultPrng.init(42);
+    const rand = prng.random();
+
     // configuration
     var options = Options{
         .trait_mut_power = 0.3,
         .trait_param_mut_prob = 0.5,
     };
 
-    var res = try gnome1.mutate_random_trait(&options);
+    var res = try gnome1.mutate_random_trait(rand, &options);
     try std.testing.expect(res);
 
     var mutation_found = false;
@@ -2884,7 +2812,10 @@ test "Genome mutate link trait" {
     var gnome1 = try build_test_genome(allocator, 1);
     defer gnome1.deinit();
 
-    var res = try gnome1.mutate_link_trait(10);
+    var prng = std.rand.DefaultPrng.init(42);
+    const rand = prng.random();
+
+    var res = try gnome1.mutate_link_trait(rand, 10);
     try std.testing.expect(res);
 
     var mutation_found = false;
@@ -2901,6 +2832,9 @@ test "Genome mutate node trait" {
     var allocator = std.testing.allocator;
     var gnome1 = try build_test_genome(allocator, 1);
     defer gnome1.deinit();
+
+    var prng = std.rand.DefaultPrng.init(42);
+    const rand = prng.random();
 
     // add traits to nodes
     for (gnome1.nodes, 0..) |nd, i| {
@@ -2920,12 +2854,12 @@ test "Genome mutate node trait" {
     }
     gnome1.nodes[3].trait = new_trait;
 
-    var res = try gnome1.mutate_node_trait(2);
+    var res = try gnome1.mutate_node_trait(rand, 2);
     try std.testing.expect(res);
 
     var mutation_found = false;
     for (gnome1.nodes, 0..) |nd, i| {
-        if (nd.trait.?.id.? != @as(i64, @intCast(i)) + 1) {
+        if (nd.trait.?.id.? != @as(i64, @intCast(i + 1))) {
             mutation_found = true;
             break;
         }
@@ -2938,13 +2872,16 @@ test "Genome mutate toggle enable" {
     var gnome1 = try build_test_genome(allocator, 1);
     defer gnome1.deinit();
 
+    var prng = std.rand.DefaultPrng.init(42);
+    const rand = prng.random();
+
     // add extra connection gene from BIAS to OUT
     var new_gene = try Gene.init_cxn_gene(allocator, try Link.init_with_trait(allocator, gnome1.traits[2], 5.5, gnome1.nodes[2], gnome1.nodes[3], false), 4, 0, true);
     var tmp_genes = std.ArrayList(*Gene).fromOwnedSlice(allocator, gnome1.genes);
     try tmp_genes.append(new_gene);
     gnome1.genes = try tmp_genes.toOwnedSlice();
 
-    var res = try gnome1.mutate_toggle_enable(50);
+    var res = try gnome1.mutate_toggle_enable(rand, 50);
     try std.testing.expect(res);
 
     var mut_count: usize = 0;
@@ -2991,7 +2928,11 @@ test "Genome mate multipoint" {
     var genome_id: i64 = 3;
     var fitness1: f64 = 1.0;
     var fitness2: f64 = 2.3;
-    var genome_child = try gnome1.mate_multipoint(allocator, gnome2, genome_id, fitness1, fitness2);
+
+    var prng = std.rand.DefaultPrng.init(42);
+    const rand = prng.random();
+
+    var genome_child = try gnome1.mate_multipoint(allocator, rand, gnome2, genome_id, fitness1, fitness2);
     defer genome_child.deinit();
 
     try std.testing.expect(genome_child.genes.len == 3);
@@ -3006,7 +2947,7 @@ test "Genome mate multipoint" {
     fitness1 = 15.0;
     fitness2 = 2.3;
 
-    var genome_child2 = try gnome1.mate_multipoint(allocator, gnome2, genome_id, fitness1, fitness2);
+    var genome_child2 = try gnome1.mate_multipoint(allocator, rand, gnome2, genome_id, fitness1, fitness2);
     defer genome_child2.deinit();
     try std.testing.expect(genome_child2.genes.len == 3);
     try std.testing.expect(genome_child2.nodes.len == 4);
@@ -3023,7 +2964,11 @@ test "Genome mate multipoint modular" {
     var genome_id: i64 = 3;
     var fitness1: f64 = 1.0;
     var fitness2: f64 = 2.3;
-    var genome_child = try gnome1.mate_multipoint(allocator, gnome2, genome_id, fitness1, fitness2);
+
+    var prng = std.rand.DefaultPrng.init(42);
+    const rand = prng.random();
+
+    var genome_child = try gnome1.mate_multipoint(allocator, rand, gnome2, genome_id, fitness1, fitness2);
     defer genome_child.deinit();
     try std.testing.expect(genome_child.genes.len == 6);
     try std.testing.expect(genome_child.nodes.len == 7);
@@ -3039,10 +2984,13 @@ test "Genome mate multipoint avg" {
     var gnome2 = try build_test_genome(allocator, 2);
     defer gnome2.deinit();
 
+    var prng = std.rand.DefaultPrng.init(2);
+    const rand = prng.random();
+
     var genome_id: i64 = 3;
     var fitness1: f64 = 1.0;
     var fitness2: f64 = 2.3;
-    var genome_child = try gnome1.mate_multipoint_avg(allocator, gnome2, genome_id, fitness1, fitness2);
+    var genome_child = try gnome1.mate_multipoint_avg(allocator, rand, gnome2, genome_id, fitness1, fitness2);
     defer genome_child.deinit();
 
     try std.testing.expect(genome_child.genes.len == 3);
@@ -3061,7 +3009,7 @@ test "Genome mate multipoint avg" {
 
     fitness1 = 15.0;
     fitness2 = 2.3;
-    var genome_child2 = try gnome1.mate_multipoint_avg(allocator, gnome2, genome_id, fitness1, fitness2);
+    var genome_child2 = try gnome1.mate_multipoint_avg(allocator, rand, gnome2, genome_id, fitness1, fitness2);
     defer genome_child2.deinit();
 
     try std.testing.expect(genome_child2.genes.len == 4);
@@ -3077,10 +3025,13 @@ test "Genome mate multipoint avg modular" {
     var gnome2 = try build_test_modular_genome(allocator, 2);
     defer gnome2.deinit();
 
+    var prng = std.rand.DefaultPrng.init(42);
+    const rand = prng.random();
+
     var genome_id: i64 = 3;
     var fitness1: f64 = 1.0;
     var fitness2: f64 = 2.3;
-    var genome_child = try gnome1.mate_multipoint_avg(allocator, gnome2, genome_id, fitness1, fitness2);
+    var genome_child = try gnome1.mate_multipoint_avg(allocator, rand, gnome2, genome_id, fitness1, fitness2);
     defer genome_child.deinit();
 
     try std.testing.expect(genome_child.genes.len == 6);
@@ -3097,8 +3048,11 @@ test "Genome mate singlepoint" {
     var gnome2 = try build_test_genome(allocator, 2);
     defer gnome2.deinit();
 
+    var prng = std.rand.DefaultPrng.init(42);
+    const rand = prng.random();
+
     var genome_id: i64 = 3;
-    var genome_child = try gnome1.mate_singlepoint(allocator, gnome2, genome_id);
+    var genome_child = try gnome1.mate_singlepoint(allocator, rand, gnome2, genome_id);
     defer genome_child.deinit();
 
     try std.testing.expect(genome_child.genes.len == 3);
@@ -3110,7 +3064,7 @@ test "Genome mate singlepoint" {
     var tmp_genes = std.ArrayList(*Gene).fromOwnedSlice(allocator, gnome1.genes);
     try tmp_genes.append(gene);
     gnome1.genes = try tmp_genes.toOwnedSlice();
-    var genome_child2 = try gnome1.mate_singlepoint(allocator, gnome2, genome_id);
+    var genome_child2 = try gnome1.mate_singlepoint(allocator, rand, gnome2, genome_id);
     defer genome_child2.deinit();
 
     try std.testing.expect(genome_child2.genes.len == 3);
@@ -3131,7 +3085,7 @@ test "Genome mate singlepoint" {
     }
     gnome2.allocator.free(gnome2.genes);
     gnome2.genes = try tmp_genes.toOwnedSlice();
-    var genome_child3 = try gnome1.mate_singlepoint(allocator, gnome2, genome_id);
+    var genome_child3 = try gnome1.mate_singlepoint(allocator, rand, gnome2, genome_id);
     defer genome_child3.deinit();
 
     try std.testing.expect(genome_child3.genes.len == 4);
@@ -3147,8 +3101,11 @@ test "Genome mate singlepoint module" {
     var gnome2 = try build_test_modular_genome(allocator, 2);
     defer gnome2.deinit();
 
+    var prng = std.rand.DefaultPrng.init(42);
+    const rand = prng.random();
+
     var genome_id: i64 = 3;
-    var genome_child = try gnome1.mate_singlepoint(allocator, gnome2, genome_id);
+    var genome_child = try gnome1.mate_singlepoint(allocator, rand, gnome2, genome_id);
     defer genome_child.deinit();
 
     try std.testing.expect(genome_child.genes.len == 6);

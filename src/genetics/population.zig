@@ -63,31 +63,26 @@ pub const Population = struct {
         return self;
     }
 
-    pub fn init(allocator: std.mem.Allocator, g: *Genome, opts: *Options) !*Population {
+    pub fn init(allocator: std.mem.Allocator, rand: std.rand.Random, g: *Genome, opts: *Options) !*Population {
         if (opts.pop_size <= 0) {
             std.debug.print("wrong population size in the context: {d}\n", .{opts.pop_size});
             return error.InvalidPopulationSize;
         }
         var self = try Population.raw_init(allocator);
-        try self.spawn(allocator, g, opts);
+        try self.spawn(allocator, rand, g, opts);
         return self;
     }
 
-    pub fn init_random(allocator: std.mem.Allocator, in: usize, out: usize, max_hidden: usize, recurrent: bool, link_prob: f64, opts: *Options) !*Population {
+    pub fn init_random(allocator: std.mem.Allocator, rand: std.rand.Random, in: usize, out: usize, max_hidden: usize, recurrent: bool, link_prob: f64, opts: *Options) !*Population {
         if (opts.pop_size <= 0) {
             std.debug.print("wrong population size in the options: {d}", .{opts.pop_size});
             return error.InvalidPopulationSize;
         }
-        var prng = std.rand.DefaultPrng.init(blk: {
-            var seed: u64 = undefined;
-            try std.os.getrandom(std.mem.asBytes(&seed));
-            break :blk seed;
-        });
-        const rand = prng.random();
+
         var self = try Population.raw_init(allocator);
         var count: usize = 0;
         while (count < opts.pop_size) : (count += 1) {
-            var gen = try Genome.init_rand(allocator, @as(i64, @intCast(count)), @as(i64, @intCast(in)), @as(i64, @intCast(out)), rand.intRangeLessThan(i64, 0, @as(i64, @intCast(max_hidden))), @as(i64, @intCast(max_hidden)), recurrent, link_prob);
+            var gen = try Genome.init_rand(allocator, rand, @as(i64, @intCast(count)), @as(i64, @intCast(in)), @as(i64, @intCast(out)), rand.intRangeLessThan(i64, 0, @as(i64, @intCast(max_hidden))), @as(i64, @intCast(max_hidden)), recurrent, link_prob);
             var org = try Organism.init(allocator, 0.0, gen, 1);
             try self.organisms.append(org);
         }
@@ -139,13 +134,13 @@ pub const Population = struct {
         return self.innovations.items;
     }
 
-    pub fn spawn(self: *Population, allocator: std.mem.Allocator, g: *Genome, opts: *Options) !void {
+    pub fn spawn(self: *Population, allocator: std.mem.Allocator, rand: std.rand.Random, g: *Genome, opts: *Options) !void {
         var count: usize = 0;
         while (count < opts.pop_size) : (count += 1) {
             // make genome duplicate for new organism
             var new_genome = try g.duplicate(allocator, @as(i64, @intCast(count)));
             // introduce initial mutations
-            _ = try new_genome.mutate_link_weights(1.0, 1.0, MutatorType.GaussianMutator);
+            _ = try new_genome.mutate_link_weights(rand, 1.0, 1.0, MutatorType.GaussianMutator);
             // create organism for new genome
             var new_organism = try Organism.init(allocator, 0, new_genome, 1);
             try self.organisms.append(new_organism);
@@ -339,14 +334,7 @@ pub const Population = struct {
 
     // The system can take expected offspring away from worse species and give them
     // to superior species depending on the system parameter BabiesStolen (when BabiesStolen > 0)
-    pub fn give_babies_to_the_best(_: *Population, sorted_species: []*Species, opts: *Options) !void {
-        var prng = std.rand.DefaultPrng.init(blk: {
-            var seed: u64 = undefined;
-            try std.os.getrandom(std.mem.asBytes(&seed));
-            break :blk seed;
-        });
-        const rand = prng.random();
-
+    pub fn give_babies_to_the_best(_: *Population, rand: std.rand.Random, sorted_species: []*Species, opts: *Options) !void {
         // Babies taken from the bad species and given to the champs
         var stolen_babies: usize = 0;
 
@@ -475,13 +463,14 @@ test "Population init random" {
     var out: usize = 2;
     var nmax: usize = 5;
     var link_prob: f64 = 0.5;
-
+    var prng = std.rand.DefaultPrng.init(42);
+    const rand = prng.random();
     // configuration
     var options = Options{
         .compat_threshold = 0.5,
         .pop_size = 10,
     };
-    var pop = try Population.init_random(allocator, in, out, nmax, false, link_prob, &options);
+    var pop = try Population.init_random(allocator, rand, in, out, nmax, false, link_prob, &options);
     defer pop.deinit();
 
     try std.testing.expect(pop.organisms.items.len == options.pop_size);
@@ -506,15 +495,18 @@ test "Population init" {
     var n: i64 = 3;
     var link_prob: f64 = 0.5;
 
+    var prng = std.rand.DefaultPrng.init(42);
+    const rand = prng.random();
+
     // configuration
     var options = Options{
         .compat_threshold = 0.5,
         .pop_size = 10,
     };
 
-    var gen = try Genome.init_rand(allocator, 1, in, out, n, nmax, false, link_prob);
+    var gen = try Genome.init_rand(allocator, rand, 1, in, out, n, nmax, false, link_prob);
     defer gen.deinit();
-    var pop = try Population.init(allocator, gen, &options);
+    var pop = try Population.init(allocator, rand, gen, &options);
     defer pop.deinit();
 
     try std.testing.expect(pop.organisms.items.len == options.pop_size);

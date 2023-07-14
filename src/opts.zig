@@ -103,13 +103,13 @@ pub const Options = struct {
     // allocator used internally
     allocator: std.mem.Allocator = undefined,
 
-    pub fn random_node_activation_type(self: *Options) !math.NodeActivationType {
+    pub fn random_node_activation_type(self: *Options, rand: std.rand.Random) !math.NodeActivationType {
         // quick check for the most cases
         if (self.node_activators.len == 1) {
             return self.node_activators[0];
         }
         // find next random
-        var idx = @as(usize, @intCast(m.single_roulette_throw(self.node_activators_prob)));
+        var idx = @as(usize, @intCast(m.single_roulette_throw(rand, self.node_activators_prob)));
         if (idx < 0 or idx == self.node_activators.len) {
             std.debug.print("unexpected error when trying to find random node activator, activator index: {d}\n", .{idx});
             return error.NodeActivationTypeInvalid;

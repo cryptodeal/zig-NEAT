@@ -231,19 +231,12 @@ pub const Species = struct {
         return champ;
     }
 
-    pub fn reproduce(self: *Species, allocator: std.mem.Allocator, opts: *Options, generation: usize, pop: *Population, sorted_species: []*Species) ![]*Organism {
+    pub fn reproduce(self: *Species, allocator: std.mem.Allocator, rand: std.rand.Random, opts: *Options, generation: usize, pop: *Population, sorted_species: []*Species) ![]*Organism {
         // Check for a mistake
         if (self.expected_offspring > 0 and self.organisms.items.len == 0) {
             logger.err("attempt to reproduce out of empty species", .{}, @src());
             return ReproductionError.CannotReproduceEmptySpecies;
         }
-
-        var prng = std.rand.DefaultPrng.init(blk: {
-            var seed: u64 = undefined;
-            try std.os.getrandom(std.mem.asBytes(&seed));
-            break :blk seed;
-        });
-        const rand = prng.random();
 
         // The number of Organisms in the old generation
         var pool_size = self.organisms.items.len;
@@ -284,11 +277,11 @@ pub const Species = struct {
                 if (the_champ.super_champ_offspring > 1) {
                     if (rand.float(f64) < 0.8 or opts.mut_add_link_prob == 0.0) {
                         // Make sure no links get added when the system has link adding disabled
-                        _ = try new_genome.mutate_link_weights(opts.weight_mut_power, 1.0, MutatorType.GaussianMutator);
+                        _ = try new_genome.mutate_link_weights(rand, opts.weight_mut_power, 1.0, MutatorType.GaussianMutator);
                     } else {
                         // Sometimes we add a link to a superchamp
                         _ = try new_genome.genesis(allocator, @as(i64, @intCast(generation)));
-                        _ = try new_genome.mutate_add_link(allocator, pop, opts);
+                        _ = try new_genome.mutate_add_link(allocator, rand, pop, opts);
                         mut_struct_offspring = true;
                     }
                 }
@@ -321,26 +314,26 @@ pub const Species = struct {
                     logger.debug("SPECIES: ---> mutate_add_node", .{}, @src());
 
                     // Mutate add node
-                    _ = try new_genome.mutate_add_node(allocator, pop, opts);
+                    _ = try new_genome.mutate_add_node(allocator, rand, pop, opts);
                     mut_struct_offspring = true;
                 } else if (rand.float(f64) < opts.mut_add_link_prob) {
                     logger.debug("SPECIES: ---> mutate_add_link", .{}, @src());
 
                     // Mutate add link
                     _ = try new_genome.genesis(allocator, @as(i64, @intCast(generation)));
-                    _ = try new_genome.mutate_add_link(allocator, pop, opts);
+                    _ = try new_genome.mutate_add_link(allocator, rand, pop, opts);
                     mut_struct_offspring = true;
                 } else if (rand.float(f64) < opts.mut_connect_sensors) {
                     logger.debug("SPECIES: ---> mutate_connect_sensors", .{}, @src());
 
-                    mut_struct_offspring = try new_genome.mutate_connect_sensors(allocator, pop, opts);
+                    mut_struct_offspring = try new_genome.mutate_connect_sensors(allocator, rand, pop, opts);
                 }
 
                 if (!mut_struct_offspring) {
                     logger.debug("SPECIES: ---> mutate_all_nonstructural", .{}, @src());
 
                     // If we didn't do a structural mutation, we do the other kinds
-                    _ = try new_genome.mutate_all_nonstructural(opts);
+                    _ = try new_genome.mutate_all_nonstructural(rand, opts);
                 }
 
                 // Create the new baby organism
@@ -384,17 +377,17 @@ pub const Species = struct {
                     logger.debug("SPECIES: ------> mate_multipoint", .{}, @src());
 
                     // mate multipoint baby
-                    new_genome = try mom.genotype.mate_multipoint(allocator, dad.genotype, @as(i64, @intCast(count)), mom.og_fitness, dad.og_fitness);
+                    new_genome = try mom.genotype.mate_multipoint(allocator, rand, dad.genotype, @as(i64, @intCast(count)), mom.og_fitness, dad.og_fitness);
                 } else if (rand.float(f64) < opts.mate_multipoint_avg_prob / (opts.mate_multipoint_avg_prob + opts.mate_singlepoint_prob)) {
                     logger.debug("SPECIES: ------> mate_multipoint_avg", .{}, @src());
 
                     // mate multipoint_avg baby
-                    new_genome = try mom.genotype.mate_multipoint_avg(allocator, dad.genotype, @as(i64, @intCast(count)), mom.og_fitness, dad.og_fitness);
+                    new_genome = try mom.genotype.mate_multipoint_avg(allocator, rand, dad.genotype, @as(i64, @intCast(count)), mom.og_fitness, dad.og_fitness);
                 } else {
                     logger.debug("SPECIES: ------> mate_singlepoint", .{}, @src());
 
                     // mate singlepoint baby
-                    new_genome = try mom.genotype.mate_singlepoint(allocator, dad.genotype, @as(i64, @intCast(count)));
+                    new_genome = try mom.genotype.mate_singlepoint(allocator, rand, dad.genotype, @as(i64, @intCast(count)));
                 }
 
                 mate_offspring = true;
@@ -409,24 +402,24 @@ pub const Species = struct {
                         logger.debug("SPECIES: ---------> mutate_add_node", .{}, @src());
 
                         // mutate_add_node
-                        _ = try new_genome.mutate_add_node(allocator, pop, opts);
+                        _ = try new_genome.mutate_add_node(allocator, rand, pop, opts);
                         mut_struct_offspring = true;
                     } else if (rand.float(f64) < opts.mut_add_link_prob) {
                         logger.debug("SPECIES: ---------> mutate_add_link", .{}, @src());
 
                         // mutate_add_link
                         _ = try new_genome.genesis(allocator, @as(i64, @intCast(generation)));
-                        _ = try new_genome.mutate_add_link(allocator, pop, opts);
+                        _ = try new_genome.mutate_add_link(allocator, rand, pop, opts);
                         mut_struct_offspring = true;
                     } else if (rand.float(f64) < opts.mut_connect_sensors) {
                         logger.debug("SPECIES: ---------> mutate_connect_sensors", .{}, @src());
-                        mut_struct_offspring = try new_genome.mutate_connect_sensors(allocator, pop, opts);
+                        mut_struct_offspring = try new_genome.mutate_connect_sensors(allocator, rand, pop, opts);
                     }
 
                     if (!mut_struct_offspring) {
                         logger.debug("SPECIES: ---------> mutate_all_nonstructural", .{}, @src());
                         // If we didn't do a structural mutation, we do the other kinds
-                        _ = try new_genome.mutate_all_nonstructural(opts);
+                        _ = try new_genome.mutate_all_nonstructural(rand, opts);
                     }
                 }
                 baby = try Organism.init(allocator, 0.0, new_genome, generation);
@@ -579,6 +572,9 @@ test "Species reproduce" {
     var n: i64 = 3;
     var link_prob: f64 = 0.8;
 
+    var prng = std.rand.DefaultPrng.init(42);
+    const rand = prng.random();
+
     // configuration
     var options = Options{
         .dropoff_age = 5,
@@ -587,9 +583,9 @@ test "Species reproduce" {
         .pop_size = 30,
         .compat_threshold = 0.6,
     };
-    var gen = try Genome.init_rand(allocator, 1, in, out, n, nmax, false, link_prob);
+    var gen = try Genome.init_rand(allocator, rand, 1, in, out, n, nmax, false, link_prob);
     defer gen.deinit();
-    var pop = try Population.init(allocator, gen, &options);
+    var pop = try Population.init(allocator, rand, gen, &options);
     defer pop.deinit();
 
     // stick the Species pointers into a new Species list for sorting
@@ -602,7 +598,7 @@ test "Species reproduce" {
 
     pop.species.items[0].expected_offspring = 11;
 
-    var babies = try pop.species.items[0].reproduce(allocator, &options, 1, pop, sorted_species);
+    var babies = try pop.species.items[0].reproduce(allocator, rand, &options, 1, pop, sorted_species);
     defer allocator.free(babies);
     defer for (babies) |b| {
         b.deinit();

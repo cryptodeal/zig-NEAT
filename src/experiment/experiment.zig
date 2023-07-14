@@ -296,12 +296,12 @@ pub const Experiment = struct {
         return self.avg_epoch_duration() * self.avg_generations_per_trial() * mean_complexity;
     }
 
-    pub fn execute(self: *Experiment, allocator: std.mem.Allocator, opts: *Options, start_genome: *Genome, comptime evaluator: GenerationEvaluator) !void {
+    pub fn execute(self: *Experiment, allocator: std.mem.Allocator, rand: std.rand.Random, opts: *Options, start_genome: *Genome, comptime evaluator: GenerationEvaluator) !void {
         var run: usize = 0;
         while (run < opts.num_runs) : (run += 1) {
             var trial_start_time = try std.time.Instant.now();
             logger.info(">>>>> Spawning new population: ", .{}, @src());
-            var pop = Population.init(allocator, start_genome, opts) catch |err| {
+            var pop = Population.init(allocator, rand, start_genome, opts) catch |err| {
                 logger.info("Failed to spawn new population from start genome\n", .{}, @src());
                 return err;
             };
@@ -339,7 +339,7 @@ pub const Experiment = struct {
                 if (!generation.solved) {
                     // std.debug.print(">>>>> start next generation\n", .{});
                     std.debug.print("\n\nNEXT EPOCH:\n\n", .{});
-                    epoch_executor.next_epoch(allocator, opts, generation_id, pop) catch |err| {
+                    epoch_executor.next_epoch(allocator, rand, opts, generation_id, pop) catch |err| {
                         std.debug.print("!!!!! Epoch execution failed in generation [{d}] !!!!!\n", .{generation_id});
                         return err;
                     };

@@ -69,18 +69,10 @@ pub const Trait = struct {
         return std.mem.eql(f64, self.params, t.params);
     }
 
-    pub fn mutate(self: *Trait, mutation_power: f64, param_mutate_prob: f64) void {
-        var prng = std.rand.DefaultPrng.init(blk: {
-            var seed: u64 = undefined;
-            std.os.getrandom(std.mem.asBytes(&seed)) catch {
-                seed = 902999832;
-            };
-            break :blk seed;
-        });
-        const rand = prng.random();
+    pub fn mutate(self: *Trait, rand: std.rand.Random, mutation_power: f64, param_mutate_prob: f64) void {
         for (self.params) |*p| {
             if (rand.float(f64) > param_mutate_prob) {
-                p.* += @as(f64, @floatFromInt(math.rand_sign(i32))) * rand.float(f64) * mutation_power;
+                p.* += @as(f64, @floatFromInt(math.rand_sign(i32, rand))) * rand.float(f64) * mutation_power;
                 if (p.* < 0) {
                     p.* = 0;
                 }

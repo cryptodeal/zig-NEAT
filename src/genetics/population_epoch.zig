@@ -59,13 +59,13 @@ pub const SequentialPopulationEpochExecutor = struct {
         self.allocator.destroy(self);
     }
 
-    pub fn next_epoch(self: *SequentialPopulationEpochExecutor, allocator: std.mem.Allocator, opts: *Options, generation: usize, population: *Population) !void {
-        try self.prepare_for_reproduction(allocator, opts, generation, population);
-        try self.reproduce(allocator, opts, generation, population);
+    pub fn next_epoch(self: *SequentialPopulationEpochExecutor, allocator: std.mem.Allocator, rand: std.rand.Random, opts: *Options, generation: usize, population: *Population) !void {
+        try self.prepare_for_reproduction(allocator, rand, opts, generation, population);
+        try self.reproduce(allocator, rand, opts, generation, population);
         try self.finalize_reproduction(allocator, opts, population);
     }
 
-    pub fn prepare_for_reproduction(self: *SequentialPopulationEpochExecutor, allocator: std.mem.Allocator, opts: *Options, generation: usize, p: *Population) !void {
+    pub fn prepare_for_reproduction(self: *SequentialPopulationEpochExecutor, allocator: std.mem.Allocator, rand: std.rand.Random, opts: *Options, generation: usize, p: *Population) !void {
         // clear executor state from previous run
         self.sorted_species.clearRetainingCapacity();
 
@@ -108,13 +108,13 @@ pub const SequentialPopulationEpochExecutor = struct {
         } else if (opts.babies_stolen > 0) {
             // STOLEN BABIES: The system can take expected offspring away from worse species and give them
             // to superior species depending on the system parameter BabiesStolen (when BabiesStolen > 0)
-            try p.give_babies_to_the_best(self.sorted_species.items, opts);
+            try p.give_babies_to_the_best(rand, self.sorted_species.items, opts);
         }
         // Kill off all Organisms marked for death. The remainder will be allowed to reproduce.
         try p.purge_organisms(allocator);
     }
 
-    pub fn reproduce(self: *SequentialPopulationEpochExecutor, allocator: std.mem.Allocator, opts: *Options, generation: usize, p: *Population) !void {
+    pub fn reproduce(self: *SequentialPopulationEpochExecutor, allocator: std.mem.Allocator, rand: std.rand.Random, opts: *Options, generation: usize, p: *Population) !void {
         logger.info("POPULATION: Start Sequential Reproduction Cycle >>>>>", .{}, @src());
 
         // Perform reproduction. Reproduction is done on a per-Species basis
@@ -122,7 +122,7 @@ pub const SequentialPopulationEpochExecutor = struct {
         defer offspring.deinit();
 
         for (p.species.items) |sp| {
-            var rep_offspring = try sp.reproduce(allocator, opts, generation, p, self.sorted_species.items);
+            var rep_offspring = try sp.reproduce(allocator, rand, opts, generation, p, self.sorted_species.items);
             defer allocator.free(rep_offspring);
             if (sp.id == self.best_species_id) {
                 // store flag if best species reproduced - it will be used to determine if best species
@@ -180,18 +180,18 @@ pub const ParallelPopulationEpochExecutor = struct {
         self.allocator.destroy(self);
     }
 
-    pub fn next_epoch(self: *ParallelPopulationEpochExecutor, allocator: std.mem.Allocator, opts: *Options, generation: usize, population: *Population) !void {
+    pub fn next_epoch(self: *ParallelPopulationEpochExecutor, allocator: std.mem.Allocator, rand: std.rand.Random, opts: *Options, generation: usize, population: *Population) !void {
         self.sequential = try SequentialPopulationEpochExecutor.init(allocator);
         defer self.sequential.deinit();
-        try self.sequential.prepare_for_reproduction(allocator, opts, generation, population);
+        try self.sequential.prepare_for_reproduction(allocator, rand, opts, generation, population);
 
         // Do parallel reproduction
-        try self.reproduce(allocator, opts, generation, population);
+        try self.reproduce(allocator, rand, opts, generation, population);
         logger.info("POPULATION: >>>>> Epoch {d} complete\n", .{generation}, @src());
         try self.sequential.finalize_reproduction(allocator, opts, population);
     }
 
-    pub fn reproduce(self: *ParallelPopulationEpochExecutor, allocator: std.mem.Allocator, opts: *Options, generation: usize, pop: *Population) !void {
+    pub fn reproduce(self: *ParallelPopulationEpochExecutor, allocator: std.mem.Allocator, rand: std.rand.Random, opts: *Options, generation: usize, pop: *Population) !void {
         std.debug.print("POPULATION: Start Parallel Reproduction Cycle >>>>>\n", .{});
 
         // Perform reproduction. Reproduction is done on a per-Species basis
@@ -202,15 +202,12 @@ pub const ParallelPopulationEpochExecutor = struct {
         try pool.init(.{ .allocator = allocator });
         defer pool.deinit();
 
-        std.debug.print("starting WaitGroup; species count: {d}\n", .{pop.species.items.len});
-
         var wait_group: WaitGroup = .{};
         for (pop.species.items, 0..) |species, i| {
             wait_group.start();
-            try pool.spawn(workerFn, .{ ctx, &wait_group, species, opts, generation, pop, self.sequential.sorted_species.items, i });
+            try pool.spawn(parallel_executor_worker_fn, .{ rand, ctx, &wait_group, species, opts, generation, pop, self.sequential.sorted_species.items, i });
         }
         wait_group.wait();
-        std.debug.print("finish WaitGroup\n", .{});
 
         // read reproduction results, instantiate progeny and speciate over population
         var babies = std.ArrayList(*Organism).init(allocator);
@@ -228,19 +225,16 @@ pub const ParallelPopulationEpochExecutor = struct {
             }
         }
 
-        std.debug.print("babies.items.len: {d}\n", .{babies.items.len});
         // sanity check - make sure that population size keep the same
         if (babies.items.len != opts.pop_size) {
             std.debug.print("progeny size after reproduction cycle dimished, expected: [{d}], but got: [{d}]", .{ opts.pop_size, babies.items.len });
             return error.ReproductionPopSizeMismatch;
         }
 
-        std.debug.print("babies.items.len: {d}\n", .{babies.items.len});
-
         // speciate fresh progeny
         try pop.speciate(allocator, opts, babies.items);
 
-        std.debug.print("POPULATION: >>>>> Reproduction Complete", .{});
+        std.debug.print("POPULATION: >>>>> Reproduction Complete\n", .{});
     }
 };
 
@@ -269,9 +263,9 @@ pub const WorkerCtx = struct {
     }
 };
 
-fn workerFn(ctx: *WorkerCtx, wg: *WaitGroup, species: *Species, opts: *Options, generation: usize, pop: *Population, sorted_species: []*Species, idx: usize) void {
+fn parallel_executor_worker_fn(rand: std.rand.Random, ctx: *WorkerCtx, wg: *WaitGroup, species: *Species, opts: *Options, generation: usize, pop: *Population, sorted_species: []*Species, idx: usize) void {
     defer wg.finish();
-    var res = species.reproduce(ctx.allocator, opts, generation, pop, sorted_species) catch null;
+    var res = species.reproduce(ctx.allocator, rand, opts, generation, pop, sorted_species) catch null;
     if (res != null) {
         ctx.mu.lock();
         defer ctx.mu.unlock();
@@ -298,24 +292,24 @@ pub fn fitness_comparison(context: void, a: *Species, b: *Species) bool {
     return false;
 }
 
-fn sequential_executor_next_epoch(allocator: std.mem.Allocator, pop: *Population, opts: *Options) !bool {
+fn sequential_executor_next_epoch(allocator: std.mem.Allocator, rand: std.rand.Random, pop: *Population, opts: *Options) !bool {
     var executor = try SequentialPopulationEpochExecutor.init(allocator);
     defer executor.deinit();
     var i: usize = 0;
     while (i < 100) : (i += 1) {
-        executor.next_epoch(allocator, opts, i, pop) catch {
+        executor.next_epoch(allocator, rand, opts, i, pop) catch {
             return false;
         };
     }
     return true;
 }
 
-pub fn parallel_executor_next_epoch(allocator: std.mem.Allocator, pop: *Population, opts: *Options) !bool {
+fn parallel_executor_next_epoch(allocator: std.mem.Allocator, rand: std.rand.Random, pop: *Population, opts: *Options) !bool {
     var executor = try ParallelPopulationEpochExecutor.init(allocator);
     defer executor.deinit();
     var i: usize = 0;
     while (i < 100) : (i += 1) {
-        executor.next_epoch(allocator, opts, i, pop) catch {
+        executor.next_epoch(allocator, rand, opts, i, pop) catch {
             return false;
         };
     }
@@ -330,7 +324,8 @@ test "SequentialPopulationEpochExecutor next epoch" {
     var nmax: i64 = 15;
     var n: i64 = 3;
     var link_prob: f64 = 0.8;
-
+    var prng = std.rand.DefaultPrng.init(42);
+    const rand = prng.random();
     // configuration
     var opts = Options{
         .compat_threshold = 0.5,
@@ -340,12 +335,12 @@ test "SequentialPopulationEpochExecutor next epoch" {
         .recur_only_prob = 0.2,
     };
 
-    var gen = try Genome.init_rand(allocator, 1, in, out, n, nmax, false, link_prob);
+    var gen = try Genome.init_rand(allocator, rand, 1, in, out, n, nmax, false, link_prob);
     defer gen.deinit();
-    var pop = try Population.init(allocator, gen, &opts);
+    var pop = try Population.init(allocator, rand, gen, &opts);
     defer pop.deinit();
 
-    var res = try sequential_executor_next_epoch(allocator, pop, &opts);
+    var res = try sequential_executor_next_epoch(allocator, rand, pop, &opts);
     try std.testing.expect(res);
 }
 
@@ -358,6 +353,9 @@ test "ParallelPopulationEpochExecutor next epoch" {
     var n: i64 = 3;
     var link_prob: f64 = 0.8;
 
+    var prng = std.rand.DefaultPrng.init(42);
+    const rand = prng.random();
+
     // configuration
     var opts = Options{
         .compat_threshold = 0.5,
@@ -367,11 +365,11 @@ test "ParallelPopulationEpochExecutor next epoch" {
         .recur_only_prob = 0.2,
     };
 
-    var gen = try Genome.init_rand(allocator, 1, in, out, n, nmax, false, link_prob);
+    var gen = try Genome.init_rand(allocator, rand, 1, in, out, n, nmax, false, link_prob);
     defer gen.deinit();
-    var pop = try Population.init(allocator, gen, &opts);
+    var pop = try Population.init(allocator, rand, gen, &opts);
     defer pop.deinit();
 
-    var res = try parallel_executor_next_epoch(allocator, pop, &opts);
+    var res = try parallel_executor_next_epoch(allocator, rand, pop, &opts);
     try std.testing.expect(res);
 }

@@ -242,9 +242,16 @@ pub fn main() !void {
     defer experiment.deinit();
     try experiment.trials.ensureTotalCapacityPrecise(opts.num_runs);
 
+    var prng = std.rand.DefaultPrng.init(blk: {
+        var seed: u64 = undefined;
+        try std.os.getrandom(std.mem.asBytes(&seed));
+        break :blk seed;
+    });
+    const rand = prng.random();
+
     const evaluator = GenerationEvaluator{ .generation_evaluate = eval };
 
-    try experiment.execute(allocator, opts, start_genome, evaluator);
+    try experiment.execute(allocator, rand, opts, start_genome, evaluator);
 
     // var res = experiment.avg_winner_statistics();
 }
