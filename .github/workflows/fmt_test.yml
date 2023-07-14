@@ -1,4 +1,5 @@
 name: format_and_test
+on: [push]
 jobs:
   test:
     strategy:
