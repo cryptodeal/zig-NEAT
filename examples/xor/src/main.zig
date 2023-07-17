@@ -171,7 +171,7 @@ pub fn main() !void {
     defer experiment.deinit();
     try experiment.trials.ensureTotalCapacityPrecise(opts.num_runs);
 
-    const evaluator = GenerationEvaluator{ .generation_evaluate = eval };
+    const evaluator = GenerationEvaluator{ .generation_evaluate = &eval };
 
     var prng = std.rand.DefaultPrng.init(blk: {
         var seed: u64 = undefined;

@@ -53,7 +53,7 @@ pub fn epoch_executor_for_ctx(allocator: std.mem.Allocator, ctx: *Options) !Epoc
 }
 
 pub const GenerationEvaluator = struct {
-    generation_evaluate: fn (*Options, *Population, *Generation, *anyopaque) anyerror!void,
+    generation_evaluate: *const fn (*Options, *Population, *Generation, *anyopaque) anyerror!void,
     // TODO: use ctx field to store arbitrary data for the evaluator
     ctx: *anyopaque = undefined,
 };

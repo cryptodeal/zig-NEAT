@@ -581,12 +581,14 @@ pub fn main() !void {
     });
     const rand = prng.random();
 
+    var ctx = Cart2PoleData{
+        .markov = true,
+        .action_type = ActionType.ContinuousAction,
+    };
+
     const evaluator = GenerationEvaluator{
-        .generation_evaluate = eval,
-        .ctx = @constCast(&(Cart2PoleData{
-            .markov = true,
-            .action_type = ActionType.ContinuousAction,
-        })),
+        .generation_evaluate = &eval,
+        .ctx = &ctx,
     };
 
     try experiment.execute(allocator, rand, opts, start_genome, evaluator);

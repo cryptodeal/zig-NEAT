@@ -1,2 +1,4 @@
 zig-cache/
 zig-out/
+# TODO: only exclude while demo is WIP
+examples/maze/

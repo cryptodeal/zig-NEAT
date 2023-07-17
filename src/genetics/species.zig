@@ -4,7 +4,6 @@ const neat_population = @import("population.zig");
 const neat_common = @import("common.zig");
 const neat_genome = @import("genome.zig");
 const opt = @import("../opts.zig");
-const ThreadSafeMemoryPoolExtra = @import("../alloc/threadsafe_memory_pool.zig").ThreadSafeMemoryPoolExtra;
 
 const Organism = orgn.Organism;
 const Genome = neat_genome.Genome;

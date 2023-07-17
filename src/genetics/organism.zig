@@ -27,7 +27,7 @@ pub const Organism = struct {
 
     // utility data transfer object to be used by different GA implementations to hold
     // any addtl data; implemented as any to allow implementation specific objects
-    // TODO: data: T = undefined,
+    data: ?*anyopaque = null,
 
     // fitness measure that won't change during fitness adjustments of population's epoch evaluation
     og_fitness: f64 = undefined,

@@ -16,6 +16,9 @@ pub const math = @import("math/math.zig");
 // export all zig-NEAT Network Structs/Types/Fns
 pub const network = @import("network/common.zig");
 
+// export all zig-NEAT Novelty Search Structs/Types/Fns
+pub const ns = @import("ns/common.zig");
+
 // export other zig-NEAT Structs/Types/Fns
 pub const EpochExecutorType = options.EpochExecutorType;
 pub const GenomeCompatibilityMethod = options.GenomeCompatibilityMethod;
@@ -29,5 +32,6 @@ test {
     _ = graph;
     _ = math;
     _ = network;
+    _ = ns;
     _ = trait_common;
 }

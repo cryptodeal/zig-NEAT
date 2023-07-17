@@ -296,7 +296,7 @@ pub const Experiment = struct {
         return self.avg_epoch_duration() * self.avg_generations_per_trial() * mean_complexity;
     }
 
-    pub fn execute(self: *Experiment, allocator: std.mem.Allocator, rand: std.rand.Random, opts: *Options, start_genome: *Genome, comptime evaluator: GenerationEvaluator) !void {
+    pub fn execute(self: *Experiment, allocator: std.mem.Allocator, rand: std.rand.Random, opts: *Options, start_genome: *Genome, evaluator: GenerationEvaluator) !void {
         var run: usize = 0;
         while (run < opts.num_runs) : (run += 1) {
             var trial_start_time = try std.time.Instant.now();

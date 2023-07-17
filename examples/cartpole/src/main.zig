@@ -249,7 +249,7 @@ pub fn main() !void {
     });
     const rand = prng.random();
 
-    const evaluator = GenerationEvaluator{ .generation_evaluate = eval };
+    const evaluator = GenerationEvaluator{ .generation_evaluate = &eval };
 
     try experiment.execute(allocator, rand, opts, start_genome, evaluator);
 
