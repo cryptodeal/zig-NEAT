@@ -7,6 +7,7 @@ const neat_options = @import("../opts.zig");
 const exp_common = @import("common.zig");
 const neat_genome = @import("../genetics/genome.zig");
 const exp_generation = @import("generation.zig");
+const TrialRunObserver = @import("trial_run_observer.zig");
 
 const Trial = exp_trial.Trial;
 const Organism = neat_organism.Organism;
@@ -15,7 +16,7 @@ const Genome = neat_genome.Genome;
 const EpochExecutor = exp_common.EpochExecutor;
 const Options = neat_options.Options;
 const logger = @constCast(neat_options.logger);
-const GenerationEvaluator = exp_common.GenerationEvaluator;
+const GenerationEvaluator = @import("generation_evaluator.zig");
 const Generation = exp_generation.Generation;
 const fitness_comparison = neat_organism.fitness_comparison;
 const epoch_executor_for_ctx = exp_common.epoch_executor_for_ctx;
@@ -296,7 +297,7 @@ pub const Experiment = struct {
         return self.avg_epoch_duration() * self.avg_generations_per_trial() * mean_complexity;
     }
 
-    pub fn execute(self: *Experiment, allocator: std.mem.Allocator, rand: std.rand.Random, opts: *Options, start_genome: *Genome, evaluator: GenerationEvaluator) !void {
+    pub fn execute(self: *Experiment, allocator: std.mem.Allocator, rand: std.rand.Random, opts: *Options, start_genome: *Genome, evaluator: GenerationEvaluator, trial_observer: ?TrialRunObserver) !void {
         var run: usize = 0;
         while (run < opts.num_runs) : (run += 1) {
             var trial_start_time = try std.time.Instant.now();
@@ -320,14 +321,16 @@ pub const Experiment = struct {
             // start new trial
             var trial = try Trial.init(allocator, run);
 
-            // TODO: implement/notify TrialObserver that run started
+            if (trial_observer != null) {
+                trial_observer.?.trial_run_started(trial);
+            }
 
             var generation_id: usize = 0;
             while (generation_id < opts.num_generations) : (generation_id += 1) {
                 std.debug.print("\n>>>>> Generation:{d}\tRun: {d}\n", .{ generation_id, run });
                 var generation = try Generation.init(allocator, generation_id, run);
                 var gen_start_time = std.time.Instant.now() catch unreachable;
-                evaluator.generation_evaluate(opts, pop, generation, evaluator.ctx) catch |err| {
+                evaluator.generation_evaluate(opts, pop, generation) catch |err| {
                     std.debug.print("!!!!! Generation [{d}] evaluation failed !!!!!\n", .{generation_id});
                     generation.deinit_early();
                     return err;
@@ -349,7 +352,9 @@ pub const Experiment = struct {
                 generation.duration = generation.executed.since(gen_start_time);
                 try trial.generations.append(generation);
 
-                // TODO: implement/notify TrialObserver
+                if (trial_observer != null) {
+                    trial_observer.?.epoch_evaluated(trial, generation);
+                }
 
                 if (generation.solved) {
                     // stop further evaluation if already solved
@@ -365,7 +370,9 @@ pub const Experiment = struct {
             // store trial into experiment
             try self.trials.append(trial);
 
-            // TODO: implement/notify TrialObserver
+            if (trial_observer != null) {
+                trial_observer.?.trial_run_finished(trial);
+            }
         }
     }
 };

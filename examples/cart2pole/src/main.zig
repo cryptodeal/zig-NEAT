@@ -333,189 +333,192 @@ const CartPole = struct {
     }
 };
 
-fn eval(opts: *Options, pop: *Population, epoch: *Generation, ctx: *anyopaque) !void {
-    var eval_ctx: *Cart2PoleData = @as(*Cart2PoleData, @ptrCast(@alignCast(ctx)));
-    var cart_pole = try CartPole.init(pop.allocator, eval_ctx.markov);
+const Cart2PoleGenerationEvaluator = struct {
+    data: *Cart2PoleData,
 
-    for (pop.organisms.items) |org| {
-        var winner = try org_eval(org, cart_pole, eval_ctx);
-        if (winner and (epoch.champion == null or org.fitness > epoch.champion.?.fitness)) {
-            // This will be winner in Markov case
-            epoch.solved = true;
-            epoch.winner_nodes = org.genotype.nodes.len;
-            epoch.winner_genes = @as(usize, @intCast(org.genotype.extrons()));
-            epoch.winner_evals = opts.pop_size * epoch.id + @as(usize, @intCast(org.genotype.id));
-            epoch.champion = org;
-            org.is_winner = true;
-        }
-    }
+    pub fn generation_evaluate(self: *Cart2PoleGenerationEvaluator, opts: *Options, pop: *Population, epoch: *Generation) !void {
+        var cart_pole = try CartPole.init(pop.allocator, self.data.markov);
 
-    // Check for winner in Non-Markov case
-    if (!eval_ctx.markov) {
-        // The best individual (i.e. the one with the highest fitness value) of every generation is tested for
-        // its ability to balance the system for a longer time period. If a potential solution passes this test
-        // by keeping the system balanced for 100’000 time steps, the so called generalization score(GS) of this
-        // particular individual is calculated. This score measures the potential of a controller to balance the
-        // system starting from different initial conditions. It's calculated with a series of experiments, running
-        // over 1000 time steps, starting from 625 different initial conditions.
-        // The initial conditions are chosen by assigning each value of the set Ω = [0.05 0.25 0.5 0.75 0.95] to
-        // each of the states x, ∆x/∆t, θ1 and ∆θ1/∆t, scaled to the range of the variables.The short pole angle θ2
-        // and its angular velocity ∆θ2/∆t are set to zero. The GS is then defined as the number of successful runs
-        // from the 625 initial conditions and an individual is defined as a solution if it reaches a generalization
-        // score of 200 or more.
-
-        // Sort the species by max organism fitness in descending order - the highest fitness first
-        var sorted_species: []*Species = try pop.allocator.alloc(*Species, pop.species.items.len);
-        defer pop.allocator.free(sorted_species);
-        @memcpy(sorted_species, pop.species.items);
-        std.mem.sort(*Species, sorted_species, {}, species_org_sort);
-        std.mem.reverse(*Species, sorted_species);
-
-        // First update what is checked and unchecked
-        var curr_species: ?*Species = undefined;
-        for (sorted_species, 0..) |_, i| {
-            curr_species = sorted_species[i];
-            var max = curr_species.?.compute_max_and_avg_fitness();
-            if (max.max > curr_species.?.max_fitness_ever) {
-                curr_species.?.is_checked = false;
+        for (pop.organisms.items) |org| {
+            var winner = try self.org_eval(org, cart_pole);
+            if (winner and (epoch.champion == null or org.fitness > epoch.champion.?.fitness)) {
+                // This will be winner in Markov case
+                epoch.solved = true;
+                epoch.winner_nodes = org.genotype.nodes.len;
+                epoch.winner_genes = @as(usize, @intCast(org.genotype.extrons()));
+                epoch.winner_evals = opts.pop_size * epoch.id + @as(usize, @intCast(org.genotype.id));
+                epoch.champion = org;
+                org.is_winner = true;
             }
         }
 
-        // Now find first (most fit) species that is unchecked
-        curr_species = null;
-        for (sorted_species, 0..) |_, i| {
-            curr_species = sorted_species[i];
-            if (!curr_species.?.is_checked) {
-                break;
+        // Check for winner in Non-Markov case
+        if (!self.data.markov) {
+            // The best individual (i.e. the one with the highest fitness value) of every generation is tested for
+            // its ability to balance the system for a longer time period. If a potential solution passes this test
+            // by keeping the system balanced for 100’000 time steps, the so called generalization score(GS) of this
+            // particular individual is calculated. This score measures the potential of a controller to balance the
+            // system starting from different initial conditions. It's calculated with a series of experiments, running
+            // over 1000 time steps, starting from 625 different initial conditions.
+            // The initial conditions are chosen by assigning each value of the set Ω = [0.05 0.25 0.5 0.75 0.95] to
+            // each of the states x, ∆x/∆t, θ1 and ∆θ1/∆t, scaled to the range of the variables.The short pole angle θ2
+            // and its angular velocity ∆θ2/∆t are set to zero. The GS is then defined as the number of successful runs
+            // from the 625 initial conditions and an individual is defined as a solution if it reaches a generalization
+            // score of 200 or more.
+
+            // Sort the species by max organism fitness in descending order - the highest fitness first
+            var sorted_species: []*Species = try pop.allocator.alloc(*Species, pop.species.items.len);
+            defer pop.allocator.free(sorted_species);
+            @memcpy(sorted_species, pop.species.items);
+            std.mem.sort(*Species, sorted_species, {}, species_org_sort);
+            std.mem.reverse(*Species, sorted_species);
+
+            // First update what is checked and unchecked
+            var curr_species: ?*Species = undefined;
+            for (sorted_species, 0..) |_, i| {
+                curr_species = sorted_species[i];
+                var max = curr_species.?.compute_max_and_avg_fitness();
+                if (max.max > curr_species.?.max_fitness_ever) {
+                    curr_species.?.is_checked = false;
+                }
             }
-        }
 
-        if (curr_species == null) {
-            curr_species = sorted_species[0];
-        }
+            // Now find first (most fit) species that is unchecked
+            curr_species = null;
+            for (sorted_species, 0..) |_, i| {
+                curr_species = sorted_species[i];
+                if (!curr_species.?.is_checked) {
+                    break;
+                }
+            }
 
-        // Remember it was checked
-        curr_species.?.is_checked = true;
+            if (curr_species == null) {
+                curr_species = sorted_species[0];
+            }
 
-        // the organism champion
-        var champion = curr_species.?.find_champion();
-        var champion_fitness = champion.?.fitness;
+            // Remember it was checked
+            curr_species.?.is_checked = true;
 
-        // Now check to make sure the champion can do 100,000 evaluations
-        cart_pole.non_markov_long = true;
-        cart_pole.generalization_test = false;
+            // the organism champion
+            var champion = curr_species.?.find_champion();
+            var champion_fitness = champion.?.fitness;
 
-        var long_run_passed = try org_eval(champion.?, cart_pole, eval_ctx);
-        if (long_run_passed) {
-            // the champion passed non-Markov long test, start generalization
-            cart_pole.non_markov_long = false;
-            cart_pole.generalization_test = true;
+            // Now check to make sure the champion can do 100,000 evaluations
+            cart_pole.non_markov_long = true;
+            cart_pole.generalization_test = false;
 
-            // Given that the champion passed long run test, now run it on generalization tests running
-            // over 1000 time steps, starting from 625 different initial conditions
+            var long_run_passed = try self.org_eval(champion.?, cart_pole);
+            if (long_run_passed) {
+                // the champion passed non-Markov long test, start generalization
+                cart_pole.non_markov_long = false;
+                cart_pole.generalization_test = true;
 
-            var state_vals = [_]f64{ 0.05, 0.25, 0.5, 0.75, 0.95 };
-            var generalization_score: usize = 0;
-            var s0c: usize = 0;
-            var s1c: usize = 0;
-            var s2c: usize = 0;
-            var s3c: usize = 0;
-            while (s0c < 5) : (s0c += 1) {
-                while (s1c < 5) : (s1c += 1) {
+                // Given that the champion passed long run test, now run it on generalization tests running
+                // over 1000 time steps, starting from 625 different initial conditions
+
+                var state_vals = [_]f64{ 0.05, 0.25, 0.5, 0.75, 0.95 };
+                var generalization_score: usize = 0;
+                var s0c: usize = 0;
+                var s1c: usize = 0;
+                var s2c: usize = 0;
+                var s3c: usize = 0;
+                while (s0c < 5) : (s0c += 1) {
                     while (s1c < 5) : (s1c += 1) {
-                        while (s2c < 5) : (s2c += 1) {
-                            while (s3c < 5) : (s3c += 1) {
-                                cart_pole.state[0] = state_vals[s0c] * 4.32 - 2.16;
-                                cart_pole.state[1] = state_vals[s1c] * 2.70 - 1.35;
-                                cart_pole.state[2] = state_vals[s2c] * 0.12566304 - 0.06283152; // 0.06283152 = 3.6 degrees
-                                cart_pole.state[3] = state_vals[s3c] * 0.30019504 - 0.15009752; // 0.15009752 = 8.6 degrees
-                                // The short pole angle and its angular velocity are set to zero.
-                                cart_pole.state[4] = 0;
-                                cart_pole.state[5] = 0;
+                        while (s1c < 5) : (s1c += 1) {
+                            while (s2c < 5) : (s2c += 1) {
+                                while (s3c < 5) : (s3c += 1) {
+                                    cart_pole.state[0] = state_vals[s0c] * 4.32 - 2.16;
+                                    cart_pole.state[1] = state_vals[s1c] * 2.70 - 1.35;
+                                    cart_pole.state[2] = state_vals[s2c] * 0.12566304 - 0.06283152; // 0.06283152 = 3.6 degrees
+                                    cart_pole.state[3] = state_vals[s3c] * 0.30019504 - 0.15009752; // 0.15009752 = 8.6 degrees
+                                    // The short pole angle and its angular velocity are set to zero.
+                                    cart_pole.state[4] = 0;
+                                    cart_pole.state[5] = 0;
 
-                                // The champion needs to be flushed here because it may have
-                                // leftover activation from its last test run that could affect
-                                // its recurrent memory
-                                _ = try champion.?.phenotype.?.flush();
-                                var generalized = try org_eval(champion.?, cart_pole, eval_ctx);
-                                if (generalized) {
-                                    generalization_score += 1;
-                                    logger.debug("x: {d}, xv: {d}, t1: {d}, t2: {d}, angle: {d}", .{ cart_pole.state[0], cart_pole.state[1], cart_pole.state[2], cart_pole.state[4], thirty_six_degress }, @src());
+                                    // The champion needs to be flushed here because it may have
+                                    // leftover activation from its last test run that could affect
+                                    // its recurrent memory
+                                    _ = try champion.?.phenotype.?.flush();
+                                    var generalized = try self.org_eval(champion.?, cart_pole);
+                                    if (generalized) {
+                                        generalization_score += 1;
+                                        logger.debug("x: {d}, xv: {d}, t1: {d}, t2: {d}, angle: {d}", .{ cart_pole.state[0], cart_pole.state[1], cart_pole.state[2], cart_pole.state[4], thirty_six_degress }, @src());
+                                    }
                                 }
                             }
                         }
                     }
                 }
+
+                if (generalization_score >= 200) {
+                    // The generalization test winner
+                    logger.info("The non-Markov champion found! (Generalization Score = {d})", .{generalization_score}, @src());
+
+                    champion.?.fitness = @as(f64, @floatFromInt(generalization_score));
+                    champion.?.is_winner = true;
+                    epoch.solved = true;
+                    epoch.winner_nodes = champion.?.genotype.nodes.len;
+                    epoch.winner_genes = @as(usize, @intCast(champion.?.genotype.extrons()));
+                    epoch.winner_evals = opts.pop_size * epoch.id + @as(usize, @intCast(champion.?.genotype.id));
+                    epoch.champion = champion.?;
+                } else {
+                    logger.info("The non-Markov champion missed the 100'000 run test", .{}, @src());
+                    champion.?.fitness = champion_fitness; // Restore champ's fitness
+                    champion.?.is_winner = false;
+                }
             }
+        }
 
-            if (generalization_score >= 200) {
-                // The generalization test winner
-                logger.info("The non-Markov champion found! (Generalization Score = {d})", .{generalization_score}, @src());
+        // Fill statistics about current epoch
+        try epoch.fill_population_statistics(pop);
 
-                champion.?.fitness = @as(f64, @floatFromInt(generalization_score));
-                champion.?.is_winner = true;
-                epoch.solved = true;
-                epoch.winner_nodes = champion.?.genotype.nodes.len;
-                epoch.winner_genes = @as(usize, @intCast(champion.?.genotype.extrons()));
-                epoch.winner_evals = opts.pop_size * epoch.id + @as(usize, @intCast(champion.?.genotype.id));
-                epoch.champion = champion.?;
+        // TODO: Only print to file every print_every generation
+        if (epoch.solved) {
+            // print winner organism
+            var org: *Organism = epoch.champion.?;
+            var depth = try org.phenotype.?.max_activation_depth_fast(0);
+            std.debug.print("Activation depth of the winner: {d}\n", .{depth});
+
+            // TODO: write winner's genome to file (not implemented yet)
+        }
+    }
+
+    fn org_eval(self: *Cart2PoleGenerationEvaluator, org: *Organism, cart_pole: *CartPole) !bool {
+        var winner = false;
+        // Try to balance a pole now
+        org.fitness = try cart_pole.eval_net(org.phenotype.?, self.data.action_type);
+
+        logger.debug("Organism {d}\tfitness: {d}", .{ org.genotype.id, org.fitness }, @src());
+
+        // DEBUG CHECK if organism is damaged
+        if (!(cart_pole.non_markov_long and cart_pole.generalization_test) and org.check_champion_child_damaged()) {
+            logger.warn("ORGANISM DEGRADED:\n{any}", .{org.genotype}, @src());
+        }
+
+        // Decide if it's a winner, in Markov Case
+        if (cart_pole.is_markov) {
+            if (org.fitness >= markov_max_steps) {
+                winner = true;
+                org.fitness = 1;
+                org.error_value = 0;
             } else {
-                logger.info("The non-Markov champion missed the 100'000 run test", .{}, @src());
-                champion.?.fitness = champion_fitness; // Restore champ's fitness
-                champion.?.is_winner = false;
+                // use linear scale
+                org.error_value = (markov_max_steps - org.fitness) / markov_max_steps;
+                org.fitness = 1 - org.error_value;
+            }
+        } else if (cart_pole.non_markov_long) {
+            // if doing the long test non-markov
+            if (org.fitness >= non_markov_long_max_steps) {
+                winner = true;
+            }
+        } else if (cart_pole.generalization_test) {
+            if (org.fitness >= non_markov_generalization_max_steps) {
+                winner = true;
             }
         }
+        return winner;
     }
-
-    // Fill statistics about current epoch
-    try epoch.fill_population_statistics(pop);
-
-    // TODO: Only print to file every print_every generation
-    if (epoch.solved) {
-        // print winner organism
-        var org: *Organism = epoch.champion.?;
-        var depth = try org.phenotype.?.max_activation_depth_fast(0);
-        std.debug.print("Activation depth of the winner: {d}\n", .{depth});
-
-        // TODO: write winner's genome to file (not implemented yet)
-    }
-}
-
-fn org_eval(org: *Organism, cart_pole: *CartPole, ctx: *Cart2PoleData) !bool {
-    var winner = false;
-    // Try to balance a pole now
-    org.fitness = try cart_pole.eval_net(org.phenotype.?, ctx.action_type);
-
-    logger.debug("Organism {d}\tfitness: {d}", .{ org.genotype.id, org.fitness }, @src());
-
-    // DEBUG CHECK if organism is damaged
-    if (!(cart_pole.non_markov_long and cart_pole.generalization_test) and org.check_champion_child_damaged()) {
-        logger.warn("ORGANISM DEGRADED:\n{any}", .{org.genotype}, @src());
-    }
-
-    // Decide if it's a winner, in Markov Case
-    if (cart_pole.is_markov) {
-        if (org.fitness >= markov_max_steps) {
-            winner = true;
-            org.fitness = 1;
-            org.error_value = 0;
-        } else {
-            // use linear scale
-            org.error_value = (markov_max_steps - org.fitness) / markov_max_steps;
-            org.fitness = 1 - org.error_value;
-        }
-    } else if (cart_pole.non_markov_long) {
-        // if doing the long test non-markov
-        if (org.fitness >= non_markov_long_max_steps) {
-            winner = true;
-        }
-    } else if (cart_pole.generalization_test) {
-        if (org.fitness >= non_markov_generalization_max_steps) {
-            winner = true;
-        }
-    }
-    return winner;
-}
+};
 
 pub fn main() !void {
     var allocator = std.heap.c_allocator;
@@ -586,12 +589,13 @@ pub fn main() !void {
         .action_type = ActionType.ContinuousAction,
     };
 
-    const evaluator = GenerationEvaluator{
-        .generation_evaluate = &eval,
-        .ctx = &ctx,
+    var cart2pole_eval = Cart2PoleGenerationEvaluator{
+        .data = &ctx,
     };
 
-    try experiment.execute(allocator, rand, opts, start_genome, evaluator);
+    const evaluator = GenerationEvaluator.init(&cart2pole_eval);
+
+    try experiment.execute(allocator, rand, opts, start_genome, evaluator, null);
 
     // var res = experiment.avg_winner_statistics();
 }

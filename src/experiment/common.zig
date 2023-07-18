@@ -15,6 +15,8 @@ pub const GenerationAvg = exp_generation.GenerationAvg;
 pub const Trial = trial.Trial;
 pub const WinnerStats = trial.WinnerStats;
 pub const TrialAvg = trial.TrialAvg;
+// TODO: pub const TrialRunObserver = @import("trial_run_observer.zig");
+pub const GenerationEvaluator = @import("generation_evaluator.zig");
 
 const SequentialPopulationEpochExecutor = pop_epoch.SequentialPopulationEpochExecutor;
 const ParallelPopulationEpochExecutor = pop_epoch.ParallelPopulationEpochExecutor;
@@ -51,12 +53,6 @@ pub fn epoch_executor_for_ctx(allocator: std.mem.Allocator, ctx: *Options) !Epoc
         },
     };
 }
-
-pub const GenerationEvaluator = struct {
-    generation_evaluate: *const fn (*Options, *Population, *Generation, *anyopaque) anyerror!void,
-    // TODO: use ctx field to store arbitrary data for the evaluator
-    ctx: *anyopaque = undefined,
-};
 
 test {
     std.testing.refAllDecls(@This());
