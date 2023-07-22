@@ -25,6 +25,18 @@ pub const NoveltyArchiveOptions = struct {
     fittest_allowed_size: usize = fittest_allowed_size,
     /// the minimal number of seed novelty items to start from
     archive_seed_amount: usize = archive_seed_amount,
+
+    allocator: std.mem.Allocator = undefined,
+
+    pub fn init(allocator: std.mem.Allocator) !*NoveltyArchiveOptions {
+        var self: *NoveltyArchiveOptions = try allocator.create(NoveltyArchiveOptions);
+        self.* = NoveltyArchiveOptions{ .allocator = allocator };
+        return self;
+    }
+
+    pub fn deinit(self: *NoveltyArchiveOptions) void {
+        self.allocator.destroy(self);
+    }
 };
 
 test {

@@ -2,6 +2,7 @@ const std = @import("std");
 const novelty_item = @import("novelty_item.zig");
 const common = @import("common.zig");
 const opt = @import("../opts.zig");
+const json = @import("json");
 
 const NoveltyMetric = common.NoveltyMetric;
 const NoveltyArchiveOptions = common.NoveltyArchiveOptions;
@@ -47,8 +48,9 @@ pub const NoveltyArchive = struct {
 
     allocator: std.mem.Allocator,
 
-    pub fn init(allocator: std.mem.Allocator, threshold: f64, metric: *const NoveltyMetric, options: *NoveltyArchiveOptions) NoveltyArchive {
-        var self = NoveltyArchive{
+    pub fn init(allocator: std.mem.Allocator, threshold: f64, metric: *const NoveltyMetric, options: *NoveltyArchiveOptions) !*NoveltyArchive {
+        var self = try allocator.create(NoveltyArchive);
+        self.* = .{
             .allocator = allocator,
             .novel_items = std.ArrayList(*NoveltyItem).init(allocator),
             .fittest_items = std.ArrayList(*NoveltyItem).init(allocator),
@@ -63,6 +65,8 @@ pub const NoveltyArchive = struct {
     pub fn deinit(self: *NoveltyArchive) void {
         self.novel_items.deinit();
         self.fittest_items.deinit();
+        // self.options.deinit();
+        self.allocator.destroy(self);
     }
 
     /// Evaluates the novelty of a single individual organism within population and update
@@ -283,7 +287,7 @@ fn create_rand_population(allocator: std.mem.Allocator, rand: std.rand.Random, i
 test "NoveltyArchive update fittest with Organism" {
     var allocator = std.testing.allocator;
     var opts = NoveltyArchiveOptions{};
-    var archive = NoveltyArchive.init(allocator, 1, &square_metric, &opts);
+    var archive = try NoveltyArchive.init(allocator, 1, &square_metric, &opts);
     defer archive.deinit();
 
     var gen = try Genome.read_from_file(allocator, "src/ns/test_data/initgenome");
@@ -334,7 +338,7 @@ test "NoveltyArchive update fittest with Organism" {
 test "NoveltyArchive add NoveltyItem" {
     var allocator = std.testing.allocator;
     var opts = NoveltyArchiveOptions{};
-    var archive = NoveltyArchive.init(allocator, 1, &square_metric, &opts);
+    var archive = try NoveltyArchive.init(allocator, 1, &square_metric, &opts);
     defer archive.deinit();
 
     var gen = try Genome.read_from_file(allocator, "src/ns/test_data/initgenome");
@@ -372,7 +376,7 @@ test "NoveltyArchive evaluate individual" {
     };
 
     var opts = NoveltyArchiveOptions{};
-    var archive = NoveltyArchive.init(allocator, 1, &square_metric, &opts);
+    var archive = try NoveltyArchive.init(allocator, 1, &square_metric, &opts);
     defer archive.deinit();
     archive.generation = 2;
 
@@ -412,7 +416,7 @@ test "NoveltyArchive evaluate Population" {
     };
 
     var opts = NoveltyArchiveOptions{};
-    var archive = NoveltyArchive.init(allocator, 0.1, &square_metric, &opts);
+    var archive = try NoveltyArchive.init(allocator, 0.1, &square_metric, &opts);
     defer archive.deinit();
     archive.generation = 2;
 

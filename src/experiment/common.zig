@@ -5,6 +5,7 @@ const neat_population = @import("../genetics/population.zig");
 const exp_generation = @import("generation.zig");
 const experiment = @import("experiment.zig");
 const trial = @import("trial.zig");
+const utils = @import("utils.zig");
 
 // exports
 pub const Experiment = experiment.Experiment;
@@ -15,6 +16,7 @@ pub const GenerationAvg = exp_generation.GenerationAvg;
 pub const Trial = trial.Trial;
 pub const WinnerStats = trial.WinnerStats;
 pub const TrialAvg = trial.TrialAvg;
+pub const create_out_dir_for_trial = utils.create_out_dir_for_trial;
 // TODO: pub const TrialRunObserver = @import("trial_run_observer.zig");
 pub const GenerationEvaluator = @import("generation_evaluator.zig");
 
