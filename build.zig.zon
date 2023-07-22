@@ -1,6 +1,6 @@
 .{
-    .name = "my-project",
-    .version = "1.0.0",
+    .name = "zig-NEAT",
+    .version = "0.0.1",
     .dependencies = .{
         .json = .{
             .url = "https://github.com/getty-zig/json/archive/07595d9323568873ac07aebc616683855c2e7d56.tar.gz",
