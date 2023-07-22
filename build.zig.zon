@@ -1,5 +1,5 @@
 .{
-    .name = "zig-NEAT",
+    .name = "zigNEAT",
     .version = "0.0.1",
     .dependencies = .{
         .json = .{

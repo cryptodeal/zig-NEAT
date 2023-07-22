@@ -1,5 +1,5 @@
 const std = @import("std");
-const zig_neat = @import("zig-NEAT");
+const zig_neat = @import("zig_NEAT");
 
 const NeatLogger = zig_neat.NeatLogger;
 const Population = zig_neat.genetics.Population;

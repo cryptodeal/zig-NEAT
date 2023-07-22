@@ -1,0 +1,10 @@
+.{
+    .name = "XOR-example",
+    .version = "0.0.1",
+    .dependencies = .{
+        .zigNEAT = .{
+            .url = "https://github.com/cryptodeal/zig-NEAT/archive/ca44bd3ed3db54fa1e069bf9392aebea6b0d1a22.tar.gz",
+            .hash = "1220a9e2da15fb18ac2147e6a730bf98f09b1792b351a3b01eb862436781f741ca04",
+        },
+    },
+}

@@ -18,8 +18,15 @@ pub fn build(b: *std.Build) void {
     const opts = .{ .target = target, .optimize = optimize };
     const json_module = b.dependency("json", opts).module("json");
 
+    var neat_module = b.createModule(.{
+        .source_file = .{ .path = "src/main.zig" },
+    });
+
+    // we name the module duck which will be used later
+    try b.modules.put(b.dupe("zigNEAT"), neat_module);
+
     const lib = b.addStaticLibrary(.{
-        .name = "zig-NEAT",
+        .name = "zigNEAT",
         // In this case the main source file is merely a path, however, in more
         // complicated build scripts, this could be a generated file.
         .root_source_file = .{ .path = "src/main.zig" },
