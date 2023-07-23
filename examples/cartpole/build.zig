@@ -5,6 +5,9 @@ pub fn build(b: *std.Build) void {
 
     const optimize = b.standardOptimizeOption(.{});
 
+    const opts = .{ .target = target, .optimize = optimize };
+    const neat_module = b.dependency("zigNEAT", opts).module("zigNEAT");
+
     const exe = b.addExecutable(.{
         .name = "CartPole-example",
         .root_source_file = .{ .path = "src/main.zig" },
@@ -12,8 +15,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    const zig_neat = b.createModule(.{ .source_file = .{ .path = "../../src/main.zig" } });
-    exe.addModule("zig-NEAT", zig_neat);
+    exe.addModule("zigNEAT", neat_module);
 
     // build the executable
     b.installArtifact(exe);

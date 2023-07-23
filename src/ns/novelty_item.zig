@@ -41,6 +41,12 @@ pub const NoveltyItem = struct {
             try writer.print(" {d:.3}", .{d});
         }
     }
+
+    pub const @"getty.sb" = struct {
+        pub const attributes = .{
+            .allocator = .{ .skip = true },
+        };
+    };
 };
 
 /// ItemsDistance holds the distance between two NoveltyItem's

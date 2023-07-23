@@ -1,5 +1,5 @@
 .{
-    .name = "XOR-example",
+    .name = "Cart2Pole-example",
     .version = "0.0.1",
     .dependencies = .{
         .zigNEAT = .{

@@ -29,8 +29,8 @@ pub const NoveltyArchiveOptions = struct {
     allocator: std.mem.Allocator = undefined,
 
     pub fn init(allocator: std.mem.Allocator) !*NoveltyArchiveOptions {
-        var self: *NoveltyArchiveOptions = try allocator.create(NoveltyArchiveOptions);
-        self.* = NoveltyArchiveOptions{ .allocator = allocator };
+        var self = try allocator.create(NoveltyArchiveOptions);
+        self.* = .{ .allocator = allocator };
         return self;
     }
 

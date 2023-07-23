@@ -65,7 +65,7 @@ pub const NoveltyArchive = struct {
     pub fn deinit(self: *NoveltyArchive) void {
         self.novel_items.deinit();
         self.fittest_items.deinit();
-        // self.options.deinit();
+        self.options.deinit();
         self.allocator.destroy(self);
     }
 
@@ -251,6 +251,44 @@ pub const NoveltyArchive = struct {
 
         return distances.toOwnedSlice();
     }
+
+    /// dumps collected novelty points to file as JSON
+    pub fn dump_novelty_points(self: *NoveltyArchive, path: []const u8) !void {
+        if (self.novel_items.items.len == 0) return error.NoNovelItems;
+
+        const dir_path = std.fs.path.dirname(path);
+        const file_name = std.fs.path.basename(path);
+        var file_dir: std.fs.Dir = undefined;
+        if (dir_path != null) {
+            file_dir = try std.fs.cwd().makeOpenPath(dir_path.?, .{});
+        } else {
+            file_dir = std.fs.cwd();
+        }
+        var output_file = try file_dir.createFile(file_name, .{});
+        defer output_file.close();
+        try self.dump_novelty_items(self.novel_items.items, output_file.writer());
+    }
+
+    /// dumps collected novelty points of individuals with maximal fitness found during evolution
+    pub fn dump_fittest(self: *NoveltyArchive, path: []const u8) !void {
+        if (self.fittest_items.items.len == 0) return error.NoNovelItems;
+
+        const dir_path = std.fs.path.dirname(path);
+        const file_name = std.fs.path.basename(path);
+        var file_dir: std.fs.Dir = undefined;
+        if (dir_path != null) {
+            file_dir = try std.fs.cwd().makeOpenPath(dir_path.?, .{});
+        } else {
+            file_dir = std.fs.cwd();
+        }
+        var output_file = try file_dir.createFile(file_name, .{});
+        defer output_file.close();
+        try self.dump_novelty_items(self.fittest_items.items, output_file.writer());
+    }
+
+    fn dump_novelty_items(_: *NoveltyArchive, items: []*NoveltyItem, writer: anytype) !void {
+        try json.toWriter(null, items, writer);
+    }
 };
 
 // test utility functions
@@ -286,8 +324,8 @@ fn create_rand_population(allocator: std.mem.Allocator, rand: std.rand.Random, i
 // NoveltyArchive Unit tests
 test "NoveltyArchive update fittest with Organism" {
     var allocator = std.testing.allocator;
-    var opts = NoveltyArchiveOptions{};
-    var archive = try NoveltyArchive.init(allocator, 1, &square_metric, &opts);
+    var opts = try NoveltyArchiveOptions.init(allocator);
+    var archive = try NoveltyArchive.init(allocator, 1, &square_metric, opts);
     defer archive.deinit();
 
     var gen = try Genome.read_from_file(allocator, "src/ns/test_data/initgenome");
@@ -337,8 +375,8 @@ test "NoveltyArchive update fittest with Organism" {
 
 test "NoveltyArchive add NoveltyItem" {
     var allocator = std.testing.allocator;
-    var opts = NoveltyArchiveOptions{};
-    var archive = try NoveltyArchive.init(allocator, 1, &square_metric, &opts);
+    var opts = try NoveltyArchiveOptions.init(allocator);
+    var archive = try NoveltyArchive.init(allocator, 1, &square_metric, opts);
     defer archive.deinit();
 
     var gen = try Genome.read_from_file(allocator, "src/ns/test_data/initgenome");
@@ -375,8 +413,8 @@ test "NoveltyArchive evaluate individual" {
         }
     };
 
-    var opts = NoveltyArchiveOptions{};
-    var archive = try NoveltyArchive.init(allocator, 1, &square_metric, &opts);
+    var opts = try NoveltyArchiveOptions.init(allocator);
+    var archive = try NoveltyArchive.init(allocator, 1, &square_metric, opts);
     defer archive.deinit();
     archive.generation = 2;
 
@@ -415,8 +453,8 @@ test "NoveltyArchive evaluate Population" {
         }
     };
 
-    var opts = NoveltyArchiveOptions{};
-    var archive = try NoveltyArchive.init(allocator, 0.1, &square_metric, &opts);
+    var opts = try NoveltyArchiveOptions.init(allocator);
+    var archive = try NoveltyArchive.init(allocator, 0.1, &square_metric, opts);
     defer archive.deinit();
     archive.generation = 2;
 

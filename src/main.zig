@@ -34,4 +34,5 @@ test {
     _ = network;
     _ = ns;
     _ = trait_common;
+    _ = options;
 }
