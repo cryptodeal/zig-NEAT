@@ -118,52 +118,7 @@ const XorGenerationEvaluator = struct {
 
 pub fn main() !void {
     var allocator = std.heap.c_allocator;
-    var opts: *Options = try allocator.create(Options);
-    defer allocator.destroy(opts);
-    var node_activators = try allocator.alloc(NodeActivationType, 1);
-    defer allocator.free(node_activators);
-    node_activators[0] = NodeActivationType.SigmoidSteepenedActivation;
-    var node_activators_prob = try allocator.alloc(f64, 1);
-    defer allocator.free(node_activators_prob);
-    node_activators_prob[0] = 1.0;
-    opts.* = .{
-        .trait_param_mut_prob = 0.5,
-        .trait_mut_power = 1.0,
-        .weight_mut_power = 2.5,
-        .disjoint_coeff = 1.0,
-        .excess_coeff = 1.0,
-        .mut_diff_coeff = 0.4,
-        .compat_threshold = 3.0,
-        .age_significance = 1.0,
-        .survival_thresh = 0.2,
-        .mut_only_prob = 0.25,
-        .mut_random_trait_prob = 0.1,
-        .mut_link_trait_prob = 0.1,
-        .mut_node_trait_prob = 0.1,
-        .mut_link_weights_prob = 0.9,
-        .mut_toggle_enable_prob = 0.0,
-        .mut_gene_reenable_prob = 0.0,
-        .mut_add_node_prob = 0.03,
-        .mut_add_link_prob = 0.08,
-        .mut_connect_sensors = 0.5,
-        .interspecies_mate_rate = 0.0010,
-        .mate_multipoint_prob = 0.3,
-        .mate_multipoint_avg_prob = 0.3,
-        .mate_singlepoint_prob = 0.3,
-        .mate_only_prob = 0.2,
-        .recur_only_prob = 0.0,
-        .pop_size = 200,
-        .dropoff_age = 50,
-        .new_link_tries = 50,
-        .print_every = 10,
-        .babies_stolen = 0,
-        .num_runs = 100,
-        .num_generations = 100,
-        .node_activators = node_activators,
-        .node_activators_prob = node_activators_prob,
-        .epoch_executor_type = EpochExecutorType.EpochExecutorTypeSequential,
-        .gen_compat_method = GenomeCompatibilityMethod.GenomeCompatibilityMethodLinear,
-    };
+    var opts: *Options = try Options.read_options(allocator, "data/basic_xor.neat");
 
     // initialize Genome from file
     var start_genome = try Genome.read_from_file(allocator, "data/xorstartgenes");

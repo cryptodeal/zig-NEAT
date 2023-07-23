@@ -194,52 +194,8 @@ const CartPoleGenerationEvaluator = struct {
 
 pub fn main() !void {
     var allocator = std.heap.c_allocator;
-    var opts: *Options = try allocator.create(Options);
-    defer allocator.destroy(opts);
-    var node_activators = try allocator.alloc(NodeActivationType, 1);
-    defer allocator.free(node_activators);
-    node_activators[0] = NodeActivationType.SigmoidSteepenedActivation;
-    var node_activators_prob = try allocator.alloc(f64, 1);
-    defer allocator.free(node_activators_prob);
-    node_activators_prob[0] = 1.0;
-    opts.* = .{
-        .trait_param_mut_prob = 0.5,
-        .trait_mut_power = 1,
-        .weight_mut_power = 1.8,
-        .disjoint_coeff = 1,
-        .excess_coeff = 1,
-        .mut_diff_coeff = 3,
-        .compat_threshold = 4,
-        .age_significance = 1,
-        .survival_thresh = 0.4,
-        .mut_only_prob = 0.25,
-        .mut_random_trait_prob = 0.1,
-        .mut_link_trait_prob = 0.1,
-        .mut_node_trait_prob = 0.1,
-        .mut_link_weights_prob = 0.8,
-        .mut_toggle_enable_prob = 0.1,
-        .mut_gene_reenable_prob = 0.05,
-        .mut_add_node_prob = 0.01,
-        .mut_add_link_prob = 0.3,
-        .mut_connect_sensors = 0.5,
-        .interspecies_mate_rate = 0.001,
-        .mate_multipoint_prob = 0.6,
-        .mate_multipoint_avg_prob = 0.4,
-        .mate_singlepoint_prob = 0,
-        .mate_only_prob = 0.2,
-        .recur_only_prob = 0.2,
-        .pop_size = 1000,
-        .dropoff_age = 15,
-        .new_link_tries = 20,
-        .print_every = 60,
-        .babies_stolen = 0,
-        .num_runs = 100,
-        .num_generations = 100,
-        .node_activators = node_activators,
-        .node_activators_prob = node_activators_prob,
-        .epoch_executor_type = EpochExecutorType.EpochExecutorTypeSequential,
-        .gen_compat_method = GenomeCompatibilityMethod.GenomeCompatibilityMethodLinear,
-    };
+    var opts: *Options = try Options.read_options(allocator, "data/pole1_1000.neat");
+    defer opts.deinit();
 
     // initialize Genome
     var start_genome = try Genome.read_from_file(allocator, "data/pole1startgenes");

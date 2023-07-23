@@ -128,6 +128,8 @@ pub const Options = struct {
         if (raw or self.node_activators_with_probs.len == 0) {
             self.node_activators = try allocator.alloc(math.NodeActivationType, 1);
             self.node_activators[0] = math.NodeActivationType.SigmoidSteepenedActivation;
+            self.node_activators_prob = try allocator.alloc(f64, 1);
+            self.node_activators_prob[0] = 1.0;
             return;
         }
         // create activators
@@ -143,6 +145,7 @@ pub const Options = struct {
 
     pub fn deinit(self: *Options) void {
         self.allocator.free(self.node_activators);
+        self.allocator.free(self.node_activators_prob);
         self.allocator.destroy(self);
     }
 
