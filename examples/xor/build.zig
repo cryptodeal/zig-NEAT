@@ -14,7 +14,6 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    exe.emit_docs = .no_emit;
 
     exe.addModule("zigNEAT", neat_module);
 

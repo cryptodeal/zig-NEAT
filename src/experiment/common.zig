@@ -17,7 +17,7 @@ pub const Trial = trial.Trial;
 pub const WinnerStats = trial.WinnerStats;
 pub const TrialAvg = trial.TrialAvg;
 pub const create_out_dir_for_trial = utils.create_out_dir_for_trial;
-// TODO: pub const TrialRunObserver = @import("trial_run_observer.zig");
+pub const TrialRunObserver = @import("trial_run_observer.zig");
 pub const GenerationEvaluator = @import("generation_evaluator.zig");
 
 const SequentialPopulationEpochExecutor = pop_epoch.SequentialPopulationEpochExecutor;
