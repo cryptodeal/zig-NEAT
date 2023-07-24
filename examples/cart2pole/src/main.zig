@@ -87,7 +87,7 @@ const CartPole = struct {
         self.reset_state();
 
         // max depth of the network to be activated
-        var net_depth = try net.max_activation_depth_fast(0);
+        var net_depth = try net.max_activation_depth_capped(0);
         if (net_depth == 0) {
             // disconnected - assign minimal fitness to not completely exclude organism from evolution
             // returning only fitness of 1 step
@@ -476,7 +476,7 @@ const Cart2PoleGenerationEvaluator = struct {
         if (epoch.solved) {
             // print winner organism
             var org: *Organism = epoch.champion.?;
-            var depth = try org.phenotype.?.max_activation_depth_fast(0);
+            var depth = try org.phenotype.?.max_activation_depth_capped(0);
             std.debug.print("Activation depth of the winner: {d}\n", .{depth});
 
             // TODO: write winner's genome to file (not implemented yet)

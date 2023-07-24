@@ -50,7 +50,7 @@ const CartPoleGenerationEvaluator = struct {
             var org: *Organism = epoch.champion.?;
             std.debug.print("Winner organism fitness: {d}\n", .{org.fitness});
 
-            var depth = try org.phenotype.?.max_activation_depth_fast(0);
+            var depth = try org.phenotype.?.max_activation_depth_capped(0);
             std.debug.print("Activation depth of the winner: {d}\n", .{depth});
 
             // TODO: write winner's genome to file (not implemented yet)
@@ -105,7 +105,7 @@ const CartPoleGenerationEvaluator = struct {
             theta_dot = @as(f64, @floatFromInt(@mod(@as(i32, @intCast(rand.int(i31))), 3000))) / 1000 - 1.5;
         }
 
-        var net_depth = try net.max_activation_depth_fast(0);
+        var net_depth = try net.max_activation_depth_capped(0);
         if (net_depth == 0) {
             // possibly disconnected - return minimal fitness score
             logger.err("Failed to estimate maximal depth of the network with loop.\nUsing default depth: {d}", .{net_depth}, @src());

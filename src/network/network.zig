@@ -237,7 +237,7 @@ pub const Network = struct {
     }
 
     pub fn recursive_steps(self: *Network) !bool {
-        var net_depth = try self.max_activation_depth_fast(0);
+        var net_depth = try self.max_activation_depth_capped(0);
         return self.forward_steps(net_depth);
     }
 
@@ -332,11 +332,10 @@ pub const Network = struct {
         if (self.all_nodes.len == self.inputs.len + self.outputs.len and !self.has_control_nodes or self.control_nodes.len == 0) {
             return 1;
         }
-
         return self.calc_max_activation_depth();
     }
 
-    pub fn max_activation_depth_fast(self: *Network, max_depth: i64) !i64 {
+    pub fn max_activation_depth_capped(self: *Network, max_depth_cap: i64) !i64 {
         if (self.has_control_nodes and self.control_nodes.len > 0) {
             std.debug.print("unsupported for modular networks", .{});
             return error.ErrModularNetworkUnsupported;
@@ -348,7 +347,7 @@ pub const Network = struct {
 
         var max: i64 = 0;
         for (self.outputs) |node| {
-            var curr_depth = try node.depth(1, max_depth);
+            var curr_depth = node.depth(1, max_depth_cap) catch return max_depth_cap;
             if (curr_depth > max) {
                 max = curr_depth;
             }

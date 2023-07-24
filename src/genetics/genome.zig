@@ -1529,13 +1529,13 @@ pub const Genome = struct {
                     chosen_gene = p1_gene;
                     i_1 += 1;
                     if (!p1_better) {
-                        skip = true; // skip excess from the worse genome
+                        skip = true; // skip disjoint from the worse genome
                     }
                 } else {
                     chosen_gene = p2_gene;
                     i_2 += 1;
                     if (p1_better) {
-                        skip = true; // skip excess from the worse genome
+                        skip = true; // skip disjoint from the worse genome
                     }
                 }
             }
@@ -1545,10 +1545,12 @@ pub const Genome = struct {
 
             // check whether chosen gene conflicts with an already
             // chosen gene; i.e. do they represent the same link
-            for (new_genes) |gene| {
-                if (gene.link.is_genetically_eql(chosen_gene.link)) {
-                    skip = true;
-                    break;
+            if (!skip) {
+                for (new_genes) |gene| {
+                    if (gene.link.is_genetically_eql(chosen_gene.link)) {
+                        skip = true;
+                        break;
+                    }
                 }
             }
 
@@ -1743,13 +1745,13 @@ pub const Genome = struct {
                     chosen_gene = p1_gene;
                     i_1 += 1;
                     if (!p1_better) {
-                        skip = true; // skip excess from the worse genome
+                        skip = true; // skip disjoint from the worse genome
                     }
                 } else {
                     chosen_gene = p2_gene;
                     i_2 += 1;
                     if (p1_better) {
-                        skip = true; // skip excess from the worse genome
+                        skip = true; // skip disjoint from the worse genome
                     }
                 }
             }
@@ -1758,10 +1760,12 @@ pub const Genome = struct {
             // skip = false;
 
             // check whether chosen gene conflicts with an already chosen gene (i.e. do they represent the same link)
-            for (new_genes) |gene| {
-                if (gene.link.is_genetically_eql(chosen_gene.link)) {
-                    skip = true;
-                    break;
+            if (!skip) {
+                for (new_genes) |gene| {
+                    if (gene.link.is_genetically_eql(chosen_gene.link)) {
+                        skip = true;
+                        break;
+                    }
                 }
             }
 
@@ -1989,10 +1993,12 @@ pub const Genome = struct {
             }
 
             // check whether chosen gene conflicts w already chosen gene (i.e. do they represent the same link)
-            for (new_genes) |gene| {
-                if (gene.link.is_genetically_eql(chosen_gene.?.link)) {
-                    skip = true;
-                    break;
+            if (!skip) {
+                for (new_genes) |gene| {
+                    if (gene.link.is_genetically_eql(chosen_gene.?.link)) {
+                        skip = true;
+                        break;
+                    }
                 }
             }
 

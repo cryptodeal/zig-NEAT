@@ -46,7 +46,7 @@ const XorGenerationEvaluator = struct {
             var org: *Organism = epoch.champion.?;
             std.debug.print("Winner organism fitness: {d}\n", .{org.fitness});
 
-            var depth = try org.phenotype.?.max_activation_depth_fast(0);
+            var depth = try org.phenotype.?.max_activation_depth_capped(0);
             std.debug.print("Activation depth of the winner: {d}\n", .{depth});
 
             // TODO: write winner's genome to file (not implemented yet)
@@ -64,7 +64,7 @@ const XorGenerationEvaluator = struct {
         };
 
         // The max depth of the network to be activated
-        var net_depth = try organism.phenotype.?.max_activation_depth_fast(0);
+        var net_depth = try organism.phenotype.?.max_activation_depth_capped(0);
         if (net_depth == 0) {
             logger.err("Network depth: {d} for organism: {d}", .{ net_depth, organism.genotype.id }, @src());
             return false;
