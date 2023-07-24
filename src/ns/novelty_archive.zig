@@ -25,6 +25,8 @@ pub const NoveltyArchive = struct {
     /// all novel items from the fittest organisms found so far
     fittest_items: std.ArrayList(*NoveltyItem),
 
+    encountered_items: std.ArrayList(*NoveltyItem),
+
     /// the current generation
     generation: usize = 0,
 
@@ -54,6 +56,7 @@ pub const NoveltyArchive = struct {
             .allocator = allocator,
             .novel_items = std.ArrayList(*NoveltyItem).init(allocator),
             .fittest_items = std.ArrayList(*NoveltyItem).init(allocator),
+            .encountered_items = std.ArrayList(*NoveltyItem).init(allocator),
             .novelty_metric = metric,
             .novelty_threshold = threshold,
             .generation_index = options.archive_seed_amount,
@@ -63,6 +66,10 @@ pub const NoveltyArchive = struct {
     }
 
     pub fn deinit(self: *NoveltyArchive) void {
+        for (self.encountered_items.items) |i| {
+            i.deinit();
+        }
+        self.encountered_items.deinit();
         self.novel_items.deinit();
         self.fittest_items.deinit();
         self.options.deinit();
@@ -293,7 +300,7 @@ pub const NoveltyArchive = struct {
 
 // test utility functions
 
-fn fill_organism_data(allocator: std.mem.Allocator, org: *Organism, novelty: f64) !void {
+fn fill_organism_data(allocator: std.mem.Allocator, org: *Organism, novelty: f64, archive: *NoveltyArchive) !void {
     var nov_item = try allocator.create(NoveltyItem);
     var nov_data = std.ArrayList(f64).init(allocator);
     try nov_data.append(0.1);
@@ -304,6 +311,7 @@ fn fill_organism_data(allocator: std.mem.Allocator, org: *Organism, novelty: f64
         .novelty = novelty,
         .data = nov_data,
     };
+    try archive.encountered_items.append(nov_item);
     org.data = nov_item;
 }
 
@@ -311,12 +319,12 @@ fn square_metric(x: *NoveltyItem, y: *NoveltyItem) f64 {
     return (x.fitness - y.fitness) * (x.fitness - y.fitness);
 }
 
-fn create_rand_population(allocator: std.mem.Allocator, rand: std.rand.Random, in: usize, out: usize, max_hidden: usize, link_prob: f64, opts: *Options) !*Population {
+fn create_rand_population(allocator: std.mem.Allocator, rand: std.rand.Random, in: usize, out: usize, max_hidden: usize, link_prob: f64, opts: *Options, archive: *NoveltyArchive) !*Population {
     var pop = try Population.init_random(allocator, rand, in, out, max_hidden, false, link_prob, opts);
     for (pop.organisms.items, 0..) |org, i| {
         var float_val = 0.1 * (1 + @as(f64, @floatFromInt(i)));
         org.fitness = float_val;
-        try fill_organism_data(allocator, org, float_val);
+        try fill_organism_data(allocator, org, float_val, archive);
     }
     return pop;
 }
@@ -334,16 +342,12 @@ test "NoveltyArchive update fittest with Organism" {
     var orgs_list = std.ArrayList(*Organism).init(allocator);
     defer orgs_list.deinit();
     defer for (orgs_list.items) |organism| {
-        if (organism.data != null) {
-            var org_item: *NoveltyItem = @as(*NoveltyItem, @ptrCast(@alignCast(organism.data.?)));
-            org_item.deinit();
-        }
         organism.deinit();
     };
 
     var org = try Organism.init(allocator, 0.1, gen, 1);
     try orgs_list.append(org);
-    try fill_organism_data(allocator, org, 0.0);
+    try fill_organism_data(allocator, org, 0.0, archive);
 
     try archive.update_fittest_with_organism(allocator, org);
     try std.testing.expect(archive.fittest_items.items.len == 1);
@@ -353,7 +357,7 @@ test "NoveltyArchive update fittest with Organism" {
         var gen_copy = try gen.duplicate(allocator, gen.id);
         var new_org = try Organism.init(allocator, 0.1 * @as(f64, @floatFromInt(idx)), gen_copy, 1);
         try orgs_list.append(new_org);
-        try fill_organism_data(allocator, new_org, 0.0);
+        try fill_organism_data(allocator, new_org, 0.0, archive);
         try archive.update_fittest_with_organism(allocator, new_org);
     }
 
@@ -367,7 +371,7 @@ test "NoveltyArchive update fittest with Organism" {
     var gen_copy = try gen.duplicate(allocator, gen.id);
     var new_org = try Organism.init(allocator, fitness, gen_copy, 1);
     try orgs_list.append(new_org);
-    try fill_organism_data(allocator, new_org, 0.0);
+    try fill_organism_data(allocator, new_org, 0.0, archive);
     try archive.update_fittest_with_organism(allocator, new_org);
     try std.testing.expect(archive.fittest_items.items.len == opts.fittest_allowed_size);
     try std.testing.expect(archive.fittest_items.items[0].fitness == fitness);
@@ -382,11 +386,10 @@ test "NoveltyArchive add NoveltyItem" {
     var gen = try Genome.read_from_file(allocator, "src/ns/test_data/initgenome");
     var org = try Organism.init(allocator, 0.1, gen, 1);
     defer org.deinit();
-    try fill_organism_data(allocator, org, 0.0);
+    try fill_organism_data(allocator, org, 0.0, archive);
 
     // test add novelty item
     var item: *NoveltyItem = @as(*NoveltyItem, @ptrCast(@alignCast(org.data.?)));
-    defer item.deinit();
     try archive.add_novelty_item(item);
 
     try std.testing.expect(archive.novel_items.items.len == 1);
@@ -404,19 +407,13 @@ test "NoveltyArchive evaluate individual" {
     var prng = std.rand.DefaultPrng.init(42);
     const rand = prng.random();
 
-    var pop = try create_rand_population(allocator, rand, 3, 2, 5, 0.5, &neat_opts);
-    defer pop.deinit();
-    defer for (pop.organisms.items) |org| {
-        if (org.data != null) {
-            var org_item: *NoveltyItem = @as(*NoveltyItem, @ptrCast(@alignCast(org.data.?)));
-            org_item.deinit();
-        }
-    };
-
     var opts = try NoveltyArchiveOptions.init(allocator);
     var archive = try NoveltyArchive.init(allocator, 1, &square_metric, opts);
     defer archive.deinit();
     archive.generation = 2;
+
+    var pop = try create_rand_population(allocator, rand, 3, 2, 5, 0.5, &neat_opts, archive);
+    defer pop.deinit();
 
     // test evaluate only in archive
     var org = pop.organisms.items[0];
@@ -444,19 +441,13 @@ test "NoveltyArchive evaluate Population" {
     var prng = std.rand.DefaultPrng.init(42);
     const rand = prng.random();
 
-    var pop = try create_rand_population(allocator, rand, 3, 2, 5, 0.5, &neat_opts);
-    defer pop.deinit();
-    defer for (pop.organisms.items) |org| {
-        if (org.data != null) {
-            var org_item: *NoveltyItem = @as(*NoveltyItem, @ptrCast(@alignCast(org.data.?)));
-            org_item.deinit();
-        }
-    };
-
     var opts = try NoveltyArchiveOptions.init(allocator);
     var archive = try NoveltyArchive.init(allocator, 0.1, &square_metric, opts);
     defer archive.deinit();
     archive.generation = 2;
+
+    var pop = try create_rand_population(allocator, rand, 3, 2, 5, 0.5, &neat_opts, archive);
+    defer pop.deinit();
 
     // test update fitness scores
     try archive.evaluate_population_novelty(allocator, pop, true);
