@@ -294,7 +294,7 @@ pub const NoveltyArchive = struct {
     }
 
     fn dump_novelty_items(_: *NoveltyArchive, items: []*NoveltyItem, writer: anytype) !void {
-        try json.toWriter(null, items, writer);
+        try json.toPrettyWriter(null, items, writer);
     }
 };
 
