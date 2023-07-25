@@ -50,6 +50,20 @@ cd examples/cart2pole
 zig build run -Doptimize=ReleaseSafe
 ```
 
+To run the Maze (Novelty Search Based Optimization) example with medium difficulty map:
+
+```bash
+cd examples/maze
+zig build run -Doptimize=ReleaseSafe -- --out out/medium_mazens --context data/maze.neat --genome data/mazestartgenes --maze data/medium_maze.txt --experiment MazeNS
+```
+
+To run the Maze (Novelty Search Based Optimization) example with hard difficulty map:
+
+```bash
+cd examples/maze
+zig build run -Doptimize=ReleaseSafe -- --out out/hard_mazens --context data/maze.neat --genome data/mazestartgenes --maze data/hard_maze.txt --experiment MazeNS
+```
+
 ## Roadmap
 
 - [x] Implement basic Graph Theory functionality
@@ -61,5 +75,7 @@ zig build run -Doptimize=ReleaseSafe
     - [x] Cartpole
     - [x] Cart2pole (Markov)
     - [ ] Cart2pole (Non-Markov)
-- [ ] Implement Novelty Search Optimization
+    - [x] Maze (Novelty Search Based Optimization)
+    - [x] Maze (Objective Based Fitness Optimization)
+- [x] Implement Novelty Search Optimization
 - [ ] Implement HyperNEAT Algorithm

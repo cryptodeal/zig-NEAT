@@ -117,8 +117,9 @@ const XorGenerationEvaluator = struct {
 };
 
 pub fn main() !void {
-    var allocator = std.heap.c_allocator;
+    const allocator = std.heap.c_allocator;
     var opts: *Options = try Options.read_options(allocator, "data/basic_xor.neat");
+    defer opts.deinit();
 
     // initialize Genome from file
     var start_genome = try Genome.read_from_file(allocator, "data/xorstartgenes");

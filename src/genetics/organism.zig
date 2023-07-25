@@ -92,6 +92,17 @@ pub const Organism = struct {
         }
         return false;
     }
+
+    pub fn format(value: Organism, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+        try writer.print("[Organism generation: {d}, fitness: {d:.3}, original fitness: {d:.3}", .{ value.generation, value.fitness, value.og_fitness });
+        if (value.is_champion) {
+            try writer.write(" - CHAMPION - ");
+        }
+        if (value.to_eliminate) {
+            try writer.write(" - TO BE ELIMINATED - ");
+        }
+        try writer.writeByte(']');
+    }
 };
 
 pub fn fitness_comparison(context: void, a: *Organism, b: *Organism) bool {
