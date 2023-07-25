@@ -139,6 +139,7 @@ pub const MazeObjectiveEvaluator = struct {
     fn org_eval(self: *MazeObjectiveEvaluator, allocator: std.mem.Allocator, org: *Organism, epoch: *Generation) !bool {
         // create record to store simulation results for organism
         var record = try AgentRecord.init(allocator);
+        errdefer record.deinit();
         record.generation = epoch.id;
         record.agent_id = self.trial_sim.individuals_counter;
         record.species_id = @as(usize, @intCast(org.species.id));

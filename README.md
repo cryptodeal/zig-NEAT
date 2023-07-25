@@ -4,9 +4,7 @@
 
 ### Project is a Work In Progress
 
-This project is a work in progress and is not yet ready for use.
-
-For the brave few that want to try it out in the meantime, please file issues for any bugs, feature request, or API changes you'd like to see made.
+This project is a work in progress; expect the API to change. For bugs/feature request, please file an issue.
 
 ## Overview
 
@@ -18,11 +16,17 @@ Specifically, this project aims to port the [goNEAT](https://github.com/yaricom/
 
 ## Minimum Requirements
 
-| Requirement | Notes   |
-| ----------- | ------- |
-| Zig version | Nightly |
+| Requirement | Notes                     |
+| ----------- | ------------------------- |
+| Zig version | 0.11.0-dev.4002+7dd1cf26f |
 
 I recommend using [zigup](https://github.com/marler8997/zigup) to manage the version of Zig running locally.
+
+To install the relevant build of Zig:
+
+```bash
+zigup 0.11.0-dev.4002+7dd1cf26f
+```
 
 ## Run Examples
 

@@ -129,6 +129,7 @@ pub fn maze_simulation_evaluate(allocator: std.mem.Allocator, env: *Environment,
 
 pub fn maze_simulation_init(allocator: std.mem.Allocator, env: *Environment, org: *Organism, net_depth: i64) !*Environment {
     var env_copy = try env.clone(allocator);
+    errdefer env_copy.deinit();
 
     // flush the neural net
     _ = try org.phenotype.?.flush();
