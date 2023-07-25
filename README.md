@@ -26,6 +26,8 @@ I recommend using [zigup](https://github.com/marler8997/zigup) to manage the ver
 
 ## Run Examples
 
+**TODO: Add Context/Findings for each of the following examples**
+
 To run the XOR example, run the following command:
 
 ```bash
@@ -64,6 +66,20 @@ cd examples/maze
 zig build run -Doptimize=ReleaseSafe -- --out out/hard_mazens --context data/maze.neat --genome data/mazestartgenes --maze data/hard_maze.txt --experiment MazeNS
 ```
 
+To run the Maze (Objective Based Optimization) example with medium difficulty map:
+
+```bash
+cd examples/maze
+zig build run -Doptimize=ReleaseSafe -- --out out/medium_mazeobj --context data/maze.neat --genome data/mazestartgenes --maze data/medium_maze.txt --experiment MazeOBJ
+```
+
+To run the Maze (Objective Based Optimization) example with hard difficulty map:
+
+```bash
+cd examples/maze
+zig build run -Doptimize=ReleaseSafe -- --out out/hard_mazeobj --context data/maze.neat --genome data/mazestartgenes --maze data/hard_maze.txt --experiment MazeOBJ
+```
+
 ## Roadmap
 
 - [x] Implement basic Graph Theory functionality
@@ -78,4 +94,4 @@ zig build run -Doptimize=ReleaseSafe -- --out out/hard_mazens --context data/maz
     - [x] Maze (Novelty Search Based Optimization)
     - [x] Maze (Objective Based Fitness Optimization)
 - [x] Implement Novelty Search Optimization
-- [ ] Implement HyperNEAT Algorithm
+- [ ] Implement ES-HyperNEAT Algorithm

@@ -1,5 +1,4 @@
 zig-cache/
 zig-out/
-examples/maze/
 examples/maze/out/
 .DS_Store
