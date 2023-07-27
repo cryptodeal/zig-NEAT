@@ -1,10 +1,15 @@
 const std = @import("std");
 const neat_math = @import("../math/activations.zig");
+const fast_net = @import("fast_network.zig");
 
 // exports
 pub const Link = @import("link.zig").Link;
 pub const Network = @import("network.zig").Network;
 pub const NNode = @import("nnode.zig").NNode;
+pub const Solver = @import("solver.zig").Solver;
+pub const FastNetworkLink = fast_net.FastNetworkLink;
+pub const FastControlNode = fast_net.FastControlNode;
+pub const FastModularNetworkSolver = fast_net.FastModularNetworkSolver;
 
 pub const NodeType = enum(u8) {
     // neuron type

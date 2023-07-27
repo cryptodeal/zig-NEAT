@@ -15,6 +15,18 @@ pub const GraphError = error{
     NegativePathWeight,
 };
 
+pub fn GraphNode(comptime IdType: type, comptime DType: type) type {
+    return struct {
+        const Self = @This();
+        id: IdType,
+        data: DType,
+
+        pub fn init(n: IdType, d: DType) Self {
+            return Self{ .id = n, .data = d };
+        }
+    };
+}
+
 pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: type) type {
     const Inf_Val = comptime getInfValue(WeightType);
 
@@ -33,14 +45,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
 
         const Self = @This();
 
-        pub const Node = struct {
-            id: IdType,
-            data: DType,
-
-            pub fn init(n: IdType, d: DType) Node {
-                return Node{ .id = n, .data = d };
-            }
-        };
+        pub const Node = GraphNode(IdType, DType);
 
         pub const Edge = struct {
             node: *Node,
@@ -65,8 +70,8 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
                 .N = 0,
                 .connected = 0,
                 .root = undefined,
-                .vertices = undefined,
-                .graph = undefined,
+                .vertices = null,
+                .graph = null,
                 .allocator = alloc,
             };
         }
@@ -94,22 +99,24 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
         }
 
         pub fn deinit(self: *Self) void {
-            var graph_it = self.graph.?.iterator();
-            while (graph_it.next()) |entry| {
-                // self.allocator.destroy(entry.key_ptr);
-                for (entry.value_ptr.*.items) |v| {
-                    self.allocator.destroy(v);
+            if (self.graph != null) {
+                var graph_it = self.graph.?.iterator();
+                while (graph_it.next()) |entry| {
+                    // self.allocator.destroy(entry.key_ptr);
+                    for (entry.value_ptr.*.items) |v| {
+                        self.allocator.destroy(v);
+                    }
+                    entry.value_ptr.*.deinit();
                 }
-                entry.value_ptr.*.deinit();
+                self.graph.?.deinit();
             }
-            self.graph.?.deinit();
-
-            var vertices_it = self.vertices.?.iterator();
-            while (vertices_it.next()) |entry| {
-                self.allocator.destroy(entry.value_ptr.*);
+            if (self.vertices != null) {
+                var vertices_it = self.vertices.?.iterator();
+                while (vertices_it.next()) |entry| {
+                    self.allocator.destroy(entry.value_ptr.*);
+                }
+                self.vertices.?.deinit();
             }
-            self.vertices.?.deinit();
-
             self.N = 0;
         }
 

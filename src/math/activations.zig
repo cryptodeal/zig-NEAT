@@ -86,7 +86,7 @@ pub const NodeActivationType = enum(usize) {
         };
     }
 
-    pub fn activate_module_by_type(inputs: []f64, aux_params: ?[]f64, activation_type: NodeActivationType) ![]f64 {
+    pub fn activate_module_by_type(inputs: []f64, aux_params: ?[]f64, activation_type: NodeActivationType) ![1]f64 {
         return switch (activation_type) {
             NodeActivationType.MultiplyModuleActivation => multiply_module(inputs, aux_params.?),
             NodeActivationType.MaxModuleActivation => max_module(inputs, aux_params.?),
@@ -255,34 +255,34 @@ fn step_function(input: f64, aux_params: []f64) f64 {
 }
 
 /// multiplies input values and returns multiplication result
-fn multiply_module(inputs: []f64, aux_params: []f64) []f64 {
+fn multiply_module(inputs: []f64, aux_params: []f64) [1]f64 {
     _ = aux_params;
     var res: f64 = 1.0;
     for (inputs) |v| {
         res *= v;
     }
-    var out = [_]f64{res};
-    return &out;
+    var out = [1]f64{res};
+    return out;
 }
 
 /// finds maximal value among inputs and return it
-fn max_module(inputs: []f64, aux_params: []f64) []f64 {
+fn max_module(inputs: []f64, aux_params: []f64) [1]f64 {
     _ = aux_params;
     var max = std.math.floatMin(f64);
     for (inputs) |v| {
         max = @max(max, v);
     }
-    var out = [_]f64{max};
-    return &out;
+    var out = [1]f64{max};
+    return out;
 }
 
 /// finds minimal value among inputs and returns it
-fn min_module(inputs: []f64, aux_params: []f64) []f64 {
+fn min_module(inputs: []f64, aux_params: []f64) [1]f64 {
     _ = aux_params;
     var min = std.math.floatMax(f64);
     for (inputs) |v| {
         min = @min(min, v);
     }
-    var out = [_]f64{min};
-    return &out;
+    var out = [1]f64{min};
+    return out;
 }

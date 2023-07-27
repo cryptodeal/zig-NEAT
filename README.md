@@ -99,3 +99,4 @@ zig build run -Doptimize=ReleaseSafe -- --out out/hard_mazeobj --context data/ma
     - [x] Maze (Objective Based Fitness Optimization)
 - [x] Implement Novelty Search Optimization
 - [ ] Implement ES-HyperNEAT Algorithm
+- [ ] Export resulting Artificial Neural Network in format compatible w popular ML libraries? (i.e. allow saving the "best" model so that it can be loaded and used via an optimized ML framework)
