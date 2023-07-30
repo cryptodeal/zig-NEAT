@@ -131,6 +131,7 @@ pub fn init(network_solver: anytype) Solver {
             self.deinit();
         }
     };
+
     return .{
         .ptr = network_solver,
         .vtable = &.{

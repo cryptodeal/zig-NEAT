@@ -1,5 +1,32 @@
 const std = @import("std");
+const neat_math = @import("../math/activations.zig");
+const genetics_common = @import("common.zig");
+
 const NNode = @import("../network/nnode.zig").NNode;
+const Link = @import("../network/link.zig").Link;
+const Trait = @import("../trait.zig").Trait;
+const trait_with_id = genetics_common.trait_with_id;
+const node_with_id = genetics_common.node_with_id;
+
+pub const MIMOControlGeneLinkJSON = struct {
+    id: i64,
+};
+
+pub const MIMOControlGeneJSON = struct {
+    id: i64,
+    trait_id: ?i64,
+    activation: neat_math.NodeActivationType,
+    innov_num: i64,
+    mut_num: f64,
+    enabled: bool,
+    inputs: []MIMOControlGeneLinkJSON,
+    outputs: []MIMOControlGeneLinkJSON,
+
+    pub fn deinit(self: *MIMOControlGeneJSON, allocator: std.mem.Allocator) void {
+        allocator.free(self.inputs);
+        allocator.free(self.outputs);
+    }
+};
 
 pub const MIMOControlGene = struct {
     // current innovation number for gene
@@ -14,6 +41,27 @@ pub const MIMOControlGene = struct {
     io_nodes: []*NNode,
 
     allocator: std.mem.Allocator,
+
+    pub fn jsonify(self: *MIMOControlGene, allocator: std.mem.Allocator) !MIMOControlGeneJSON {
+        var inputs = try allocator.alloc(MIMOControlGeneLinkJSON, self.control_node.incoming.items.len);
+        for (self.control_node.incoming.items, 0..) |l, i| {
+            inputs[i] = .{ .id = l.in_node.?.id };
+        }
+        var outputs = try allocator.alloc(MIMOControlGeneLinkJSON, self.control_node.outgoing.items.len);
+        for (self.control_node.outgoing.items, 0..) |l, i| {
+            outputs[i] = .{ .id = l.out_node.?.id };
+        }
+        return .{
+            .id = self.control_node.id,
+            .trait_id = if (self.control_node.trait != null) self.control_node.trait.?.id.? else null,
+            .activation = self.control_node.activation_type,
+            .innov_num = self.innovation_num,
+            .mut_num = self.mutation_num,
+            .enabled = self.is_enabled,
+            .inputs = inputs,
+            .outputs = outputs,
+        };
+    }
 
     pub fn init(allocator: std.mem.Allocator, control_node: *NNode, innov_num: i64, mut_num: f64, enabled: bool) !*MIMOControlGene {
         var gene: *MIMOControlGene = try allocator.create(MIMOControlGene);
@@ -37,6 +85,43 @@ pub const MIMOControlGene = struct {
 
     pub fn init_from_copy(allocator: std.mem.Allocator, g: *MIMOControlGene, control_node: *NNode) !*MIMOControlGene {
         return MIMOControlGene.init(allocator, control_node, g.innovation_num, g.mutation_num, g.is_enabled);
+    }
+
+    pub fn init_from_json(allocator: std.mem.Allocator, value: MIMOControlGeneJSON, traits: []*Trait, nodes: []*NNode) !*MIMOControlGene {
+        var control_node = try NNode.init(allocator, value.id, .HiddenNeuron);
+        // set activation function
+        control_node.activation_type = value.activation;
+        var trait = trait_with_id(if (value.trait_id == null) 0 else value.trait_id.?, traits);
+        if (trait != null) control_node.trait = trait.?;
+
+        // read MIMO gene parameters
+        var innov_num = value.innov_num;
+        var mut_num = value.mut_num;
+        var enabled = value.enabled;
+
+        // read input links
+        for (value.inputs) |input| {
+            var node = node_with_id(input.id, nodes);
+            if (node != null) {
+                try control_node.incoming.append(try Link.init(allocator, 1, node.?, control_node, false));
+            } else {
+                std.debug.print("no MIMO input node with id: {d} can be found for module: {d}\n", .{ input.id, control_node.id });
+                return error.MissingMIMOInputNode;
+            }
+        }
+
+        // read output links
+        for (value.outputs) |output| {
+            var node = node_with_id(output.id, nodes);
+            if (node != null) {
+                try control_node.outgoing.append(try Link.init(allocator, 1, control_node, node.?, false));
+            } else {
+                std.debug.print("no MIMO output node with id: {d} can be found for module: {d}\n", .{ output.id, control_node.id });
+                return error.MissingMIMOOutputNode;
+            }
+        }
+
+        return MIMOControlGene.init(allocator, control_node, innov_num, mut_num, enabled);
     }
 
     pub fn deinit(self: *MIMOControlGene) void {

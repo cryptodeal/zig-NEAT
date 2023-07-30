@@ -13,6 +13,13 @@ const NodeType = net_common.NodeType;
 const Link = net_link.Link;
 const Trait = neat_trait.Trait;
 
+pub const NNodeJSON = struct {
+    id: i64,
+    trait_id: ?i64,
+    neuron_type: NodeNeuronType,
+    activation: neat_math.NodeActivationType,
+};
+
 pub const NNode = struct {
     // id of the node
     id: i64 = 0,
@@ -52,6 +59,15 @@ pub const NNode = struct {
 
     allocator: std.mem.Allocator,
 
+    pub fn jsonify(self: *NNode) NNodeJSON {
+        return .{
+            .id = self.id,
+            .trait_id = if (self.trait != null) self.trait.?.id.? else null,
+            .neuron_type = self.neuron_type,
+            .activation = self.activation_type,
+        };
+    }
+
     pub fn raw_init(allocator: std.mem.Allocator) !*NNode {
         var node = try allocator.create(NNode);
         node.* = .{
@@ -61,6 +77,16 @@ pub const NNode = struct {
             .incoming = std.ArrayList(*Link).init(allocator),
             .outgoing = std.ArrayList(*Link).init(allocator),
         };
+        return node;
+    }
+
+    pub fn init_from_json(allocator: std.mem.Allocator, value: NNodeJSON, traits: []*Trait) !*NNode {
+        var node = try NNode.raw_init(allocator);
+        node.id = value.id;
+        node.neuron_type = value.neuron_type;
+        node.activation_type = value.activation;
+        var trait = trait_with_id(if (value.trait_id == null) 0 else value.trait_id.?, traits);
+        if (trait != null) node.trait = trait.?;
         return node;
     }
 

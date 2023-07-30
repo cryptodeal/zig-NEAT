@@ -6,6 +6,10 @@ const neat_pop = @import("population.zig");
 const common = @import("common.zig");
 const opts = @import("../opts.zig");
 const innov = @import("innovation.zig");
+const json = @import("json");
+const net_node = @import("../network/nnode.zig");
+const net_gene = @import("gene.zig");
+const net_mimo = @import("mimo_gene.zig");
 
 const logger = @constCast(opts.logger);
 const Options = opts.Options;
@@ -13,13 +17,17 @@ const InnovationType = common.InnovationType;
 const MutatorType = common.MutatorType;
 const GenomeCompatibilityMethod = opts.GenomeCompatibilityMethod;
 const Trait = trait.Trait;
+const TraitJSON = trait.TraitJSON;
 const NumTraitParams = trait.NumTraitParams;
-const NNode = @import("../network/nnode.zig").NNode;
+const NNode = net_node.NNode;
+const NNodeJSON = net_node.NNodeJSON;
 const NodeNeuronType = @import("../network/common.zig").NodeNeuronType;
 const Network = @import("../network/network.zig").Network;
-const Gene = @import("gene.zig").Gene;
+const Gene = net_gene.Gene;
+const GeneJSON = net_gene.GeneJSON;
 const Link = @import("../network/link.zig").Link;
-const MIMOControlGene = @import("mimo_gene.zig").MIMOControlGene;
+const MIMOControlGene = net_mimo.MIMOControlGene;
+const MIMOControlGeneJSON = net_mimo.MIMOControlGeneJSON;
 const Innovation = innov.Innovation;
 const Population = neat_pop.Population;
 
@@ -52,6 +60,26 @@ pub const GenomeError = error{
     GenomesHaveDifferentTraitsCount,
     NetworkMissingOutputs,
 } || std.mem.Allocator.Error;
+
+const GenomeJSON = struct {
+    id: i64,
+    traits: []TraitJSON,
+    nodes: []NNodeJSON,
+    genes: []GeneJSON,
+    modules: ?[]MIMOControlGeneJSON = null,
+
+    pub fn deinit(self: *GenomeJSON, allocator: std.mem.Allocator) void {
+        allocator.free(self.traits);
+        allocator.free(self.nodes);
+        allocator.free(self.genes);
+        if (self.modules != null) {
+            for (self.modules.?, 0..) |_, i| {
+                self.modules.?[i].deinit(allocator);
+            }
+            allocator.free(self.modules.?);
+        }
+    }
+};
 
 pub const Genome = struct {
     // genome id
@@ -233,7 +261,6 @@ pub const Genome = struct {
         self.allocator.destroy(self);
     }
 
-    // TODO: implement `read_genome`
     //TODO: implement `write`
 
     pub fn format(value: Genome, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
@@ -2137,6 +2164,95 @@ pub const Genome = struct {
         return new_traits;
     }
 
+    pub fn write_to_json(self: *Genome, allocator: std.mem.Allocator, path: []const u8) !void {
+        const dir_path = std.fs.path.dirname(path);
+        const file_name = std.fs.path.basename(path);
+        var file_dir: std.fs.Dir = undefined;
+        if (dir_path != null) {
+            file_dir = try std.fs.cwd().makeOpenPath(dir_path.?, .{});
+        } else {
+            file_dir = std.fs.cwd();
+        }
+        var output_file = try file_dir.createFile(file_name, .{});
+        defer output_file.close();
+
+        var json_nodes = try allocator.alloc(NNodeJSON, self.nodes.len);
+        for (self.nodes, 0..) |n, i| {
+            json_nodes[i] = n.jsonify();
+        }
+        var json_traits = try allocator.alloc(TraitJSON, self.traits.len);
+        for (self.traits, 0..) |t, i| {
+            json_traits[i] = t.jsonify();
+        }
+        var json_genes = try allocator.alloc(GeneJSON, self.genes.len);
+        for (self.genes, 0..) |g, i| {
+            json_genes[i] = g.jsonify();
+        }
+
+        var json_enc = GenomeJSON{
+            .id = self.id,
+            .nodes = json_nodes,
+            .traits = json_traits,
+            .genes = json_genes,
+        };
+        defer json_enc.deinit(allocator);
+
+        if (self.control_genes != null) {
+            var modules = try allocator.alloc(MIMOControlGeneJSON, self.control_genes.?.len);
+            for (self.control_genes.?, 0..) |cg, i| {
+                modules[i] = try cg.jsonify(allocator);
+            }
+            json_enc.modules = modules;
+        }
+        try json.toPrettyWriter(null, json_enc, output_file.writer());
+    }
+
+    pub fn read_from_json(allocator: std.mem.Allocator, path: []const u8) !*Genome {
+        const dir_path = std.fs.path.dirname(path);
+        const file_name = std.fs.path.basename(path);
+        var file_dir: std.fs.Dir = undefined;
+        if (dir_path != null) {
+            file_dir = try std.fs.cwd().makeOpenPath(dir_path.?, .{});
+        } else {
+            file_dir = std.fs.cwd();
+        }
+        var file = try file_dir.openFile(file_name, .{});
+        const file_size = (try file.stat()).size;
+        var buf = try allocator.alloc(u8, file_size);
+        defer allocator.free(buf);
+        try file.reader().readNoEof(buf);
+
+        var parsed = try json.fromSlice(allocator, GenomeJSON, buf);
+        defer parsed.deinit(allocator);
+
+        // TODO: initialize genome from the parsed json data
+        var traits = try allocator.alloc(*Trait, parsed.traits.len);
+        for (parsed.traits, 0..) |t, i| {
+            traits[i] = try Trait.init_from_json(allocator, t);
+        }
+
+        var nodes = try allocator.alloc(*NNode, parsed.nodes.len);
+        for (parsed.nodes, 0..) |n, i| {
+            nodes[i] = try NNode.init_from_json(allocator, n, traits);
+        }
+
+        var genes = try allocator.alloc(*Gene, parsed.genes.len);
+        for (parsed.genes, 0..) |g, i| {
+            genes[i] = try Gene.init_from_json(allocator, g, traits, nodes);
+        }
+
+        if (parsed.modules != null) {
+            var parse_modules = parsed.modules.?;
+            var modules = try allocator.alloc(*MIMOControlGene, parse_modules.len);
+            for (parse_modules, 0..) |m, i| {
+                modules[i] = try MIMOControlGene.init_from_json(allocator, m, traits, nodes);
+            }
+            return Genome.init_modular(allocator, parsed.id, traits, nodes, genes, modules);
+        } else {
+            return Genome.init(allocator, parsed.id, traits, nodes, genes);
+        }
+    }
+
     pub fn write_to_file(self: *Genome, path: []const u8) !void {
         const dir_path = std.fs.path.dirname(path);
         const file_name = std.fs.path.basename(path);
@@ -2345,6 +2461,8 @@ pub fn build_test_modular_genome(allocator: std.mem.Allocator, id: usize) !*Geno
     genome.control_genes.?[0] = try MIMOControlGene.init(allocator, control_node, 7, 5.5, true);
     return genome;
 }
+
+// TODO: test Genome io
 
 test "Genome initialize random" {
     var allocator = std.testing.allocator;

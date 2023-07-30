@@ -3,9 +3,14 @@ const math = @import("math/math.zig");
 
 pub const NumTraitParams: usize = 8;
 
+pub const TraitJSON = struct {
+    id: ?i64,
+    params: []f64,
+};
+
 pub const Trait = struct {
     // Trait id
-    id: ?i64,
+    id: ?i64 = null,
     // learned Trait parameters
     params: []f64,
 
@@ -14,12 +19,21 @@ pub const Trait = struct {
     pub fn init(allocator: std.mem.Allocator, length: usize) !*Trait {
         var t = try allocator.create(Trait);
         t.* = .{
-            .id = undefined,
             .allocator = allocator,
             .params = try allocator.alloc(f64, length),
         };
         for (t.params) |*x| x.* = 0;
 
+        return t;
+    }
+
+    pub fn init_from_json(allocator: std.mem.Allocator, value: TraitJSON) !*Trait {
+        var t = try allocator.create(Trait);
+        t.* = .{
+            .allocator = allocator,
+            .id = value.id,
+            .params = value.params,
+        };
         return t;
     }
 
@@ -86,6 +100,13 @@ pub const Trait = struct {
             try writer.print(" {d}", .{p});
         }
         return writer.print(" )", .{});
+    }
+
+    pub fn jsonify(self: *Trait) TraitJSON {
+        return .{
+            .id = self.id,
+            .params = self.params,
+        };
     }
 };
 

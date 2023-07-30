@@ -81,9 +81,9 @@ pub const FastModularNetworkSolver = struct {
     // has undefined entries for neurons that are inputs/outputs of module
     activation_functions: []net_math.NodeActivationType,
     // current bias values per neuron
-    bias_list: []f64,
+    bias_list: ?[]f64,
     // control nodes relaying between network modules
-    modules: []*FastControlNode,
+    modules: ?[]*FastControlNode,
     // connections
     cxns: []*FastNetworkLink,
 
@@ -113,7 +113,7 @@ pub const FastModularNetworkSolver = struct {
     adjacent_matrix: [][]f64,
 
     /// initialize new FastModularNetworkSolver
-    pub fn init(allocator: std.mem.Allocator, bias_neuron_count: usize, input_neuron_count: usize, output_neuron_count: usize, total_neuron_count: usize, activation_fns: []net_math.NodeActivationType, cxns: []*FastNetworkLink, bias_list: []f64, modules: []*FastControlNode) !*FastModularNetworkSolver {
+    pub fn init(allocator: std.mem.Allocator, bias_neuron_count: usize, input_neuron_count: usize, output_neuron_count: usize, total_neuron_count: usize, activation_fns: []net_math.NodeActivationType, cxns: []*FastNetworkLink, bias_list: ?[]f64, modules: ?[]*FastControlNode) !*FastModularNetworkSolver {
         // Allocate the arrays that store the states at different points in the neural network.
         // The neuron signals are initialised to 0 by default. Only bias nodes need setting to 1.
         var neuron_signals = try allocator.alloc(f64, total_neuron_count);
@@ -201,10 +201,14 @@ pub const FastModularNetworkSolver = struct {
         for (self.cxns) |c| c.deinit();
         self.allocator.free(self.cxns);
         // free bias list
-        self.allocator.free(self.bias_list);
+        if (self.bias_list != null) {
+            self.allocator.free(self.bias_list.?);
+        }
         // free control nodes
-        for (self.modules) |m| m.deinit();
-        self.allocator.free(self.modules);
+        if (self.modules != null) {
+            for (self.modules.?) |m| m.deinit();
+            self.allocator.free(self.modules.?);
+        }
         self.allocator.destroy(self);
     }
 
@@ -218,7 +222,7 @@ pub const FastModularNetworkSolver = struct {
     }
 
     pub fn recursive_steps(self: *FastModularNetworkSolver) !bool {
-        if (self.modules.len > 0) {
+        if (self.modules != null and self.modules.?.len > 0) {
             std.debug.print("recursive activation can not be used for network with defined modules", .{});
             return error.FailedRecursiveStep;
         }
@@ -294,7 +298,7 @@ pub const FastModularNetworkSolver = struct {
         self.in_activation[current_node] = false;
 
         // set signal now that activation is complete
-        self.neuron_signals[current_node] = try net_math.NodeActivationType.activate_by_type(self.neuron_signals_processing[current_node], undefined, self.activation_functions[current_node]);
+        self.neuron_signals[current_node] = try net_math.NodeActivationType.activate_by_type(self.neuron_signals_processing[current_node], null, self.activation_functions[current_node]);
         return true;
     }
 
@@ -323,13 +327,13 @@ pub const FastModularNetworkSolver = struct {
 
             if (self.bias_neuron_count > 0) {
                 // append BIAS value if need be
-                signal += self.bias_list[i];
+                signal += self.bias_list.?[i];
             }
             self.neuron_signals_processing[i] = try net_math.NodeActivationType.activate_by_type(signal, undefined, self.activation_functions[i]);
         }
 
         // pass signals through each module (activation function with more than one input or output)
-        for (self.modules) |module| {
+        for (self.modules.?) |module| {
             var inputs = try allocator.alloc(f64, module.input_idxs.len);
             defer allocator.free(inputs);
             for (module.input_idxs, 0..) |inIndex, idx| {
@@ -391,7 +395,7 @@ pub const FastModularNetworkSolver = struct {
     }
 
     pub fn node_count(self: *FastModularNetworkSolver) usize {
-        var res: usize = self.total_neuron_count + self.modules.len;
+        var res: usize = self.total_neuron_count + self.modules.?.len;
         return res;
     }
 
@@ -401,14 +405,14 @@ pub const FastModularNetworkSolver = struct {
 
         // count all bias links if any
         if (self.bias_neuron_count > 0) {
-            for (self.bias_list) |b| {
+            for (self.bias_list.?) |b| {
                 if (b != 0) num_links += 1;
             }
         }
 
         // count all module links
-        if (self.modules.len != 0) {
-            for (self.modules) |m| {
+        if (self.modules != null and self.modules.?.len != 0) {
+            for (self.modules.?) |m| {
                 num_links += m.input_idxs.len + m.output_idxs.len;
             }
         }

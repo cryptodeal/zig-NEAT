@@ -6,6 +6,17 @@ const neat_math = @import("../math/activations.zig");
 const NodeNeuronType = @import("../network/common.zig").NodeNeuronType;
 const trait_with_id = @import("common.zig").trait_with_id;
 
+pub const GeneJSON = struct {
+    src_id: i64,
+    tgt_id: i64,
+    weight: f64,
+    trait_id: ?i64,
+    innov_num: i64,
+    mut_num: f64,
+    recurrent: bool,
+    enabled: bool,
+};
+
 pub const Gene = struct {
     // link between nodes
     link: *Link,
@@ -17,6 +28,39 @@ pub const Gene = struct {
     is_enabled: bool,
 
     allocator: std.mem.Allocator,
+
+    pub fn jsonify(self: *Gene) GeneJSON {
+        return .{
+            .src_id = self.link.in_node.?.id,
+            .tgt_id = self.link.out_node.?.id,
+            .weight = self.link.cxn_weight,
+            .trait_id = if (self.link.trait != null) self.link.trait.?.id.? else null,
+            .innov_num = self.innovation_num,
+            .mut_num = self.mutation_num,
+            .recurrent = self.link.is_recurrent,
+            .enabled = self.is_enabled,
+        };
+    }
+
+    pub fn init_from_json(allocator: std.mem.Allocator, value: GeneJSON, traits: []*Trait, nodes: []*NNode) !*Gene {
+        var trait = trait_with_id(if (value.trait_id == null) 0 else value.trait_id.?, traits);
+        var innov_num = value.innov_num;
+        var weight = value.weight;
+        var mut_num = value.mut_num;
+        var enabled = value.enabled;
+        var recurrent = value.recurrent;
+        var in_node: *NNode = undefined;
+        var out_node: *NNode = undefined;
+        for (nodes) |node| {
+            if (node.id == value.src_id) in_node = node;
+            if (node.id == value.tgt_id) out_node = node;
+        }
+        if (trait != null) {
+            return Gene.init_cxn_gene(allocator, try Link.init_with_trait(allocator, trait, weight, in_node, out_node, recurrent), innov_num, mut_num, enabled);
+        } else {
+            return Gene.init_cxn_gene(allocator, try Link.init(allocator, weight, in_node, out_node, recurrent), innov_num, mut_num, enabled);
+        }
+    }
 
     pub fn init(allocator: std.mem.Allocator, weight: f64, in_node: ?*NNode, out_node: ?*NNode, recurrent: bool, innovation_num: i64, mutation_num: f64) !*Gene {
         var gene: *Gene = try allocator.create(Gene);
