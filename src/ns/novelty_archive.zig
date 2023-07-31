@@ -3,6 +3,7 @@ const novelty_item = @import("novelty_item.zig");
 const common = @import("common.zig");
 const opt = @import("../opts.zig");
 const json = @import("json");
+const utils = @import("../utils/utils.zig");
 
 const NoveltyMetric = common.NoveltyMetric;
 const NoveltyArchiveOptions = common.NoveltyArchiveOptions;
@@ -12,6 +13,8 @@ const Genome = @import("../genetics/genome.zig").Genome;
 const NoveltyItem = novelty_item.NoveltyItem;
 const ItemsDistance = novelty_item.ItemsDistance;
 const Options = opt.Options;
+const read_file = utils.read_file;
+const get_writable_file = utils.get_writable_file;
 const novelty_item_comparison = novelty_item.novelty_item_comparison;
 const items_distance_comparison = novelty_item.items_distance_comparison;
 const logger = @constCast(opt.logger);
@@ -262,16 +265,7 @@ pub const NoveltyArchive = struct {
     /// dumps collected novelty points to file as JSON
     pub fn dump_novelty_points(self: *NoveltyArchive, path: []const u8) !void {
         if (self.novel_items.items.len == 0) return error.NoNovelItems;
-
-        const dir_path = std.fs.path.dirname(path);
-        const file_name = std.fs.path.basename(path);
-        var file_dir: std.fs.Dir = undefined;
-        if (dir_path != null) {
-            file_dir = try std.fs.cwd().makeOpenPath(dir_path.?, .{});
-        } else {
-            file_dir = std.fs.cwd();
-        }
-        var output_file = try file_dir.createFile(file_name, .{});
+        var output_file = try get_writable_file(path);
         defer output_file.close();
         try self.dump_novelty_items(self.novel_items.items, output_file.writer());
     }
@@ -279,16 +273,7 @@ pub const NoveltyArchive = struct {
     /// dumps collected novelty points of individuals with maximal fitness found during evolution
     pub fn dump_fittest(self: *NoveltyArchive, path: []const u8) !void {
         if (self.fittest_items.items.len == 0) return error.NoNovelItems;
-
-        const dir_path = std.fs.path.dirname(path);
-        const file_name = std.fs.path.basename(path);
-        var file_dir: std.fs.Dir = undefined;
-        if (dir_path != null) {
-            file_dir = try std.fs.cwd().makeOpenPath(dir_path.?, .{});
-        } else {
-            file_dir = std.fs.cwd();
-        }
-        var output_file = try file_dir.createFile(file_name, .{});
+        var output_file = try get_writable_file(path);
         defer output_file.close();
         try self.dump_novelty_items(self.fittest_items.items, output_file.writer());
     }

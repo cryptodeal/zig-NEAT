@@ -1,0 +1,55 @@
+{
+  "hyperneat_ctx": {
+    "neat_ctx": {
+      "trait_param_mut_prob": 5.0e-01,
+      "trait_mut_power": 1.0e+00,
+      "weight_mut_power": 2.5e+00,
+      "disjoint_coeff": 1.0e+00,
+      "excess_coeff": 1.0e+00,
+      "mut_diff_coeff": 4.0e-01,
+      "compat_threshold": 3.0e+00,
+      "age_significance": 1.0e+00,
+      "survival_thresh": 2.0e-01,
+      "mut_only_prob": 2.5e-01,
+      "mut_random_trait_prob": 1.0e-01,
+      "mut_link_trait_prob": 1.0e-01,
+      "mut_node_trait_prob": 1.0e-01,
+      "mut_link_weights_prob": 9.0e-01,
+      "mut_toggle_enable_prob": 0.0e+00,
+      "mut_gene_reenable_prob": 0.0e+00,
+      "mut_add_node_prob": 3.0e-02,
+      "mut_add_link_prob": 8.0e-02,
+      "mut_connect_sensors": 5.0e-01,
+      "interspecies_mate_rate": 1.0e-03,
+      "mate_multipoint_prob": 3.0e-01,
+      "mate_multipoint_avg_prob": 3.0e-01,
+      "mate_singlepoint_prob": 3.0e-01,
+      "mate_only_prob": 2.0e-01,
+      "recur_only_prob": 0.0e+00,
+      "pop_size": 200,
+      "dropoff_age": 50,
+      "new_link_tries": 50,
+      "print_every": 10,
+      "babies_stolen": 0,
+      "num_runs": 100,
+      "num_generations": 100,
+      "epoch_executor_type": "EpochExecutorTypeSequential",
+      "gen_compat_method": "GenomeCompatibilityMethodFast",
+      "node_activators": [
+        "SigmoidSteepenedActivation"
+      ],
+      "node_activators_prob": [
+        1.0e+00
+      ]
+    },
+    "link_threshold": 0.2,
+    "weight_range": 3,
+    "substrate_activator": "SigmoidSteepenedActivation"
+  },
+  "initial_depth": 3,
+  "maximal_depth": 5,
+  "division_threshold": 0.01,
+  "variance_threshold": 0.03,
+  "banding_threshold": 0.3,
+  "es_iterations": 1
+}

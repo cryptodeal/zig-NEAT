@@ -10,8 +10,10 @@ const json = @import("json");
 const net_node = @import("../network/nnode.zig");
 const net_gene = @import("gene.zig");
 const net_mimo = @import("mimo_gene.zig");
+const utils = @import("../utils/utils.zig");
 
 const logger = @constCast(opts.logger);
+const get_writable_file = utils.get_writable_file;
 const Options = opts.Options;
 const InnovationType = common.InnovationType;
 const MutatorType = common.MutatorType;
@@ -30,6 +32,7 @@ const MIMOControlGene = net_mimo.MIMOControlGene;
 const MIMOControlGeneJSON = net_mimo.MIMOControlGeneJSON;
 const Innovation = innov.Innovation;
 const Population = neat_pop.Population;
+const read_file = utils.read_file;
 
 pub const GenomeError = error{
     GenomeMissingPhenotype,
@@ -2165,15 +2168,7 @@ pub const Genome = struct {
     }
 
     pub fn write_to_json(self: *Genome, allocator: std.mem.Allocator, path: []const u8) !void {
-        const dir_path = std.fs.path.dirname(path);
-        const file_name = std.fs.path.basename(path);
-        var file_dir: std.fs.Dir = undefined;
-        if (dir_path != null) {
-            file_dir = try std.fs.cwd().makeOpenPath(dir_path.?, .{});
-        } else {
-            file_dir = std.fs.cwd();
-        }
-        var output_file = try file_dir.createFile(file_name, .{});
+        var output_file = try get_writable_file(path);
         defer output_file.close();
 
         var json_nodes = try allocator.alloc(NNodeJSON, self.nodes.len);
@@ -2208,19 +2203,8 @@ pub const Genome = struct {
     }
 
     pub fn read_from_json(allocator: std.mem.Allocator, path: []const u8) !*Genome {
-        const dir_path = std.fs.path.dirname(path);
-        const file_name = std.fs.path.basename(path);
-        var file_dir: std.fs.Dir = undefined;
-        if (dir_path != null) {
-            file_dir = try std.fs.cwd().makeOpenPath(dir_path.?, .{});
-        } else {
-            file_dir = std.fs.cwd();
-        }
-        var file = try file_dir.openFile(file_name, .{});
-        const file_size = (try file.stat()).size;
-        var buf = try allocator.alloc(u8, file_size);
+        const buf = try read_file(allocator, path);
         defer allocator.free(buf);
-        try file.reader().readNoEof(buf);
 
         var parsed = try json.fromSlice(allocator, GenomeJSON, buf);
         defer parsed.deinit(allocator);
@@ -2254,15 +2238,7 @@ pub const Genome = struct {
     }
 
     pub fn write_to_file(self: *Genome, path: []const u8) !void {
-        const dir_path = std.fs.path.dirname(path);
-        const file_name = std.fs.path.basename(path);
-        var file_dir: std.fs.Dir = undefined;
-        if (dir_path != null) {
-            file_dir = try std.fs.cwd().makeOpenPath(dir_path.?, .{});
-        } else {
-            file_dir = std.fs.cwd();
-        }
-        var output_file = try file_dir.createFile(file_name, .{});
+        var output_file = try get_writable_file(path);
         defer output_file.close();
 
         // marks the start of genome encoding written to file
@@ -2314,19 +2290,8 @@ pub const Genome = struct {
     }
 
     pub fn read_from_file(allocator: std.mem.Allocator, path: []const u8) !*Genome {
-        const dir_path = std.fs.path.dirname(path);
-        const file_name = std.fs.path.basename(path);
-        var file_dir: std.fs.Dir = undefined;
-        if (dir_path != null) {
-            file_dir = try std.fs.cwd().makeOpenPath(dir_path.?, .{});
-        } else {
-            file_dir = std.fs.cwd();
-        }
-        var file = try file_dir.openFile(file_name, .{});
-        const file_size = (try file.stat()).size;
-        var buf = try allocator.alloc(u8, file_size);
+        const buf = try read_file(allocator, path);
         defer allocator.free(buf);
-        try file.reader().readNoEof(buf);
         var genome_id: i64 = undefined;
         var trait_list = std.ArrayList(*Trait).init(allocator);
         var node_list = std.ArrayList(*NNode).init(allocator);
@@ -2461,8 +2426,6 @@ pub fn build_test_modular_genome(allocator: std.mem.Allocator, id: usize) !*Geno
     genome.control_genes.?[0] = try MIMOControlGene.init(allocator, control_node, 7, 5.5, true);
     return genome;
 }
-
-// TODO: test Genome io
 
 test "Genome initialize random" {
     var allocator = std.testing.allocator;

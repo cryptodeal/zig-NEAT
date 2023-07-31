@@ -87,6 +87,7 @@ pub const MazeObjectiveEvaluator = struct {
         var dir_path = std.fs.path.dirname(buf.items);
         var file_name = std.fs.path.basename(buf.items);
         var file_dir: std.fs.Dir = undefined;
+        defer file_dir.close();
         if (dir_path != null) {
             file_dir = try std.fs.cwd().makeOpenPath(dir_path.?, .{});
         } else {

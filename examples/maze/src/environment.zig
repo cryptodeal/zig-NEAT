@@ -319,12 +319,14 @@ pub const Environment = struct {
         const dir_path = std.fs.path.dirname(path);
         const file_name = std.fs.path.basename(path);
         var file_dir: std.fs.Dir = undefined;
+        defer file_dir.close();
         if (dir_path != null) {
             file_dir = try std.fs.cwd().makeOpenPath(dir_path.?, .{});
         } else {
             file_dir = std.fs.cwd();
         }
         var file = try file_dir.openFile(file_name, .{});
+        defer file.close();
         const file_size = (try file.stat()).size;
         var buf = try allocator.alloc(u8, file_size);
         defer allocator.free(buf);

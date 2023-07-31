@@ -4,8 +4,6 @@ examples/maze/out/
 .DS_Store
 
 # temporarily exclude while impl is a WIP
-data/
+out/
 src/cppn/
 src/graphml/
-src/eshyperneat.zig
-src/hyperneat.zig

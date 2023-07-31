@@ -16,16 +16,16 @@ Specifically, this project aims to port the [goNEAT](https://github.com/yaricom/
 
 ## Minimum Requirements
 
-| Requirement | Notes                     |
-| ----------- | ------------------------- |
-| Zig version | 0.11.0-dev.4002+7dd1cf26f |
+| Requirement | Notes  |
+| ----------- | ------ |
+| Zig version | master |
 
 I recommend using [zigup](https://github.com/marler8997/zigup) to manage the version of Zig running locally.
 
 To install the relevant build of Zig:
 
 ```bash
-zigup 0.11.0-dev.4002+7dd1cf26f
+zigup master
 ```
 
 ## Run Examples
