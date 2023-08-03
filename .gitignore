@@ -5,5 +5,4 @@ examples/maze/out/
 
 # temporarily exclude while impl is a WIP
 out/
-src/cppn/
 src/graphml/

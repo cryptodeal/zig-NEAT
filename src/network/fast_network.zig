@@ -395,8 +395,7 @@ pub const FastModularNetworkSolver = struct {
     }
 
     pub fn node_count(self: *FastModularNetworkSolver) usize {
-        var res: usize = self.total_neuron_count + self.modules.?.len;
-        return res;
+        return self.total_neuron_count + if (self.modules != null) self.modules.?.len else 0;
     }
 
     pub fn link_count(self: *FastModularNetworkSolver) usize {

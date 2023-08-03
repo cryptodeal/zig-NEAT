@@ -1,5 +1,4 @@
 const options = @import("opts.zig");
-// const cppn = @import("cppn/main.zig");
 const trait_common = @import("trait.zig");
 
 // export all Experiment Structs/Types/Fns
@@ -7,6 +6,9 @@ pub const experiment = @import("experiment/common.zig");
 
 // export all Graph Structs/Types/Fns
 pub const graph = @import("graph/graph.zig");
+
+// export all CPPN (Compositional Pattern Producing Network) Structs/Types/Fns
+pub const cppn = @import("cppn/cppn.zig");
 
 // export all zig-NEAT Genetic Structs/Types/Fns
 pub const genetics = @import("genetics/common.zig");
@@ -36,4 +38,5 @@ test {
     _ = ns;
     _ = trait_common;
     _ = options;
+    _ = cppn;
 }

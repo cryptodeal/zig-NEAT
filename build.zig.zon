@@ -3,8 +3,8 @@
     .version = "0.0.1",
     .dependencies = .{
         .json = .{
-            .url = "https://github.com/getty-zig/json/archive/3e3cf7bbc9894fa58978f3615524cdbf635aa6b7.tar.gz",
-            .hash = "122017ccb426b5f5690fdda438134852e940796b0ac619eb2648782a7879146f4fcd",
+            .url = "https://github.com/getty-zig/json/archive/39fa5ff0979149f8aa88cfde90501a095dd7b526.tar.gz",
+            .hash = "12207afce7d251e651b0e80b9c2f2d17759a451401b92314de2634d379f72f19c3a7",
         },
     },
 }
