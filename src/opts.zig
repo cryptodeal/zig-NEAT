@@ -443,6 +443,7 @@ const HyperNEATContextJSON = struct {
     link_threshold: f64,
     weight_range: f64,
     substrate_activator: math.NodeActivationType,
+    cppn_bias: f64 = 0,
 };
 
 /// The HyperNEAT execution context
@@ -456,6 +457,8 @@ pub const HyperNEATContext = struct {
     /// The substrate activation function
     substrate_activator: math.NodeActivationType,
 
+    cppn_bias: f64 = 0,
+
     allocator: std.mem.Allocator,
 
     pub fn jsonify(self: *HyperNEATContext) HyperNEATContextJSON {
@@ -463,6 +466,7 @@ pub const HyperNEATContext = struct {
             .link_threshold = self.link_threshold,
             .weight_range = self.weight_range,
             .substrate_activator = self.substrate_activator,
+            .cppn_bias = self.cppn_bias,
         };
     }
 
@@ -478,6 +482,7 @@ pub const HyperNEATContext = struct {
             .link_threshold = enc.link_threshold,
             .weight_range = enc.weight_range,
             .substrate_activator = enc.substrate_activator,
+            .cppn_bias = enc.cppn_bias,
             .allocator = allocator,
         };
         return self;
