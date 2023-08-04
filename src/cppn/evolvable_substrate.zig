@@ -19,7 +19,7 @@ const FastNetworkLink = fast_net.FastNetworkLink;
 const FastModularNetworkSolver = fast_net.FastModularNetworkSolver;
 const EvolvableSubstrateLayout = es_layout.EvolvableSubstrateLayout;
 const MappedEvolvableSubstrateLayout = es_layout.MappedEvolvableSubstrateLayout;
-const ESHyperNEATContext = opts.ESHyperNEATContext;
+const Options = opts.Options;
 const node_variance = cppn_impl.node_variance;
 const Genome = @import("../genetics/genome.zig").Genome;
 
@@ -70,13 +70,13 @@ pub const EvolvableSubstrate = struct {
 
     /// frees memory associated with the evolvable substrate
     pub fn deinit(self: *EvolvableSubstrate) void {
-        // TODO: self.layout.deinit();
-        // TODO: self.cppn.deinit();
+        self.layout.deinit();
+        self.cppn.deinit();
         self.allocator.free(self.coords);
         self.allocator.destroy(self);
     }
 
-    pub fn create_network_solver(self: *EvolvableSubstrate, allocator: std.mem.Allocator, cppn: Solver, use_leo: bool, context: *ESHyperNEATContext) !Solver {
+    pub fn create_network_solver(self: *EvolvableSubstrate, allocator: std.mem.Allocator, cppn: Solver, use_leo: bool, context: *Options) !Solver {
         self.cppn = cppn;
 
         // the network layers will be collected in order: bias, input, output, hidden
@@ -137,7 +137,7 @@ pub const EvolvableSubstrate = struct {
         var first_hidden_iter = first_hidden;
         var last_hidden: i64 = @as(i64, @intCast(first_hidden_iter + self.layout.hidden_count()));
         var step: usize = 0;
-        while (step < context.es_iterations) : (step += 1) {
+        while (step < context.es_hyperneat_ctx.?.es_iterations) : (step += 1) {
             var hi = @as(i64, @intCast(first_hidden_iter));
             while (hi < last_hidden) : (hi += 1) {
                 // Analyze outgoing connectivity pattern from this hidden node
@@ -247,7 +247,7 @@ pub const EvolvableSubstrate = struct {
     }
 
     /// The function to add new connection if appropriate while constructing network solver
-    fn add_link(_: *EvolvableSubstrate, allocator: std.mem.Allocator, use_leo: bool, conn_map: *std.StringHashMap(*FastNetworkLink), connections: *std.ArrayList(*FastNetworkLink), qp: *QuadPoint, source: usize, target: usize, context: *ESHyperNEATContext) !?*FastNetworkLink {
+    fn add_link(_: *EvolvableSubstrate, allocator: std.mem.Allocator, use_leo: bool, conn_map: *std.StringHashMap(*FastNetworkLink), connections: *std.ArrayList(*FastNetworkLink), qp: *QuadPoint, source: usize, target: usize, context: *Options) !?*FastNetworkLink {
         var key_list = std.ArrayList(u8).init(allocator);
         try key_list.writer().print("{d}_{d}", .{ source, target });
         var key = try key_list.toOwnedSlice();
@@ -257,10 +257,10 @@ pub const EvolvableSubstrate = struct {
         }
         var link: ?*FastNetworkLink = null;
         if (use_leo and qp.cppn_out[1] > 0) {
-            link = try create_link(allocator, qp.weight(), source, target, context.hyperneat_ctx.weight_range);
-        } else if (!use_leo and @fabs(qp.weight()) > context.hyperneat_ctx.link_threshold) {
+            link = try create_link(allocator, qp.weight(), source, target, context.hyperneat_ctx.?.weight_range);
+        } else if (!use_leo and @fabs(qp.weight()) > context.hyperneat_ctx.?.link_threshold) {
             // add only connections with signal exceeding provided threshold
-            link = try create_threshold_normalized_link(allocator, qp.weight(), source, target, context.hyperneat_ctx.link_threshold, context.hyperneat_ctx.weight_range);
+            link = try create_threshold_normalized_link(allocator, qp.weight(), source, target, context.hyperneat_ctx.?.link_threshold, context.hyperneat_ctx.?.weight_range);
         }
         if (link != null) {
             try connections.append(link.?);
@@ -272,7 +272,7 @@ pub const EvolvableSubstrate = struct {
         }
     }
 
-    fn quad_tree_divide_and_init(self: *EvolvableSubstrate, allocator: std.mem.Allocator, a: f64, b: f64, outgoing: bool, context: *ESHyperNEATContext) !*QuadNode {
+    fn quad_tree_divide_and_init(self: *EvolvableSubstrate, allocator: std.mem.Allocator, a: f64, b: f64, outgoing: bool, context: *Options) !*QuadNode {
         var root = try QuadNode.init(allocator, 0, 0, 1, 1);
         const queue_type = std.TailQueue(*QuadNode);
         var queue = queue_type{};
@@ -304,7 +304,7 @@ pub const EvolvableSubstrate = struct {
             }
 
             // Divide until initial resolution or if variance is still high
-            if (p.level < context.initial_depth or (p.level < context.maximal_depth and try node_variance(allocator, p) > context.division_threshold)) {
+            if (p.level < context.es_hyperneat_ctx.?.initial_depth or (p.level < context.es_hyperneat_ctx.?.maximal_depth and try node_variance(allocator, p) > context.es_hyperneat_ctx.?.division_threshold)) {
                 for (p.nodes.items) |c| {
                     var node = try allocator.create(queue_type.Node);
                     node.* = .{ .data = c };
@@ -321,7 +321,7 @@ pub const EvolvableSubstrate = struct {
     /// Receives coordinates of source (outgoing = true) or target node (outgoing = false) at (a, b) and initialized quadtree node.
     /// Adds the connections that are in bands of the two-dimensional cross-section of the  hypercube containing the source
     /// or target node to the connections list and return modified list.
-    fn prune_and_express(self: *EvolvableSubstrate, allocator: std.mem.Allocator, a: f64, b: f64, node: *QuadNode, outgoing: bool, context: *ESHyperNEATContext) ![]*QuadPoint {
+    fn prune_and_express(self: *EvolvableSubstrate, allocator: std.mem.Allocator, a: f64, b: f64, node: *QuadNode, outgoing: bool, context: *Options) ![]*QuadPoint {
         var connections = std.ArrayList(*QuadPoint).init(allocator);
         // fast check
         if (node.nodes.items.len == 0) return connections.toOwnedSlice();
@@ -334,7 +334,7 @@ pub const EvolvableSubstrate = struct {
         var bottom: f64 = 0;
         for (node.nodes.items) |c| {
             var child_variance = try node_variance(allocator, c);
-            if (child_variance >= context.variance_threshold) {
+            if (child_variance >= context.es_hyperneat_ctx.?.variance_threshold) {
                 var new_cxns = try self.prune_and_express(allocator, a, b, c, outgoing, context);
                 defer allocator.free(new_cxns);
                 try connections.appendSlice(new_cxns);
@@ -367,7 +367,7 @@ pub const EvolvableSubstrate = struct {
                     defer allocator.free(bt);
                     bottom = @fabs(c.weight() - bt[0]);
                 }
-                if (@max(@min(top, bottom), @min(left, right)) > context.banding_threshold) {
+                if (@max(@min(top, bottom), @min(left, right)) > context.es_hyperneat_ctx.?.banding_threshold) {
                     // Create new connection specified by QuadPoint(x1,y1,x2,y2,weight) in 4D hypercube
                     var conn: *QuadPoint = undefined;
                     if (outgoing) {
@@ -404,15 +404,13 @@ test "EvolvableSubstrate create network solver" {
     const output_count: usize = 2;
 
     var layout = EvolvableSubstrateLayout.init(try MappedEvolvableSubstrateLayout.init(allocator, input_count, output_count));
-    defer layout.deinit();
 
     var substr = try EvolvableSubstrate.init(allocator, layout, .SigmoidSteepenedActivation);
     defer substr.deinit();
 
     const cppn = try fast_solver_from_genome_file(allocator, cppn_hyperneat_test_genome_path);
-    defer cppn.deinit();
 
-    var context = try ESHyperNEATContext.read_from_json(allocator, "data/test_es_hyperneat.json");
+    var context = try Options.read_from_json(allocator, "data/test_es_hyperneat.json");
     defer context.deinit();
 
     // test solver creation
@@ -433,15 +431,13 @@ test "EvolvableSubstrate create network solver LEO" {
     const output_count: usize = 2;
 
     var layout = EvolvableSubstrateLayout.init(try MappedEvolvableSubstrateLayout.init(allocator, input_count, output_count));
-    defer layout.deinit();
 
     var substr = try EvolvableSubstrate.init(allocator, layout, .SigmoidSteepenedActivation);
     defer substr.deinit();
 
     const cppn = try fast_solver_from_genome_file(allocator, "data/test_cppn_hyperneat_leo_genome.json");
-    defer cppn.deinit();
 
-    var context = try ESHyperNEATContext.read_from_json(allocator, "data/test_es_hyperneat.json");
+    var context = try Options.read_from_json(allocator, "data/test_es_hyperneat.json");
     defer context.deinit();
 
     // test solver creation

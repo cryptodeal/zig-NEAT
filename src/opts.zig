@@ -100,6 +100,9 @@ const OptionsJSON = struct {
     node_activators: []math.NodeActivationType = undefined,
     // probabilities of selection of the specific node activator fn
     node_activators_prob: []f64 = undefined,
+
+    hyperneat_ctx: ?HyperNEATContextJSON = null,
+    es_hyperneat_ctx: ?ESHyperNEATContextJSON = null,
 };
 
 pub const Options = struct {
@@ -184,6 +187,12 @@ pub const Options = struct {
     // the log output details level
     log_level: std.log.Level = .info,
 
+    /// The included HyperNEAT context
+    hyperneat_ctx: ?*HyperNEATContext = null,
+
+    /// The included ES-HyperNEAT context
+    es_hyperneat_ctx: ?*ESHyperNEATContext = null,
+
     // allocator used internally
     allocator: std.mem.Allocator = undefined,
 
@@ -226,6 +235,8 @@ pub const Options = struct {
             .log_level = self.log_level,
             .node_activators = self.node_activators,
             .node_activators_prob = self.node_activators_prob,
+            .hyperneat_ctx = if (self.hyperneat_ctx != null) self.hyperneat_ctx.?.jsonify() else null,
+            .es_hyperneat_ctx = if (self.es_hyperneat_ctx) self.es_hyperneat_ctx.?.jsonify() else null,
         };
     }
 
@@ -257,6 +268,8 @@ pub const Options = struct {
     }
 
     pub fn deinit(self: *Options) void {
+        if (self.es_hyperneat_ctx != null) self.es_hyperneat_ctx.?.deinit();
+        if (self.hyperneat_ctx != null) self.hyperneat_ctx.?.deinit();
         self.allocator.free(self.node_activators);
         self.allocator.free(self.node_activators_prob);
         self.allocator.destroy(self);
@@ -409,6 +422,8 @@ pub const Options = struct {
             .log_level = enc.log_level,
             .node_activators = enc.node_activators,
             .node_activators_prob = enc.node_activators_prob,
+            .hyperneat_ctx = if (enc.hyperneat_ctx != null) try HyperNEATContext.init_from_json_enc(allocator, enc.hyperneat_ctx.?) else null,
+            .es_hyperneat_ctx = if (enc.es_hyperneat_ctx != null) try ESHyperNEATContext.init_from_json_enc(allocator, enc.es_hyperneat_ctx.?) else null,
             .allocator = allocator,
         };
 
@@ -421,6 +436,151 @@ pub const Options = struct {
         defer allocator.free(buf);
         var enc: OptionsJSON = try json.fromSlice(allocator, OptionsJSON, buf);
         return Options.init_from_json_enc(allocator, enc);
+    }
+};
+
+const HyperNEATContextJSON = struct {
+    link_threshold: f64,
+    weight_range: f64,
+    substrate_activator: math.NodeActivationType,
+};
+
+/// The HyperNEAT execution context
+pub const HyperNEATContext = struct {
+    /// The threshold value to indicate which links should be included
+    link_threshold: f64,
+    /// The weight range defines the minimum and maximum values for weights on substrate connections,
+    ///  they go from -WeightRange to +WeightRange, and can be any integer.
+    weight_range: f64,
+
+    /// The substrate activation function
+    substrate_activator: math.NodeActivationType,
+
+    allocator: std.mem.Allocator,
+
+    pub fn jsonify(self: *HyperNEATContext) HyperNEATContextJSON {
+        return .{
+            .link_threshold = self.link_threshold,
+            .weight_range = self.weight_range,
+            .substrate_activator = self.substrate_activator,
+        };
+    }
+
+    pub fn write_to_json(self: *HyperNEATContext, path: []const u8) !void {
+        var output_file = try get_writable_file(path);
+        defer output_file.close();
+        try json.toPrettyWriter(null, self.jsonify(), output_file.writer());
+    }
+
+    pub fn init_from_json_enc(allocator: std.mem.Allocator, enc: HyperNEATContextJSON) !*HyperNEATContext {
+        var self = try allocator.create(HyperNEATContext);
+        self.* = .{
+            .link_threshold = enc.link_threshold,
+            .weight_range = enc.weight_range,
+            .substrate_activator = enc.substrate_activator,
+            .allocator = allocator,
+        };
+        return self;
+    }
+
+    pub fn read_from_json(allocator: std.mem.Allocator, path: []const u8) !*HyperNEATContext {
+        const buf = try read_file(allocator, path);
+        defer allocator.free(buf);
+        var enc: HyperNEATContextJSON = try json.fromSlice(allocator, HyperNEATContextJSON, buf);
+        return HyperNEATContext.init_from_json_enc(allocator, enc);
+    }
+
+    pub fn deinit(self: *HyperNEATContext) void {
+        self.allocator.destroy(self);
+    }
+};
+
+const ESHyperNEATContextJSON = struct {
+    /// defines the initial ES-HyperNEAT sample resolution.
+    initial_depth: usize,
+    /// Maximal ES-HyperNEAT sample resolution if the variance is still higher than the given division threshold
+    maximal_depth: usize,
+
+    /// Defines the division threshold. If the variance in a region is greater than this value, after
+    /// the initial resolution is reached, ES-HyperNEAT will sample down further (values greater than 1.0 will disable
+    /// this feature). Note that sampling at really high resolutions can become computationally expensive.
+    division_threshold: f64,
+    /// Defines the variance threshold for the initial sampling. The bigger this value the less new
+    /// connections will be added directly and the more chances that the new collection will be included in bands
+    /// (see banding_threshold).
+    variance_threshold: f64,
+    /// Defines the threshold that determines when points are regarded to be in a band. If the point
+    /// is in the band then no new connection will be added and as result no new hidden node will be introduced.
+    /// The bigger this value the less connections/hidden nodes will be added, i.e. wide bands approximation.
+    banding_threshold: f64,
+
+    /// Defines how many times ES-HyperNEAT should iteratively discover new hidden nodes.
+    es_iterations: usize,
+};
+
+pub const ESHyperNEATContext = struct {
+    /// defines the initial ES-HyperNEAT sample resolution.
+    initial_depth: usize,
+    /// Maximal ES-HyperNEAT sample resolution if the variance is still higher than the given division threshold
+    maximal_depth: usize,
+
+    /// Defines the division threshold. If the variance in a region is greater than this value, after
+    /// the initial resolution is reached, ES-HyperNEAT will sample down further (values greater than 1.0 will disable
+    /// this feature). Note that sampling at really high resolutions can become computationally expensive.
+    division_threshold: f64,
+    /// Defines the variance threshold for the initial sampling. The bigger this value the less new
+    /// connections will be added directly and the more chances that the new collection will be included in bands
+    /// (see banding_threshold).
+    variance_threshold: f64,
+    /// Defines the threshold that determines when points are regarded to be in a band. If the point
+    /// is in the band then no new connection will be added and as result no new hidden node will be introduced.
+    /// The bigger this value the less connections/hidden nodes will be added, i.e. wide bands approximation.
+    banding_threshold: f64,
+
+    /// Defines how many times ES-HyperNEAT should iteratively discover new hidden nodes.
+    es_iterations: usize,
+    allocator: std.mem.Allocator,
+
+    pub fn jsonify(self: *HyperNEATContext) HyperNEATContextJSON {
+        return .{
+            .initial_depth = self.initial_depth,
+            .maximal_depth = self.maximal_depth,
+            .division_threshold = self.division_threshold,
+            .variance_threshold = self.variance_threshold,
+            .banding_threshold = self.banding_threshold,
+            .es_iterations = self.es_iterations,
+        };
+    }
+
+    pub fn write_to_json(self: *ESHyperNEATContext, path: []const u8) !void {
+        var output_file = try get_writable_file(path);
+        defer output_file.close();
+        try json.toPrettyWriter(null, self.jsonify(), output_file.writer());
+    }
+
+    pub fn init_from_json_enc(allocator: std.mem.Allocator, enc: ESHyperNEATContextJSON) !*ESHyperNEATContext {
+        var self = try allocator.create(ESHyperNEATContext);
+        self.* = .{
+            .allocator = allocator,
+            .initial_depth = enc.initial_depth,
+            .maximal_depth = enc.maximal_depth,
+            .division_threshold = enc.division_threshold,
+            .variance_threshold = enc.variance_threshold,
+            .banding_threshold = enc.banding_threshold,
+            .es_iterations = enc.es_iterations,
+        };
+        return self;
+    }
+
+    pub fn read_from_json(allocator: std.mem.Allocator, path: []const u8) !*ESHyperNEATContext {
+        const buf = try read_file(allocator, path);
+        defer allocator.free(buf);
+        var enc: ESHyperNEATContextJSON = try json.fromSlice(allocator, ESHyperNEATContextJSON, buf);
+        return ESHyperNEATContext.init_from_json_enc(allocator, enc);
+    }
+
+    pub fn deinit(self: *ESHyperNEATContext) void {
+        self.allocator.destroy(self);
     }
 };
 
@@ -463,167 +623,6 @@ fn check_neat_options(o: *Options) !void {
     try std.testing.expect(o.gen_compat_method == .GenomeCompatibilityMethodFast);
 }
 
-const HyperNEATContextJSON = struct {
-    neat_ctx: OptionsJSON,
-    link_threshold: f64,
-    weight_range: f64,
-    substrate_activator: math.NodeActivationType,
-};
-
-/// The HyperNEAT execution context
-pub const HyperNEATContext = struct {
-    /// The NEAT context included
-    neat_ctx: *Options,
-
-    /// The threshold value to indicate which links should be included
-    link_threshold: f64,
-    /// The weight range defines the minimum and maximum values for weights on substrate connections,
-    ///  they go from -WeightRange to +WeightRange, and can be any integer.
-    weight_range: f64,
-
-    /// The substrate activation function
-    substrate_activator: math.NodeActivationType,
-
-    allocator: std.mem.Allocator,
-
-    pub fn jsonify(self: *HyperNEATContext) HyperNEATContextJSON {
-        return .{
-            .neat_ctx = self.neat_ctx.jsonify(),
-            .link_threshold = self.link_threshold,
-            .weight_range = self.weight_range,
-            .substrate_activator = self.substrate_activator,
-        };
-    }
-
-    pub fn write_to_json(self: *HyperNEATContext, path: []const u8) !void {
-        var output_file = try get_writable_file(path);
-        defer output_file.close();
-        try json.toPrettyWriter(null, self.jsonify(), output_file.writer());
-    }
-
-    pub fn init_from_json_enc(allocator: std.mem.Allocator, enc: HyperNEATContextJSON) !*HyperNEATContext {
-        var self = try allocator.create(HyperNEATContext);
-        self.* = .{
-            .neat_ctx = try Options.init_from_json_enc(allocator, enc.neat_ctx),
-            .link_threshold = enc.link_threshold,
-            .weight_range = enc.weight_range,
-            .substrate_activator = enc.substrate_activator,
-            .allocator = allocator,
-        };
-        return self;
-    }
-
-    pub fn read_from_json(allocator: std.mem.Allocator, path: []const u8) !*HyperNEATContext {
-        const buf = try read_file(allocator, path);
-        defer allocator.free(buf);
-        var enc: HyperNEATContextJSON = try json.fromSlice(allocator, HyperNEATContextJSON, buf);
-        return HyperNEATContext.init_from_json_enc(allocator, enc);
-    }
-
-    pub fn deinit(self: *HyperNEATContext) void {
-        self.neat_ctx.deinit();
-        self.allocator.destroy(self);
-    }
-};
-
-const ESHyperNEATContextJSON = struct {
-    /// The included HyperNEAT context
-    hyperneat_ctx: HyperNEATContextJSON,
-
-    /// defines the initial ES-HyperNEAT sample resolution.
-    initial_depth: usize,
-    /// Maximal ES-HyperNEAT sample resolution if the variance is still higher than the given division threshold
-    maximal_depth: usize,
-
-    /// Defines the division threshold. If the variance in a region is greater than this value, after
-    /// the initial resolution is reached, ES-HyperNEAT will sample down further (values greater than 1.0 will disable
-    /// this feature). Note that sampling at really high resolutions can become computationally expensive.
-    division_threshold: f64,
-    /// Defines the variance threshold for the initial sampling. The bigger this value the less new
-    /// connections will be added directly and the more chances that the new collection will be included in bands
-    /// (see banding_threshold).
-    variance_threshold: f64,
-    /// Defines the threshold that determines when points are regarded to be in a band. If the point
-    /// is in the band then no new connection will be added and as result no new hidden node will be introduced.
-    /// The bigger this value the less connections/hidden nodes will be added, i.e. wide bands approximation.
-    banding_threshold: f64,
-
-    /// Defines how many times ES-HyperNEAT should iteratively discover new hidden nodes.
-    es_iterations: usize,
-};
-
-pub const ESHyperNEATContext = struct {
-    /// The included HyperNEAT context
-    hyperneat_ctx: *HyperNEATContext,
-
-    /// defines the initial ES-HyperNEAT sample resolution.
-    initial_depth: usize,
-    /// Maximal ES-HyperNEAT sample resolution if the variance is still higher than the given division threshold
-    maximal_depth: usize,
-
-    /// Defines the division threshold. If the variance in a region is greater than this value, after
-    /// the initial resolution is reached, ES-HyperNEAT will sample down further (values greater than 1.0 will disable
-    /// this feature). Note that sampling at really high resolutions can become computationally expensive.
-    division_threshold: f64,
-    /// Defines the variance threshold for the initial sampling. The bigger this value the less new
-    /// connections will be added directly and the more chances that the new collection will be included in bands
-    /// (see banding_threshold).
-    variance_threshold: f64,
-    /// Defines the threshold that determines when points are regarded to be in a band. If the point
-    /// is in the band then no new connection will be added and as result no new hidden node will be introduced.
-    /// The bigger this value the less connections/hidden nodes will be added, i.e. wide bands approximation.
-    banding_threshold: f64,
-
-    /// Defines how many times ES-HyperNEAT should iteratively discover new hidden nodes.
-    es_iterations: usize,
-    allocator: std.mem.Allocator,
-
-    pub fn jsonify(self: *HyperNEATContext) HyperNEATContextJSON {
-        return .{
-            .hyperneat_ctx = self.hyperneat_ctx.jsonify(),
-            .initial_depth = self.initial_depth,
-            .maximal_depth = self.maximal_depth,
-            .division_threshold = self.division_threshold,
-            .variance_threshold = self.variance_threshold,
-            .banding_threshold = self.banding_threshold,
-            .es_iterations = self.es_iterations,
-        };
-    }
-
-    pub fn write_to_json(self: *ESHyperNEATContext, path: []const u8) !void {
-        var output_file = try get_writable_file(path);
-        defer output_file.close();
-        try json.toPrettyWriter(null, self.jsonify(), output_file.writer());
-    }
-
-    pub fn init_from_json_enc(allocator: std.mem.Allocator, enc: ESHyperNEATContextJSON) !*ESHyperNEATContext {
-        var self = try allocator.create(ESHyperNEATContext);
-        self.* = .{
-            .allocator = allocator,
-            .hyperneat_ctx = try HyperNEATContext.init_from_json_enc(allocator, enc.hyperneat_ctx),
-            .initial_depth = enc.initial_depth,
-            .maximal_depth = enc.maximal_depth,
-            .division_threshold = enc.division_threshold,
-            .variance_threshold = enc.variance_threshold,
-            .banding_threshold = enc.banding_threshold,
-            .es_iterations = enc.es_iterations,
-        };
-        return self;
-    }
-
-    pub fn read_from_json(allocator: std.mem.Allocator, path: []const u8) !*ESHyperNEATContext {
-        const buf = try read_file(allocator, path);
-        defer allocator.free(buf);
-        var enc: ESHyperNEATContextJSON = try json.fromSlice(allocator, ESHyperNEATContextJSON, buf);
-        return ESHyperNEATContext.init_from_json_enc(allocator, enc);
-    }
-
-    pub fn deinit(self: *ESHyperNEATContext) void {
-        self.hyperneat_ctx.deinit();
-        self.allocator.destroy(self);
-    }
-};
-
 test "load NEAT Options" {
     var allocator = std.testing.allocator;
     var opts = try Options.read_options(allocator, "examples/xor/data/basic_xor.neat");
@@ -642,26 +641,26 @@ test "load NEAT Options from JSON" {
 
 test "load HyperNEATContext from JSON" {
     const allocator = std.testing.allocator;
-    var opts = try HyperNEATContext.read_from_json(allocator, "data/basic_hyperneat_opts.json");
+    var opts = try Options.read_from_json(allocator, "data/basic_hyperneat_opts.json");
     defer opts.deinit();
-    try check_neat_options(opts.neat_ctx);
-    try std.testing.expect(opts.link_threshold == 0.2);
-    try std.testing.expect(opts.weight_range == 3);
-    try std.testing.expect(opts.substrate_activator == .SigmoidSteepenedActivation);
+    try check_neat_options(opts);
+    try std.testing.expect(opts.hyperneat_ctx.?.link_threshold == 0.2);
+    try std.testing.expect(opts.hyperneat_ctx.?.weight_range == 3);
+    try std.testing.expect(opts.hyperneat_ctx.?.substrate_activator == .SigmoidSteepenedActivation);
 }
 
 test "load ESHyperNEATContext from JSON" {
     const allocator = std.testing.allocator;
-    var opts = try ESHyperNEATContext.read_from_json(allocator, "data/basic_eshyperneat_opts.json");
+    var opts = try Options.read_from_json(allocator, "data/basic_eshyperneat_opts.json");
     defer opts.deinit();
-    try check_neat_options(opts.hyperneat_ctx.neat_ctx);
-    try std.testing.expect(opts.hyperneat_ctx.link_threshold == 0.2);
-    try std.testing.expect(opts.hyperneat_ctx.weight_range == 3);
-    try std.testing.expect(opts.hyperneat_ctx.substrate_activator == .SigmoidSteepenedActivation);
-    try std.testing.expect(opts.initial_depth == 3);
-    try std.testing.expect(opts.maximal_depth == 5);
-    try std.testing.expect(opts.division_threshold == 0.01);
-    try std.testing.expect(opts.variance_threshold == 0.03);
-    try std.testing.expect(opts.banding_threshold == 0.3);
-    try std.testing.expect(opts.es_iterations == 1);
+    try check_neat_options(opts);
+    try std.testing.expect(opts.hyperneat_ctx.?.link_threshold == 0.2);
+    try std.testing.expect(opts.hyperneat_ctx.?.weight_range == 3);
+    try std.testing.expect(opts.hyperneat_ctx.?.substrate_activator == .SigmoidSteepenedActivation);
+    try std.testing.expect(opts.es_hyperneat_ctx.?.initial_depth == 3);
+    try std.testing.expect(opts.es_hyperneat_ctx.?.maximal_depth == 5);
+    try std.testing.expect(opts.es_hyperneat_ctx.?.division_threshold == 0.01);
+    try std.testing.expect(opts.es_hyperneat_ctx.?.variance_threshold == 0.03);
+    try std.testing.expect(opts.es_hyperneat_ctx.?.banding_threshold == 0.3);
+    try std.testing.expect(opts.es_hyperneat_ctx.?.es_iterations == 1);
 }

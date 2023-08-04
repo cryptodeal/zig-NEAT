@@ -11,7 +11,7 @@ const fast_solver_from_genome_file = cppn_impl.fast_solver_from_genome_file;
 const check_network_solver_outputs = cppn_impl.check_network_solver_outputs;
 const GridSubstrateLayout = sub_layout.GridSubstrateLayout;
 const NodeActivationType = neat_activations.NodeActivationType;
-const HyperNEATContext = opts.HyperNEATContext;
+const Options = opts.Options;
 const FastNetworkLink = fast_net.FastNetworkLink;
 const FastModularNetworkSolver = fast_net.FastModularNetworkSolver;
 const query_cppn = cppn_impl.query_cppn;
@@ -39,7 +39,7 @@ pub const Substrate = struct {
     }
 
     pub fn deinit(self: *Substrate) void {
-        // TODO: self.layout.deinit();
+        self.layout.deinit();
         self.allocator.destroy(self);
     }
 
@@ -49,7 +49,7 @@ pub const Substrate = struct {
     /// If use_leo is True than Link Expression Output extension to the HyperNEAT will be used instead of standard weight threshold
     /// technique of HyperNEAT to determine whether to express link between two nodes or not. With LEO the link expressed based
     /// on value of additional output of the CPPN (if > 0, then expressed)
-    pub fn create_network_solver(self: *Substrate, allocator: std.mem.Allocator, cppn: Solver, use_leo: bool, options: *HyperNEATContext) !Solver {
+    pub fn create_network_solver(self: *Substrate, allocator: std.mem.Allocator, cppn: Solver, use_leo: bool, options: *Options) !Solver {
         // check conditions
         if (self.layout.bias_count() > 1) {
             std.debug.print("SUBSTRATE: maximum one BIAS node per network supported\n", .{});
@@ -235,15 +235,15 @@ pub const Substrate = struct {
     }
 };
 
-fn fast_network_link(allocator: std.mem.Allocator, coordinates: []f64, cppn: Solver, use_leo: bool, source: usize, target: usize, options: *HyperNEATContext) !?*FastNetworkLink {
+fn fast_network_link(allocator: std.mem.Allocator, coordinates: []f64, cppn: Solver, use_leo: bool, source: usize, target: usize, options: *Options) !?*FastNetworkLink {
     var outs = try query_cppn(allocator, coordinates, cppn);
     defer allocator.free(outs);
     if (use_leo and outs[1] > 0) {
         // add links only when CPPN LEO output signals to
-        return create_link(allocator, outs[0], source, target, options.weight_range);
-    } else if (!use_leo and @fabs(outs[0]) > options.link_threshold) {
+        return create_link(allocator, outs[0], source, target, options.hyperneat_ctx.?.weight_range);
+    } else if (!use_leo and @fabs(outs[0]) > options.hyperneat_ctx.?.link_threshold) {
         // add only links with signal exceeding provided threshold
-        return create_threshold_normalized_link(allocator, outs[0], source, target, options.link_threshold, options.weight_range);
+        return create_threshold_normalized_link(allocator, outs[0], source, target, options.hyperneat_ctx.?.link_threshold, options.hyperneat_ctx.?.weight_range);
     }
     return null;
 }
@@ -255,7 +255,6 @@ test "Substrate init" {
     const hidden_count: usize = 2;
     const output_count: usize = 2;
     var layout = SubstrateLayout.init(try GridSubstrateLayout.init(allocator, bias_count, input_count, hidden_count, output_count));
-    defer layout.deinit();
 
     // create new substrate
     var substrate = try Substrate.init(allocator, layout, .SigmoidSteepenedActivation);
@@ -272,12 +271,11 @@ test "Substrate create network solver" {
     const output_count: usize = 2;
 
     var layout = SubstrateLayout.init(try GridSubstrateLayout.init(allocator, bias_count, input_count, hidden_count, output_count));
-    defer layout.deinit();
 
     var cppn = try fast_solver_from_genome_file(allocator, "data/test_cppn_hyperneat_genome.json");
     defer cppn.deinit();
 
-    var context = try HyperNEATContext.read_from_json(allocator, "data/test_hyperneat.json");
+    var context = try Options.read_from_json(allocator, "data/test_hyperneat.json");
     defer context.deinit();
 
     var substrate = try Substrate.init(allocator, layout, .SigmoidSteepenedActivation);
@@ -305,12 +303,11 @@ test "Substrate create network solver with LEO" {
     const output_count: usize = 2;
 
     var layout = SubstrateLayout.init(try GridSubstrateLayout.init(allocator, bias_count, input_count, hidden_count, output_count));
-    defer layout.deinit();
 
     var cppn = try fast_solver_from_genome_file(allocator, "data/test_cppn_hyperneat_leo_genome.json");
     defer cppn.deinit();
 
-    var context = try HyperNEATContext.read_from_json(allocator, "data/test_hyperneat.json");
+    var context = try Options.read_from_json(allocator, "data/test_hyperneat.json");
     defer context.deinit();
 
     var substrate = try Substrate.init(allocator, layout, .SigmoidSteepenedActivation);

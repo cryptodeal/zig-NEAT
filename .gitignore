@@ -1,8 +1,9 @@
 zig-cache/
 zig-out/
+out/
 examples/maze/out/
+examples/retina/
 .DS_Store
 
-# temporarily exclude while impl is a WIP
-out/
+# temporarily exclude until implemented
 src/graphml/
