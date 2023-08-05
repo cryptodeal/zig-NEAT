@@ -22,7 +22,7 @@ pub const Network = struct {
     outputs: []*NNode,
 
     // number of links in network (-1 means not yet counted)
-    num_links: i64 = -1,
+    num_links: usize = 0,
 
     // list of all NNodes in network (excluding MIMO control nodes)
     all_nodes: []*NNode,
@@ -58,7 +58,6 @@ pub const Network = struct {
             .outputs = out,
             .all_nodes = all,
             .graph = graph,
-            .num_links = -1,
             .all_nodes_MIMO = std.ArrayList(*NNode).init(allocator),
         };
 
@@ -379,7 +378,7 @@ pub const Network = struct {
         return error.ErrNotImplemented;
     }
 
-    pub fn load_sensors(self: *Network, sensors: []f64) void {
+    pub fn load_sensors(self: *Network, sensors: []f64) !void {
         var counter: usize = 0;
         if (sensors.len == self.inputs.len) {
             // BIAS value provided as input
@@ -411,29 +410,29 @@ pub const Network = struct {
         return outs;
     }
 
-    pub fn node_count(self: *Network) i64 {
+    pub fn node_count(self: *Network) usize {
         if (!self.has_control_nodes or self.control_nodes.len == 0) {
-            return @as(i64, @intCast(self.all_nodes.len));
+            return self.all_nodes.len;
         } else {
-            return @as(i64, @intCast(self.all_nodes.len + self.control_nodes.len));
+            return self.all_nodes.len + self.control_nodes.len;
         }
     }
 
-    pub fn link_count(self: *Network) i64 {
+    pub fn link_count(self: *Network) usize {
         self.num_links = 0;
         for (self.all_nodes) |node| {
-            self.num_links += @as(i64, @intCast(node.incoming.items.len));
+            self.num_links += node.incoming.items.len;
         }
         if (self.has_control_nodes and self.control_nodes.len != 0) {
             for (self.control_nodes) |node| {
-                self.num_links += @as(i64, @intCast(node.incoming.items.len));
-                self.num_links += @as(i64, @intCast(node.outgoing.items.len));
+                self.num_links += node.incoming.items.len;
+                self.num_links += node.outgoing.items.len;
             }
         }
         return self.num_links;
     }
 
-    pub fn complexity(self: *Network) i64 {
+    pub fn complexity(self: *Network) usize {
         return self.node_count() + self.link_count();
     }
 
@@ -649,7 +648,7 @@ test "Modular Network activate" {
     var net = try build_modular_network(std.testing.allocator);
     defer net.deinit();
     var data = [_]f64{ 1, 2, 1 };
-    net.load_sensors(&data);
+    try net.load_sensors(&data);
     var i: usize = 0;
     while (i < 5) : (i += 1) {
         var res = try net.activate();
@@ -757,7 +756,7 @@ test "Network recursive steps" {
     defer net.deinit();
 
     var data = [_]f64{ 0.5, 0, 1.5 };
-    net.load_sensors(&data);
+    try net.load_sensors(&data);
 
     var relaxed = try net.recursive_steps();
     try std.testing.expect(relaxed);
@@ -778,7 +777,7 @@ test "Network load sensors" {
     defer net.deinit();
 
     var sensors = [_]f64{ 1, 3.4, 5.6 };
-    net.load_sensors(&sensors);
+    try net.load_sensors(&sensors);
     var counter: usize = 0;
     for (net.get_all_nodes()) |node| {
         if (node.is_sensor()) {
