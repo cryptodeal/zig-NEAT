@@ -540,6 +540,7 @@ pub const NetworkSolver = struct {
             .allocator = allocator,
             .network = network,
         };
+        return self;
     }
 
     pub fn deinit(self: *NetworkSolver) void {
