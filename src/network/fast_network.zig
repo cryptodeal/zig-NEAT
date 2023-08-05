@@ -471,7 +471,7 @@ test "FastModularNetworkSolver recursive steps" {
 
     // Activate objective network
     var d2 = [_]f64{ 0.5, 1.1, 1 }; // BIAS is third value
-    try n.load_sensors(&d2);
+    n.load_sensors(&d2);
 
     var depth = n.max_activation_depth() catch blk: {
         erred = true;
@@ -524,7 +524,7 @@ test "FastModularNetworkSolver forward steps" {
 
     // activate objective network
     var d2 = [_]f64{ 1, 2, 1 }; // bias is third value
-    try n.load_sensors(&d2);
+    n.load_sensors(&d2);
     var res = try n.forward_steps(depth);
     try std.testing.expect(res);
 
@@ -566,7 +566,7 @@ test "FastModularNetworkSolver relax" {
     // TODO: log network activation path
 
     var d2 = [_]f64{ 1.5, 2, 1 }; // bias is third value
-    try n.load_sensors(&d2);
+    n.load_sensors(&d2);
 
     var res = try n.forward_steps(depth);
     try std.testing.expect(res);

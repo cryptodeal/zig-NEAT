@@ -14,7 +14,7 @@ const FastControlNode = fast_net.FastControlNode;
 const FastModularNetworkSolver = fast_net.FastModularNetworkSolver;
 
 pub const Network = struct {
-    // network id]
+    // network id
     id: i64,
     // network name
     name: []const u8 = undefined,
@@ -102,6 +102,10 @@ pub const Network = struct {
         self.all_nodes_MIMO.deinit();
         self.graph.deinit();
         self.allocator.destroy(self);
+    }
+
+    pub fn get_solver(self: *Network, allocator: std.mem.Allocator) !*NetworkSolver {
+        return try NetworkSolver.init(allocator, self);
     }
 
     pub fn fast_network_solver(self: *Network, allocator: std.mem.Allocator) !Solver {
@@ -373,12 +377,13 @@ pub const Network = struct {
         return self.forward_steps(net_depth);
     }
 
-    pub fn relax() !bool {
+    pub fn relax(self: *Network) !bool {
+        _ = self;
         std.debug.print("relax not implemented\n", .{});
         return error.ErrNotImplemented;
     }
 
-    pub fn load_sensors(self: *Network, sensors: []f64) !void {
+    pub fn load_sensors(self: *Network, sensors: []f64) void {
         var counter: usize = 0;
         if (sensors.len == self.inputs.len) {
             // BIAS value provided as input
@@ -524,6 +529,60 @@ pub const Network = struct {
     }
 };
 
+pub const NetworkSolver = struct {
+    network: *Network,
+
+    allocator: std.mem.Allocator,
+
+    pub fn init(allocator: std.mem.Allocator, network: *Network) !*NetworkSolver {
+        var self = try allocator.create(NetworkSolver);
+        self.* = .{
+            .allocator = allocator,
+            .network = network,
+        };
+    }
+
+    pub fn deinit(self: *NetworkSolver) void {
+        self.allocator.destroy(self);
+    }
+
+    pub fn forward_steps(self: *NetworkSolver, allocator: std.mem.Allocator, steps: usize) !bool {
+        _ = allocator;
+        return self.network.forward_steps(@as(i64, @intCast(steps)));
+    }
+
+    pub fn recursive_steps(self: *NetworkSolver) !bool {
+        return self.network.recursive_steps();
+    }
+
+    pub fn relax(self: *NetworkSolver, allocator: std.mem.Allocator, max_steps: usize, max_allowed_signal_delta: f64) !bool {
+        _ = allocator;
+        _ = max_steps;
+        _ = max_allowed_signal_delta;
+        return self.network.relax();
+    }
+
+    pub fn flush(self: *NetworkSolver) !bool {
+        return self.network.flush();
+    }
+
+    pub fn load_sensors(self: *NetworkSolver, sensors: []f64) !void {
+        return self.network.load_sensors(sensors);
+    }
+
+    pub fn read_outputs(self: *NetworkSolver, allocator: std.mem.Allocator) ![]f64 {
+        return self.network.read_outputs(allocator);
+    }
+
+    pub fn node_count(self: *NetworkSolver) usize {
+        return self.network.node_count();
+    }
+
+    pub fn link_count(self: *NetworkSolver) usize {
+        return self.network.link_count();
+    }
+};
+
 // test utils
 fn build_plain_network(allocator: std.mem.Allocator) !*Network {
     var all_nodes = try allocator.alloc(*NNode, 5);
@@ -648,7 +707,7 @@ test "Modular Network activate" {
     var net = try build_modular_network(std.testing.allocator);
     defer net.deinit();
     var data = [_]f64{ 1, 2, 1 };
-    try net.load_sensors(&data);
+    net.load_sensors(&data);
     var i: usize = 0;
     while (i < 5) : (i += 1) {
         var res = try net.activate();
@@ -756,7 +815,7 @@ test "Network recursive steps" {
     defer net.deinit();
 
     var data = [_]f64{ 0.5, 0, 1.5 };
-    try net.load_sensors(&data);
+    net.load_sensors(&data);
 
     var relaxed = try net.recursive_steps();
     try std.testing.expect(relaxed);
@@ -777,7 +836,7 @@ test "Network load sensors" {
     defer net.deinit();
 
     var sensors = [_]f64{ 1, 3.4, 5.6 };
-    try net.load_sensors(&sensors);
+    net.load_sensors(&sensors);
     var counter: usize = 0;
     for (net.get_all_nodes()) |node| {
         if (node.is_sensor()) {
