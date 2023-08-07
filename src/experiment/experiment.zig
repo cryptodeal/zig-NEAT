@@ -368,7 +368,7 @@ pub const Experiment = struct {
             trial.duration = current_time.since(trial_start_time);
 
             // store trial into experiment
-            try self.trials.append(trial);
+            self.trials.appendAssumeCapacity(trial);
 
             if (trial_observer != null) {
                 trial_observer.?.trial_run_finished(trial);

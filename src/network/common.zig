@@ -65,7 +65,7 @@ pub fn neuron_type_by_name(name: []const u8) NodeNeuronType {
 }
 
 pub fn activate_node(node: *NNode) !void {
-    var res = try neat_math.NodeActivationType.activate_by_type(node.activation_sum, node.params, node.activation_type);
+    var res = try neat_math.NodeActivationType.activate_by_type(node.activation_sum, if (node.has_params) node.params else null, node.activation_type);
     node.set_activation(res);
 }
 
@@ -77,7 +77,7 @@ pub fn activate_module(module: *NNode) !void {
         inputs[i] = v.in_node.?.get_active_out();
     }
 
-    var outputs = try neat_math.NodeActivationType.activate_module_by_type(inputs, module.params, module.activation_type);
+    var outputs = try neat_math.NodeActivationType.activate_module_by_type(inputs, if (module.has_params) module.params else null, module.activation_type);
     if (outputs.len != module.outgoing.items.len) {
         std.debug.print("number of output parameters {d} returned by module activator doesn't match the number of output neurons of the module {d}", .{ outputs.len, module.outgoing.items.len });
         return error.ModuleOutputLenMismatch;

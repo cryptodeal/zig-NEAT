@@ -117,7 +117,8 @@ const XorGenerationEvaluator = struct {
 };
 
 pub fn main() !void {
-    const allocator = std.heap.c_allocator;
+    var arena = std.heap.ArenaAllocator.init(std.heap.raw_c_allocator);
+    const allocator = arena.allocator();
     var opts: *Options = try Options.read_options(allocator, "data/basic_xor.neat");
     defer opts.deinit();
 

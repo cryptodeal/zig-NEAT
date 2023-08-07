@@ -3,8 +3,8 @@
     .version = "0.0.1",
     .dependencies = .{
         .zigNEAT = .{
-            .url = "https://github.com/cryptodeal/zig-NEAT/archive/f562f412b2737b0575b426cf4bc4ecd0a55b3e60.tar.gz",
-            .hash = "122094cda65178abdcbc8188ea6cb0a83c71ba015a301f8b1766b95e74e50d4b25b8",
+            .url = "https://github.com/cryptodeal/zig-NEAT/archive/58b64e9f2eb310a1583388fb4ebd53b31e9cf0e7.tar.gz",
+            .hash = "1220c73c70697d275805e55db86865eb55a01d9db38f2885661939e817cf624520ba",
         },
     },
 }

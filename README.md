@@ -97,6 +97,7 @@ zig build run -Doptimize=ReleaseSafe -- --out out/hard_mazeobj --context data/ma
     - [ ] Cart2pole (Non-Markov)
     - [x] Maze (Novelty Search Based Optimization)
     - [x] Maze (Objective Based Fitness Optimization)
+    - [ ] Retina (ES-HyperNEAT)
 - [x] Implement Novelty Search Optimization
 - [x] Implement HyperNEAT Algorithm
 - [x] Implement ES-HyperNEAT Algorithm
