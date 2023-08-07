@@ -2,7 +2,7 @@ zig-cache/
 zig-out/
 out/
 examples/maze/out/
-examples/retina/
+examples/retina/out/
 .DS_Store
 
 # temporarily exclude until implemented

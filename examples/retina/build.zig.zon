@@ -1,0 +1,14 @@
+.{
+    .name = "Retina-example",
+    .version = "0.0.1",
+    .dependencies = .{
+        .zigNEAT = .{
+            .url = "https://github.com/cryptodeal/zig-NEAT/archive/58b64e9f2eb310a1583388fb4ebd53b31e9cf0e7.tar.gz",
+            .hash = "1220c73c70697d275805e55db86865eb55a01d9db38f2885661939e817cf624520ba",
+        },
+        .args = .{
+            .url = "https://github.com/MasterQ32/zig-args/archive/91d1e89fb89a4d01dec7c9aec95b0a324080ebcc.tar.gz",
+            .hash = "12203d04cafc97f952d74cdb077e74c0ab3414f9f6b5fbd159112c62bfa584a0dbed",
+        },
+    },
+}

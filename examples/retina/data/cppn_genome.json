@@ -1,0 +1,248 @@
+{
+  "id": 1,
+  "traits": [
+    {
+      "id": 1,
+      "params": [
+        0.1,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": 2,
+      "params": [
+        0.2,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": 3,
+      "params": [
+        0.3,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": 4,
+      "params": [
+        0.4,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": 5,
+      "params": [
+        0.5,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": 6,
+      "params": [
+        0.6,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": 7,
+      "params": [
+        0.7,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": 8,
+      "params": [
+        0.7,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "id": 1,
+      "trait_id": null,
+      "neuron_type": "BiasNeuron",
+      "activation": "NullActivation"
+    },
+    {
+      "id": 2,
+      "trait_id": null,
+      "neuron_type": "InputNeuron",
+      "activation": "NullActivation"
+    },
+    {
+      "id": 3,
+      "trait_id": null,
+      "neuron_type": "InputNeuron",
+      "activation": "NullActivation"
+    },
+    {
+      "id": 4,
+      "trait_id": null,
+      "neuron_type": "InputNeuron",
+      "activation": "NullActivation"
+    },
+    {
+      "id": 5,
+      "trait_id": null,
+      "neuron_type": "InputNeuron",
+      "activation": "NullActivation"
+    },
+    {
+      "id": 6,
+      "trait_id": null,
+      "neuron_type": "OutputNeuron",
+      "activation": "TanhActivation"
+    },
+    {
+      "id": 7,
+      "trait_id": null,
+      "neuron_type": "OutputNeuron",
+      "activation": "StepActivation"
+    },
+    {
+      "id": 8,
+      "trait_id": null,
+      "neuron_type": "HiddenNeuron",
+      "activation": "GaussianBipolarActivation"
+    },
+    {
+      "id": 9,
+      "trait_id": null,
+      "neuron_type": "HiddenNeuron",
+      "activation": "GaussianBipolarActivation"
+    }
+  ],
+  "genes": [
+    {
+      "src_id": 1,
+      "tgt_id": 9,
+      "weight": 0.5,
+      "trait_id": 1,
+      "innov_num": 1,
+      "mut_num": 0,
+      "recurrent": false,
+      "enabled": true
+    },
+    {
+      "src_id": 1,
+      "tgt_id": 7,
+      "weight": 0.5,
+      "trait_id": 6,
+      "innov_num": 2,
+      "mut_num": 0,
+      "recurrent": false,
+      "enabled": true
+    },
+    {
+      "src_id": 2,
+      "tgt_id": 8,
+      "weight": 0.5,
+      "trait_id": 2,
+      "innov_num": 6,
+      "mut_num": 0,
+      "recurrent": false,
+      "enabled": true
+    },
+    {
+      "src_id": 3,
+      "tgt_id": 9,
+      "weight": 0.5,
+      "trait_id": 3,
+      "innov_num": 7,
+      "mut_num": 0,
+      "recurrent": false,
+      "enabled": true
+    },
+    {
+      "src_id": 4,
+      "tgt_id": 8,
+      "weight": 0.5,
+      "trait_id": 4,
+      "innov_num": 8,
+      "mut_num": 0,
+      "recurrent": false,
+      "enabled": true
+    },
+    {
+      "src_id": 5,
+      "tgt_id": 9,
+      "weight": 0.5,
+      "trait_id": 5,
+      "innov_num": 9,
+      "mut_num": 0,
+      "recurrent": false,
+      "enabled": true
+    },
+    {
+      "src_id": 8,
+      "tgt_id": 7,
+      "weight": 0.5,
+      "trait_id": 7,
+      "innov_num": 4,
+      "mut_num": 0,
+      "recurrent": false,
+      "enabled": true
+    },
+    {
+      "src_id": 9,
+      "tgt_id": 6,
+      "weight": 0.5,
+      "trait_id": 8,
+      "innov_num": 5,
+      "mut_num": 0,
+      "recurrent": false,
+      "enabled": true
+    }
+  ],
+  "modules": null
+}
