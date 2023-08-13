@@ -14,7 +14,7 @@ const Experiment = zig_neat.experiment.Experiment;
 const Generation = zig_neat.experiment.Generation;
 const NodeActivationType = zig_neat.math.NodeActivationType;
 const Network = zig_neat.network.Network;
-const species_org_sort = zig_neat.genetics.species_org_sort;
+const speciesOrgSort = zig_neat.genetics.speciesOrgSort;
 
 const thirty_six_degress: f64 = 36 * @as(f64, std.math.pi) / 180;
 
@@ -79,15 +79,15 @@ const CartPole = struct {
         self.allocator.destroy(self);
     }
 
-    pub fn eval_net(self: *CartPole, net: *Network, action_type: ActionType) !f64 {
+    pub fn evalNet(self: *CartPole, net: *Network, action_type: ActionType) !f64 {
         var non_markov_max = non_markov_generalization_max_steps;
         if (self.non_markov_long) {
             non_markov_max = non_markov_long_max_steps;
         }
-        self.reset_state();
+        self.resetState();
 
         // max depth of the network to be activated
-        var net_depth = try net.max_activation_depth_capped(0);
+        var net_depth = try net.maxActivationDepthCapped(0);
         if (net_depth == 0) {
             // disconnected - assign minimal fitness to not completely exclude organism from evolution
             // returning only fitness of 1 step
@@ -112,10 +112,10 @@ const CartPole = struct {
                 input[5] = (self.state[5] + 1) / 2;
                 input[6] = 0.5;
 
-                net.load_sensors(input);
+                net.loadSensors(input);
 
                 // activate the network based on the input
-                var res = try net.forward_steps(net_depth);
+                var res = try net.forwardSteps(net_depth);
                 if (!res) {
                     // If it loops, exit returning only fitness of 1 step
                     logger.err("Failed to activate Network!", .{}, @src());
@@ -131,8 +131,8 @@ const CartPole = struct {
                         action = 1;
                     }
                 }
-                try self.perform_action(action, @as(usize, @intFromFloat(steps)));
-                if (self.outside_bounds()) break; // stop if failure
+                try self.performAction(action, @as(usize, @intFromFloat(steps)));
+                if (self.outsideBounds()) break; // stop if failure
             }
             return steps;
         } else {
@@ -146,9 +146,9 @@ const CartPole = struct {
                 input[2] = self.state[4] / 0.52;
                 input[3] = 1;
 
-                net.load_sensors(input);
+                net.loadSensors(input);
                 // activate the network based on the input
-                var res = try net.forward_steps(net_depth);
+                var res = try net.forwardSteps(net_depth);
                 if (!res) {
                     // If it loops, exit returning only fitness of 1 step
                     return 0.0001;
@@ -163,8 +163,8 @@ const CartPole = struct {
                         action = 1;
                     }
                 }
-                try self.perform_action(action, @as(usize, @intFromFloat(steps)));
-                if (self.outside_bounds()) break; // stop if failure
+                try self.performAction(action, @as(usize, @intFromFloat(steps)));
+                if (self.outsideBounds()) break; // stop if failure
             }
 
             // If we are generalizing we just need to balance it for a while
@@ -198,7 +198,7 @@ const CartPole = struct {
         }
     }
 
-    fn perform_action(self: *CartPole, action: f64, step_num: usize) !void {
+    fn performAction(self: *CartPole, action: f64, step_num: usize) !void {
         const tau: f64 = 0.01; // ∆t = 0.01s
 
         // Apply action to the simulated cart-pole
@@ -225,7 +225,7 @@ const CartPole = struct {
             self.jiggle_step[step_num] = @fabs(self.state[0]) + @fabs(self.state[1]) + @fabs(self.state[2]) + @fabs(self.state[3]);
         }
 
-        if (!self.outside_bounds()) {
+        if (!self.outsideBounds()) {
             self.balanced_time_steps += 1;
         }
     }
@@ -304,12 +304,12 @@ const CartPole = struct {
         }
     }
 
-    fn outside_bounds(self: *CartPole) bool {
+    fn outsideBounds(self: *CartPole) bool {
         const failure_angle: f64 = thirty_six_degress;
         return self.state[0] < -2.4 or self.state[0] > 2.4 or self.state[2] < -failure_angle or self.state[2] > failure_angle or self.state[4] < -failure_angle or self.state[4] > failure_angle;
     }
 
-    fn reset_state(self: *CartPole) void {
+    fn resetState(self: *CartPole) void {
         if (self.is_markov) {
             // Clear all fitness records
             self.cart_pos_sum = 0;
@@ -336,11 +336,11 @@ const CartPole = struct {
 const Cart2PoleGenerationEvaluator = struct {
     data: *Cart2PoleData,
 
-    pub fn generation_evaluate(self: *Cart2PoleGenerationEvaluator, opts: *Options, pop: *Population, epoch: *Generation) !void {
+    pub fn generationEvaluate(self: *Cart2PoleGenerationEvaluator, opts: *Options, pop: *Population, epoch: *Generation) !void {
         var cart_pole = try CartPole.init(pop.allocator, self.data.markov);
 
         for (pop.organisms.items) |org| {
-            var winner = try self.org_eval(org, cart_pole);
+            var winner = try self.orgEval(org, cart_pole);
             if (winner and (epoch.champion == null or org.fitness > epoch.champion.?.fitness)) {
                 // This will be winner in Markov case
                 epoch.solved = true;
@@ -370,14 +370,14 @@ const Cart2PoleGenerationEvaluator = struct {
             var sorted_species: []*Species = try pop.allocator.alloc(*Species, pop.species.items.len);
             defer pop.allocator.free(sorted_species);
             @memcpy(sorted_species, pop.species.items);
-            std.mem.sort(*Species, sorted_species, {}, species_org_sort);
+            std.mem.sort(*Species, sorted_species, {}, speciesOrgSort);
             std.mem.reverse(*Species, sorted_species);
 
             // First update what is checked and unchecked
             var curr_species: ?*Species = undefined;
             for (sorted_species, 0..) |_, i| {
                 curr_species = sorted_species[i];
-                var max = curr_species.?.compute_max_and_avg_fitness();
+                var max = curr_species.?.computeMaxAndAvgFitness();
                 if (max.max > curr_species.?.max_fitness_ever) {
                     curr_species.?.is_checked = false;
                 }
@@ -400,14 +400,14 @@ const Cart2PoleGenerationEvaluator = struct {
             curr_species.?.is_checked = true;
 
             // the organism champion
-            var champion = curr_species.?.find_champion();
+            var champion = curr_species.?.findChampion();
             var champion_fitness = champion.?.fitness;
 
             // Now check to make sure the champion can do 100,000 evaluations
             cart_pole.non_markov_long = true;
             cart_pole.generalization_test = false;
 
-            var long_run_passed = try self.org_eval(champion.?, cart_pole);
+            var long_run_passed = try self.orgEval(champion.?, cart_pole);
             if (long_run_passed) {
                 // the champion passed non-Markov long test, start generalization
                 cart_pole.non_markov_long = false;
@@ -439,7 +439,7 @@ const Cart2PoleGenerationEvaluator = struct {
                                     // leftover activation from its last test run that could affect
                                     // its recurrent memory
                                     _ = try champion.?.phenotype.?.flush();
-                                    var generalized = try self.org_eval(champion.?, cart_pole);
+                                    var generalized = try self.orgEval(champion.?, cart_pole);
                                     if (generalized) {
                                         generalization_score += 1;
                                         logger.debug("x: {d}, xv: {d}, t1: {d}, t2: {d}, angle: {d}", .{ cart_pole.state[0], cart_pole.state[1], cart_pole.state[2], cart_pole.state[4], thirty_six_degress }, @src());
@@ -470,28 +470,28 @@ const Cart2PoleGenerationEvaluator = struct {
         }
 
         // Fill statistics about current epoch
-        try epoch.fill_population_statistics(pop);
+        try epoch.fillPopulationStatistics(pop);
 
         // TODO: Only print to file every print_every generation
         if (epoch.solved) {
             // print winner organism
             var org: *Organism = epoch.champion.?;
-            var depth = try org.phenotype.?.max_activation_depth_capped(0);
+            var depth = try org.phenotype.?.maxActivationDepthCapped(0);
             std.debug.print("Activation depth of the winner: {d}\n", .{depth});
 
             // TODO: write winner's genome to file (not implemented yet)
         }
     }
 
-    fn org_eval(self: *Cart2PoleGenerationEvaluator, org: *Organism, cart_pole: *CartPole) !bool {
+    fn orgEval(self: *Cart2PoleGenerationEvaluator, org: *Organism, cart_pole: *CartPole) !bool {
         var winner = false;
         // Try to balance a pole now
-        org.fitness = try cart_pole.eval_net(org.phenotype.?, self.data.action_type);
+        org.fitness = try cart_pole.evalNet(org.phenotype.?, self.data.action_type);
 
         logger.debug("Organism {d}\tfitness: {d}", .{ org.genotype.id, org.fitness }, @src());
 
         // DEBUG CHECK if organism is damaged
-        if (!(cart_pole.non_markov_long and cart_pole.generalization_test) and org.check_champion_child_damaged()) {
+        if (!(cart_pole.non_markov_long and cart_pole.generalization_test) and org.checkChampionChildDamaged()) {
             logger.warn("ORGANISM DEGRADED:\n{any}", .{org.genotype}, @src());
         }
 
@@ -522,11 +522,11 @@ const Cart2PoleGenerationEvaluator = struct {
 
 pub fn main() !void {
     var allocator = std.heap.c_allocator;
-    var opts: *Options = try Options.read_options(allocator, "data/pole2_markov.neat");
+    var opts: *Options = try Options.readOptions(allocator, "data/pole2_markov.neat");
     defer opts.deinit();
 
     // initialize Genome
-    var start_genome = try Genome.read_from_file(allocator, "data/pole2_markov_startgenes");
+    var start_genome = try Genome.readFromFile(allocator, "data/pole2_markov_startgenes");
     defer start_genome.deinit();
 
     var experiment = try Experiment.init(allocator, 0);
@@ -553,5 +553,5 @@ pub fn main() !void {
 
     try experiment.execute(allocator, rand, opts, start_genome, evaluator, null);
 
-    // var res = experiment.avg_winner_statistics();
+    // var res = experiment.avgWinnerStats();
 }

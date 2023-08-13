@@ -1,7 +1,7 @@
 const std = @import("std");
 const zig_neat = @import("zigNEAT");
 const retina_env = @import("environment.zig");
-const create_retina_dataset = @import("dataset.zig").create_retina_dataset;
+const createRetinaDataset = @import("dataset.zig").createRetinaDataset;
 
 const Solver = zig_neat.network.Solver;
 const NeatLogger = zig_neat.NeatLogger;
@@ -41,7 +41,7 @@ pub const RetinaGenerationEvaluator = struct {
     allocator: std.mem.Allocator,
 
     /// evaluates a population of organisms and prints their performance on the retina experiment
-    pub fn generation_evaluate(self: *RetinaGenerationEvaluator, opts: *Options, pop: *Population, epoch: *Generation) !void {
+    pub fn generationEvaluate(self: *RetinaGenerationEvaluator, opts: *Options, pop: *Population, epoch: *Generation) !void {
         std.debug.print("best fitness: {d}\n", .{self.best_fitness});
 
         // Evaluate each organism on a test
@@ -56,8 +56,9 @@ pub const RetinaGenerationEvaluator = struct {
         }
 
         for (pop.organisms.items) |org| {
-            var res = self.org_eval(self.allocator, opts, org) catch |err| {
+            var res = self.orgEval(self.allocator, opts, org) catch |err| {
                 std.debug.print("failed to evaluate organism: {any}\n", .{err});
+                org.fitness = -1;
                 continue;
             };
             var is_winner = res.is_winner;
@@ -65,8 +66,8 @@ pub const RetinaGenerationEvaluator = struct {
 
             if (org.fitness > max_population_fitness) {
                 max_population_fitness = org.fitness;
-                best_link_count = @intCast(org.phenotype.?.link_count());
-                best_node_count = @intCast(org.phenotype.?.node_count());
+                best_link_count = @intCast(org.phenotype.?.linkCount());
+                best_node_count = @intCast(org.phenotype.?.nodeCount());
                 if (best_substrate_solver != null) {
                     best_substrate_solver.?.deinit();
                 }
@@ -77,7 +78,7 @@ pub const RetinaGenerationEvaluator = struct {
                     try file_name.writer().print("out/best_genome_fitness_{d:.5}.json", .{org.fitness});
                     var path: []const u8 = try file_name.toOwnedSlice();
                     defer self.allocator.free(path);
-                    try org.genotype.write_to_json(self.allocator, path);
+                    try org.genotype.writeToJSON(self.allocator, path);
                     std.debug.print("Saved best genome to {s}\n", .{path});
                 }
                 best_substrate_solver = solver;
@@ -99,7 +100,7 @@ pub const RetinaGenerationEvaluator = struct {
         }
 
         // Fill statistics about current epoch
-        try epoch.fill_population_statistics(pop);
+        try epoch.fillPopulationStatistics(pop);
 
         // TODO: Only print to file every print_every generation
 
@@ -108,13 +109,13 @@ pub const RetinaGenerationEvaluator = struct {
             var org = epoch.champion.?;
             std.debug.print("Winner organism fitness: {d}\n", .{org.fitness});
 
-            var depth = try org.phenotype.?.max_activation_depth_capped(0);
+            var depth = try org.phenotype.?.maxActivationDepthCapped(0);
             std.debug.print("Activation depth of the winner: {d}\n", .{depth});
         } else if (epoch.id < opts.num_generations - 1) {
             var species_count = pop.species.items.len;
             // adjust species count by keeping it constant
-            adjust_species_number(species_count, epoch.id, self.compat_adjust_freq, self.num_species_target, opts);
-            std.debug.print("{d} species -> {d} organisms [compatibility threshold: {d:.1}, target: {d}]\nbest CPNN organism [fitness: {d:.2}, links: {d}, nodes: {d}], best solver [links: {d}, nodes: {d}]", .{ species_count, pop.organisms.items.len, opts.compat_threshold, self.num_species_target, max_population_fitness, best_link_count, best_node_count, best_substrate_solver.?.link_count(), best_substrate_solver.?.node_count() });
+            adjustSpeciesNumber(species_count, epoch.id, self.compat_adjust_freq, self.num_species_target, opts);
+            std.debug.print("{d} species -> {d} organisms [compatibility threshold: {d:.1}, target: {d}]\nbest CPNN organism [fitness: {d:.2}, links: {d}, nodes: {d}], best solver [links: {d}, nodes: {d}]", .{ species_count, pop.organisms.items.len, opts.compat_threshold, self.num_species_target, max_population_fitness, best_link_count, best_node_count, best_substrate_solver.?.linkCount(), best_substrate_solver.?.nodeCount() });
         }
     }
 
@@ -123,17 +124,17 @@ pub const RetinaGenerationEvaluator = struct {
         solver: Solver,
     };
 
-    fn org_eval(self: *RetinaGenerationEvaluator, allocator: std.mem.Allocator, opts: *Options, organism: *Organism) !OrgEvalRes {
-        var cppn_solver = Solver.init(try organism.phenotype.?.get_solver(allocator));
+    fn orgEval(self: *RetinaGenerationEvaluator, allocator: std.mem.Allocator, opts: *Options, organism: *Organism) !OrgEvalRes {
+        var cppn_solver = Solver.init(try organism.phenotype.?.getSolver(allocator));
 
         // create substrate layout
         const input_count = self.env.input_size * 2; // left + right pixels of visual object
         var layout = EvolvableSubstrateLayout.init(try MappedEvolvableSubstrateLayout.init(allocator, input_count, 2));
 
         // create ES-HyperNEAT solver
-        var substr = try EvolvableSubstrate.init_with_bias(allocator, layout, opts.hyperneat_ctx.?.substrate_activator, opts.hyperneat_ctx.?.cppn_bias);
+        var substr = try EvolvableSubstrate.initWithBias(allocator, layout, opts.hyperneat_ctx.?.substrate_activator, opts.hyperneat_ctx.?.cppn_bias);
         defer substr.deinit();
-        var solver = try substr.create_network_solver(allocator, cppn_solver, self.use_leo, opts);
+        var solver = try substr.createNetworkSolver(allocator, cppn_solver, self.use_leo, opts);
         errdefer solver.deinit();
         // Evaluate the detector ANN against 256 combinations of the left and the right visual objects
         // at correct and incorrect sides of retina
@@ -143,7 +144,7 @@ pub const RetinaGenerationEvaluator = struct {
         for (self.env.visual_objects) |left_object| {
             for (self.env.visual_objects) |right_object| {
                 // Evaluate outputted predictions
-                var loss = try self.eval_network(allocator, solver, left_object, right_object);
+                var loss = try self.evalNetwork(allocator, solver, left_object, right_object);
                 error_sum += loss;
                 count += 1;
                 if (loss > 0) {
@@ -173,12 +174,12 @@ pub const RetinaGenerationEvaluator = struct {
         organism.fitness = fitness;
         if (debug) {
             logger.info("Average error: {d}, errors sum: {d}, false detections: {d} from: {d}", .{ avg_error, error_sum, detection_error_count, count }, @src());
-            logger.info("Substrate: #nodes = {d}, #edges = {d} | CPPN phenotype: #nodes = {d}, #edges = {d}", .{ solver.node_count(), solver.link_count(), cppn_solver.node_count(), cppn_solver.link_count() }, @src());
+            logger.info("Substrate: #nodes = {d}, #edges = {d} | CPPN phenotype: #nodes = {d}, #edges = {d}", .{ solver.nodeCount(), solver.linkCount(), cppn_solver.nodeCount(), cppn_solver.linkCount() }, @src());
         }
         return .{ .is_winner = is_winner, .solver = solver };
     }
 
-    fn eval_network(self: *RetinaGenerationEvaluator, allocator: std.mem.Allocator, solver: Solver, left_object: *VisualObject, right_object: *VisualObject) !f64 {
+    fn evalNetwork(self: *RetinaGenerationEvaluator, allocator: std.mem.Allocator, solver: Solver, left_object: *VisualObject, right_object: *VisualObject) !f64 {
         _ = self;
         // flush current network state
         _ = solver.flush() catch return -1;
@@ -191,24 +192,24 @@ pub const RetinaGenerationEvaluator = struct {
 
         // run evaluation
         var loss = std.math.floatMax(f64);
-        solver.load_sensors(inputs.items) catch return loss;
+        solver.loadSensors(inputs.items) catch return loss;
 
         // Propagate activation
-        var relaxed = solver.recursive_steps() catch return loss;
+        var relaxed = solver.recursiveSteps() catch return loss;
         if (!relaxed) {
             std.debug.print("failed to relax network solver of the ES substrate\n", .{});
             return loss;
         }
 
         // get outputs and evaluate against ground truth
-        var outs = try solver.read_outputs(allocator);
+        var outs = try solver.readOutputs(allocator);
         defer allocator.free(outs);
-        loss = try eval_predictions(allocator, outs, left_object, right_object);
+        loss = try evalPredictions(allocator, outs, left_object, right_object);
         return loss;
     }
 };
 
-fn eval_predictions(allocator: std.mem.Allocator, predictions: []f64, left_obj: *VisualObject, right_obj: *VisualObject) !f64 {
+fn evalPredictions(allocator: std.mem.Allocator, predictions: []f64, left_obj: *VisualObject, right_obj: *VisualObject) !f64 {
     // Convert predictions[i] to 1.0 or 0.0 about 0.5 threshold
     var norm_predictions = try allocator.alloc(f64, predictions.len);
     defer allocator.free(norm_predictions);
@@ -244,7 +245,7 @@ fn eval_predictions(allocator: std.mem.Allocator, predictions: []f64, left_obj: 
     return loss;
 }
 
-fn adjust_species_number(species_count: usize, epoch_id: usize, adjust_frequency: usize, num_species_target: usize, opts: *Options) void {
+fn adjustSpeciesNumber(species_count: usize, epoch_id: usize, adjust_frequency: usize, num_species_target: usize, opts: *Options) void {
     if (@mod(epoch_id, adjust_frequency) == 0) {
         if (species_count < num_species_target) {
             opts.compat_threshold -= compatability_threshold_step;
@@ -262,13 +263,13 @@ fn adjust_species_number(species_count: usize, epoch_id: usize, adjust_frequency
 test "evaluate prediction" {
     const allocator = std.testing.allocator;
     var sum_loss: f64 = 0;
-    const dataset = try create_retina_dataset(allocator);
+    const dataset = try createRetinaDataset(allocator);
     defer for (dataset) |vo| vo.deinit();
     defer allocator.free(dataset);
     for (dataset) |left_object| {
         for (dataset) |right_object| {
             var pred = [_]f64{0} ** 4;
-            sum_loss += try eval_predictions(allocator, &pred, left_object, right_object);
+            sum_loss += try evalPredictions(allocator, &pred, left_object, right_object);
         }
     }
     try std.testing.expect(sum_loss == 416);

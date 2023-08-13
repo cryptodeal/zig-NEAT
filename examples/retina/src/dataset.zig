@@ -3,7 +3,7 @@ const env = @import("environment.zig");
 
 const VisualObject = env.VisualObject;
 
-pub fn create_retina_dataset(allocator: std.mem.Allocator) ![]*VisualObject {
+pub fn createRetinaDataset(allocator: std.mem.Allocator) ![]*VisualObject {
     var objs = std.ArrayList(*VisualObject).init(allocator);
     // set left side objects
     try objs.append(try VisualObject.init(allocator, .BothSides, ". .\n. ."));
@@ -30,7 +30,7 @@ pub fn create_retina_dataset(allocator: std.mem.Allocator) ![]*VisualObject {
 
 test "Create Retina DataSet" {
     const allocator = std.testing.allocator;
-    var dataset = try create_retina_dataset(allocator);
+    var dataset = try createRetinaDataset(allocator);
     defer allocator.free(dataset);
 
     try std.testing.expect(dataset.len == 16);

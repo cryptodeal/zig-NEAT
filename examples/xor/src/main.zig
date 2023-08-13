@@ -18,10 +18,10 @@ var logger = NeatLogger{ .log_level = std.log.Level.info };
 const fitness_threshold: f64 = 15.5;
 
 const XorGenerationEvaluator = struct {
-    pub fn generation_evaluate(self: *XorGenerationEvaluator, opts: *Options, pop: *Population, epoch: *Generation) !void {
+    pub fn generationEvaluate(self: *XorGenerationEvaluator, opts: *Options, pop: *Population, epoch: *Generation) !void {
         // Evaluate each organism on a test
         for (pop.organisms.items) |org| {
-            var res = try self.org_eval(org);
+            var res = try self.orgEval(org);
 
             if (res and (epoch.champion == null or org.fitness > epoch.champion.?.fitness)) {
                 epoch.solved = true;
@@ -37,7 +37,7 @@ const XorGenerationEvaluator = struct {
         }
 
         // Fill statistics about current epoch
-        try epoch.fill_population_statistics(pop);
+        try epoch.fillPopulationStatistics(pop);
 
         // TODO: Only print to file every print_every generation
 
@@ -46,14 +46,14 @@ const XorGenerationEvaluator = struct {
             var org: *Organism = epoch.champion.?;
             std.debug.print("Winner organism fitness: {d}\n", .{org.fitness});
 
-            var depth = try org.phenotype.?.max_activation_depth_capped(0);
+            var depth = try org.phenotype.?.maxActivationDepthCapped(0);
             std.debug.print("Activation depth of the winner: {d}\n", .{depth});
 
             // TODO: write winner's genome to file (not implemented yet)
         }
     }
 
-    pub fn org_eval(_: *XorGenerationEvaluator, organism: *Organism) !bool {
+    pub fn orgEval(_: *XorGenerationEvaluator, organism: *Organism) !bool {
         // The four possible input combinations to xor
         // The first number is for biasing
         var in = [4][3]f64{
@@ -64,7 +64,7 @@ const XorGenerationEvaluator = struct {
         };
 
         // The max depth of the network to be activated
-        var net_depth = try organism.phenotype.?.max_activation_depth_capped(0);
+        var net_depth = try organism.phenotype.?.maxActivationDepthCapped(0);
         if (net_depth == 0) {
             logger.err("Network depth: {d} for organism: {d}", .{ net_depth, organism.genotype.id }, @src());
             return false;
@@ -79,11 +79,11 @@ const XorGenerationEvaluator = struct {
         var count: usize = 0;
         while (count < 4) : (count += 1) {
             var input = in[count];
-            organism.phenotype.?.load_sensors(&input);
+            organism.phenotype.?.loadSensors(&input);
 
             // Use depth to ensure full relaxation
-            success = organism.phenotype.?.forward_steps(net_depth) catch {
-                logger.err("Failed to activate network at call to `forward_steps`", .{}, @src());
+            success = organism.phenotype.?.forwardSteps(net_depth) catch {
+                logger.err("Failed to activate network at call to `forwardSteps`", .{}, @src());
                 return false;
             };
 
@@ -119,11 +119,11 @@ const XorGenerationEvaluator = struct {
 pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.raw_c_allocator);
     const allocator = arena.allocator();
-    var opts: *Options = try Options.read_options(allocator, "data/basic_xor.neat");
+    var opts: *Options = try Options.readOptions(allocator, "data/basic_xor.neat");
     defer opts.deinit();
 
     // initialize Genome from file
-    var start_genome = try Genome.read_from_file(allocator, "data/xorstartgenes");
+    var start_genome = try Genome.readFromFile(allocator, "data/xorstartgenes");
     defer start_genome.deinit();
 
     var experiment = try Experiment.init(allocator, 0);
@@ -143,7 +143,7 @@ pub fn main() !void {
 
     try experiment.execute(allocator, rand, opts, start_genome, evaluator, null);
 
-    // var res = experiment.avg_winner_statistics();
-    var avg_epoch_duration = experiment.avg_epoch_duration();
+    // var res = experiment.avgWinnerStats();
+    var avg_epoch_duration = experiment.avgEpochDuration();
     std.debug.print("avg_epoch_duration: {d}\n", .{avg_epoch_duration});
 }

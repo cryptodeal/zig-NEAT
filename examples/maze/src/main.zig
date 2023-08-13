@@ -48,16 +48,16 @@ pub fn main() !void {
     const rand = prng.random();
 
     // Load NEAT options
-    var options = try Options.read_options(allocator, cli_args.options.context);
+    var options = try Options.readOptions(allocator, cli_args.options.context);
     defer options.deinit();
 
     // Load Genome
     std.debug.print("Loading start genome for {s} experiment from file '{s}'\n", .{ @tagName(cli_args.options.experiment), cli_args.options.genome });
-    var start_genome = try Genome.read_from_file(allocator, cli_args.options.genome);
+    var start_genome = try Genome.readFromFile(allocator, cli_args.options.genome);
     defer start_genome.deinit();
 
     // Load Maze environment
-    var environment = try Environment.read_from_file(allocator, cli_args.options.maze);
+    var environment = try Environment.readFromFile(allocator, cli_args.options.maze);
     defer environment.deinit();
     environment.time_steps = cli_args.options.timesteps;
     environment.sample_size = cli_args.options.timesteps_sample;

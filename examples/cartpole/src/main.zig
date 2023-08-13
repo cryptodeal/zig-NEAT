@@ -25,10 +25,10 @@ const CartPoleGenerationEvaluator = struct {
     // The number of emulation steps to be done balancing pole to win
     win_balance_steps: usize = 500000,
 
-    pub fn generation_evaluate(self: *CartPoleGenerationEvaluator, opts: *Options, pop: *Population, epoch: *Generation) !void {
+    pub fn generationEvaluate(self: *CartPoleGenerationEvaluator, opts: *Options, pop: *Population, epoch: *Generation) !void {
         // evaluate each organism on a test
         for (pop.organisms.items) |org| {
-            var res = try self.org_eval(org);
+            var res = try self.orgEval(org);
             logger.debug("Organism: {d}\tComplexity: {d}\tFitness: {d}", .{ org.genotype.id, org.phenotype.?.complexity(), org.fitness }, @src());
 
             if (res and (epoch.champion == null or org.fitness > epoch.champion.?.fitness)) {
@@ -41,7 +41,7 @@ const CartPoleGenerationEvaluator = struct {
         }
 
         // Fill statistics about current epoch
-        try epoch.fill_population_statistics(pop);
+        try epoch.fillPopulationStatistics(pop);
 
         // TODO: Only print to file every print_every generation
 
@@ -50,16 +50,16 @@ const CartPoleGenerationEvaluator = struct {
             var org: *Organism = epoch.champion.?;
             std.debug.print("Winner organism fitness: {d}\n", .{org.fitness});
 
-            var depth = try org.phenotype.?.max_activation_depth_capped(0);
+            var depth = try org.phenotype.?.maxActivationDepthCapped(0);
             std.debug.print("Activation depth of the winner: {d}\n", .{depth});
 
             // TODO: write winner's genome to file (not implemented yet)
         }
     }
 
-    fn org_eval(self: *CartPoleGenerationEvaluator, org: *Organism) !bool {
+    fn orgEval(self: *CartPoleGenerationEvaluator, org: *Organism) !bool {
         // Try to balance a pole now
-        var fitness = self.run_cart(self.allocator, org.phenotype.?) catch return false;
+        var fitness = self.runCart(self.allocator, org.phenotype.?) catch return false;
         org.fitness = @as(f64, @floatFromInt(fitness));
 
         // Decide if it's a winner
@@ -84,7 +84,7 @@ const CartPoleGenerationEvaluator = struct {
         return org.is_winner;
     }
 
-    fn run_cart(self: *CartPoleGenerationEvaluator, allocator: std.mem.Allocator, net: *Network) !usize {
+    fn runCart(self: *CartPoleGenerationEvaluator, allocator: std.mem.Allocator, net: *Network) !usize {
         var x: f64 = 0; // cart position, meters
         var x_dot: f64 = 0; // cart velocity
         var theta: f64 = 0; // pole angle, radians
@@ -105,7 +105,7 @@ const CartPoleGenerationEvaluator = struct {
             theta_dot = @as(f64, @floatFromInt(@mod(@as(i32, @intCast(rand.int(i31))), 3000))) / 1000 - 1.5;
         }
 
-        var net_depth = try net.max_activation_depth_capped(0);
+        var net_depth = try net.maxActivationDepthCapped(0);
         if (net_depth == 0) {
             // possibly disconnected - return minimal fitness score
             logger.err("Failed to estimate maximal depth of the network with loop.\nUsing default depth: {d}", .{net_depth}, @src());
@@ -122,10 +122,10 @@ const CartPoleGenerationEvaluator = struct {
             in[2] = (x_dot + 0.75) / 1.5;
             in[3] = (theta + twelve_degrees) / 0.41;
             in[4] = (theta_dot + 1) / 2;
-            net.load_sensors(in);
+            net.loadSensors(in);
 
             // activate the network based on the input
-            var res = try net.forward_steps(net_depth);
+            var res = try net.forwardSteps(net_depth);
             if (!res) {
                 // if it loops, exit returning only fitness of 1 step
                 logger.err("Failed to activate Network!", .{}, @src());
@@ -139,7 +139,7 @@ const CartPoleGenerationEvaluator = struct {
             }
 
             // apply action to the simulated cart_pole
-            self.simulate_action(action, &x, &x_dot, &theta, &theta_dot);
+            self.simulateAction(action, &x, &x_dot, &theta, &theta_dot);
 
             // Check for failure.  If so, return steps
             if (x < -2.4 or x > 2.4 or theta < -twelve_degrees or theta > twelve_degrees) {
@@ -149,12 +149,12 @@ const CartPoleGenerationEvaluator = struct {
         return steps;
     }
 
-    // simulate_action was taken directly from the pole simulator written by Richard Sutton and Charles Anderson.
+    // Taken directly from the pole simulator written by Richard Sutton and Charles Anderson.
     // This simulator uses normalized, continuous inputs instead of discretizing the input space.
     //   - Takes an action (0 or 1) and the current values of the
     //   - four state variables and updates their values by estimating the state
     //   - TAU seconds later.
-    fn simulate_action(_: *CartPoleGenerationEvaluator, action: u8, x: *f64, x_dot: *f64, theta: *f64, theta_dot: *f64) void {
+    fn simulateAction(_: *CartPoleGenerationEvaluator, action: u8, x: *f64, x_dot: *f64, theta: *f64, theta_dot: *f64) void {
         var x_copy = x.*;
         var x_dot_copy = x_dot.*;
         var theta_copy = theta.*;
@@ -194,11 +194,11 @@ const CartPoleGenerationEvaluator = struct {
 
 pub fn main() !void {
     var allocator = std.heap.c_allocator;
-    var opts: *Options = try Options.read_options(allocator, "data/pole1_1000.neat");
+    var opts: *Options = try Options.readOptions(allocator, "data/pole1_1000.neat");
     defer opts.deinit();
 
     // initialize Genome
-    var start_genome = try Genome.read_from_file(allocator, "data/pole1startgenes");
+    var start_genome = try Genome.readFromFile(allocator, "data/pole1startgenes");
     defer start_genome.deinit();
 
     var experiment = try Experiment.init(allocator, 0);
@@ -218,5 +218,5 @@ pub fn main() !void {
 
     try experiment.execute(allocator, rand, opts, start_genome, evaluator, null);
 
-    // var res = experiment.avg_winner_statistics();
+    // var res = experiment.avgWinnerStats();
 }

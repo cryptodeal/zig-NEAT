@@ -122,7 +122,7 @@ pub const RecordStore = struct {
         while (i < points_len) : (i += 1) {
             var x = @as(f64, @bitCast(try reader.readIntLittle(u64)));
             var y = @as(f64, @bitCast(try reader.readIntLittle(u64)));
-            var point = try Point.init_coords(allocator, x, y);
+            var point = try Point.initCoords(allocator, x, y);
             solver_path_points.appendAssumeCapacity(point);
         }
         new_store.* = .{
@@ -184,13 +184,13 @@ test "RecordStore write" {
     r4.species_age = 1;
     try rs.records.append(r4);
 
-    var pt1 = try Point.init_coords(allocator, 0, 1);
+    var pt1 = try Point.initCoords(allocator, 0, 1);
     try rs.solver_path_points.append(pt1);
 
-    var pt2 = try Point.init_coords(allocator, 2, 3);
+    var pt2 = try Point.initCoords(allocator, 2, 3);
     try rs.solver_path_points.append(pt2);
 
-    var pt3 = try Point.init_coords(allocator, 4, 5);
+    var pt3 = try Point.initCoords(allocator, 4, 5);
     try rs.solver_path_points.append(pt3);
 
     var og_bytes = std.ArrayList(u8).init(allocator);

@@ -3,12 +3,12 @@
     .version = "0.0.1",
     .dependencies = .{
         .zigNEAT = .{
-            .url = "https://github.com/cryptodeal/zig-NEAT/archive/93c76feca84cec6228a9e3dd55ef2c6fbc42d8d4.tar.gz",
-            .hash = "1220c0feaab2f89334df0a7171bece639b08e01633163d1efec4f00c75e1d5b67156",
+            .url = "https://github.com/cryptodeal/zig-NEAT/archive/51b299d9e7bed0f30b687acf2b2cf4415c1f2746.tar.gz",
+            .hash = "12207cd028eab4e8e10e715927bcaffb91e3d11385f02376fee96824314fa496c820",
         },
         .args = .{
-            .url = "https://github.com/MasterQ32/zig-args/archive/91d1e89fb89a4d01dec7c9aec95b0a324080ebcc.tar.gz",
-            .hash = "12203d04cafc97f952d74cdb077e74c0ab3414f9f6b5fbd159112c62bfa584a0dbed",
+            .url = "https://github.com/MasterQ32/zig-args/archive/bb2eced8ddf28114b3a1ff761c2d80b90b1a61e2.tar.gz",
+            .hash = "12208556082c280af264ca2a174fd04fc7a35f865bfe59e2c61f4a977bf7a65063e4",
         },
     },
 }

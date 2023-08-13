@@ -15,7 +15,7 @@ pub const Point = struct {
         return self;
     }
 
-    pub fn init_coords(allocator: std.mem.Allocator, x: f64, y: f64) !*Point {
+    pub fn initCoords(allocator: std.mem.Allocator, x: f64, y: f64) !*Point {
         var self = try Point.init(allocator);
         self.x = x;
         self.y = y;
@@ -23,7 +23,7 @@ pub const Point = struct {
     }
 
     pub fn clone(self: *Point, allocator: std.mem.Allocator) !*Point {
-        return Point.init_coords(allocator, self.x, self.y);
+        return Point.initCoords(allocator, self.x, self.y);
     }
 
     pub fn read(allocator: std.mem.Allocator, data: []const u8) !*Point {
@@ -34,7 +34,7 @@ pub const Point = struct {
         return self;
     }
 
-    pub fn tmp_copy(self: *Point) Point {
+    pub fn tmpCopy(self: *Point) Point {
         return Point{ .x = self.x, .y = self.y };
     }
 
@@ -314,7 +314,7 @@ pub const Environment = struct {
         return new_env;
     }
 
-    pub fn read_from_file(allocator: std.mem.Allocator, path: []const u8) !*Environment {
+    pub fn readFromFile(allocator: std.mem.Allocator, path: []const u8) !*Environment {
         // read the file
         const dir_path = std.fs.path.dirname(path);
         const file_name = std.fs.path.basename(path);
@@ -373,11 +373,11 @@ pub const Environment = struct {
         }
 
         // update sensors
-        try self.update_range_finders();
-        self.update_radar();
+        try self.updateRangeFinders();
+        self.updateRadar();
 
         // find initial distance
-        self.initial_distance = self.agent_distance_to_exit();
+        self.initial_distance = self.agentDistanceToExit();
 
         return self;
     }
@@ -393,7 +393,7 @@ pub const Environment = struct {
     }
 
     /// create neural net inputs from maze agent sensors
-    pub fn get_inputs(self: *Environment, allocator: std.mem.Allocator) ![]f64 {
+    pub fn getInputs(self: *Environment, allocator: std.mem.Allocator) ![]f64 {
         var inputs_size: usize = self.hero.range_finders.len + self.hero.radar.len + 1;
         var inputs = try allocator.alloc(f64, inputs_size);
         // bias
@@ -422,7 +422,7 @@ pub const Environment = struct {
     }
 
     /// transform neural net outputs into angular velocity and speed
-    pub fn apply_outputs(self: *Environment, o1: f64, o2: f64) !void {
+    pub fn applyOutputs(self: *Environment, o1: f64, o2: f64) !void {
         if (std.math.isNan(o1) or std.math.isNan(o2)) {
             std.debug.print("OUTPUT is NAN\n", .{});
             return error.OutputIsNaN;
@@ -482,31 +482,31 @@ pub const Environment = struct {
             .x = vx + self.hero.location.x,
             .y = vy + self.hero.location.y,
         };
-        if (!self.test_agent_collision(&new_loc)) {
+        if (!self.testAgentCollision(&new_loc)) {
             self.hero.location.x = new_loc.x;
             self.hero.location.y = new_loc.y;
         }
-        try self.update_range_finders();
-        self.update_radar();
+        try self.updateRangeFinders();
+        self.updateRadar();
 
         // check whether updated agent's position solved the maze
-        self.exit_found = self.test_exit_found_by_agent();
+        self.exit_found = self.testExitFoundByAgent();
     }
 
     /// tests whether agent location is within maze exit range
-    pub fn test_exit_found_by_agent(self: *Environment) bool {
+    pub fn testExitFoundByAgent(self: *Environment) bool {
         if (self.exit_found) return true;
 
-        var dist = self.agent_distance_to_exit();
+        var dist = self.agentDistanceToExit();
         return dist < self.exit_found_range;
     }
 
     /// used for fitness calculations based on distance of maze Agent to the target maze exit
-    pub fn agent_distance_to_exit(self: *Environment) f64 {
+    pub fn agentDistanceToExit(self: *Environment) f64 {
         return self.hero.location.distance(self.maze_exit);
     }
 
-    pub fn update_range_finders(self: *Environment) !void {
+    pub fn updateRangeFinders(self: *Environment) !void {
         // iterate through each sensor and find distance to maze lines with agent's range finder sensors
         for (self.hero.range_finder_angles, 0..) |angle, i| {
             // radians...
@@ -553,8 +553,8 @@ pub const Environment = struct {
     }
 
     /// updates radar sensors
-    pub fn update_radar(self: *Environment) void {
-        var target = self.maze_exit.tmp_copy();
+    pub fn updateRadar(self: *Environment) void {
+        var target = self.maze_exit.tmpCopy();
 
         // rotate goal with respect to heading of agent to compensate agent's heading angle relative to zero heading angle
         target.rotate(-self.hero.heading, self.hero.location);
@@ -577,7 +577,7 @@ pub const Environment = struct {
     }
 
     /// tests whether provided new location hits anything in maze
-    pub fn test_agent_collision(self: *Environment, loc: *Point) bool {
+    pub fn testAgentCollision(self: *Environment, loc: *Point) bool {
         for (self.lines) |line| {
             if (line.distance(loc) < self.hero.radius) {
                 return true;
@@ -741,7 +741,7 @@ test "Line read from string" {
 
 test "Environment" {
     var allocator = std.testing.allocator;
-    var env = try Environment.read_from_file(allocator, "data/medium_maze.txt");
+    var env = try Environment.readFromFile(allocator, "data/medium_maze.txt");
     defer env.deinit();
 
     try std.testing.expect(env.hero.location.x == 30);
@@ -757,17 +757,17 @@ test "Environment" {
         }
         allocator.free(lines);
     }
-    lines[0] = try Line.init(allocator, try Point.init_coords(allocator, 5, 5), try Point.init_coords(allocator, 295, 5));
-    lines[1] = try Line.init(allocator, try Point.init_coords(allocator, 295, 5), try Point.init_coords(allocator, 295, 135));
-    lines[2] = try Line.init(allocator, try Point.init_coords(allocator, 295, 135), try Point.init_coords(allocator, 5, 135));
-    lines[3] = try Line.init(allocator, try Point.init_coords(allocator, 5, 135), try Point.init_coords(allocator, 5, 5));
-    lines[4] = try Line.init(allocator, try Point.init_coords(allocator, 241, 135), try Point.init_coords(allocator, 58, 65));
-    lines[5] = try Line.init(allocator, try Point.init_coords(allocator, 114, 5), try Point.init_coords(allocator, 73, 42));
-    lines[6] = try Line.init(allocator, try Point.init_coords(allocator, 130, 91), try Point.init_coords(allocator, 107, 46));
-    lines[7] = try Line.init(allocator, try Point.init_coords(allocator, 196, 5), try Point.init_coords(allocator, 139, 51));
-    lines[8] = try Line.init(allocator, try Point.init_coords(allocator, 219, 125), try Point.init_coords(allocator, 182, 63));
-    lines[9] = try Line.init(allocator, try Point.init_coords(allocator, 267, 5), try Point.init_coords(allocator, 214, 63));
-    lines[10] = try Line.init(allocator, try Point.init_coords(allocator, 271, 135), try Point.init_coords(allocator, 237, 88));
+    lines[0] = try Line.init(allocator, try Point.initCoords(allocator, 5, 5), try Point.initCoords(allocator, 295, 5));
+    lines[1] = try Line.init(allocator, try Point.initCoords(allocator, 295, 5), try Point.initCoords(allocator, 295, 135));
+    lines[2] = try Line.init(allocator, try Point.initCoords(allocator, 295, 135), try Point.initCoords(allocator, 5, 135));
+    lines[3] = try Line.init(allocator, try Point.initCoords(allocator, 5, 135), try Point.initCoords(allocator, 5, 5));
+    lines[4] = try Line.init(allocator, try Point.initCoords(allocator, 241, 135), try Point.initCoords(allocator, 58, 65));
+    lines[5] = try Line.init(allocator, try Point.initCoords(allocator, 114, 5), try Point.initCoords(allocator, 73, 42));
+    lines[6] = try Line.init(allocator, try Point.initCoords(allocator, 130, 91), try Point.initCoords(allocator, 107, 46));
+    lines[7] = try Line.init(allocator, try Point.initCoords(allocator, 196, 5), try Point.initCoords(allocator, 139, 51));
+    lines[8] = try Line.init(allocator, try Point.initCoords(allocator, 219, 125), try Point.initCoords(allocator, 182, 63));
+    lines[9] = try Line.init(allocator, try Point.initCoords(allocator, 267, 5), try Point.initCoords(allocator, 214, 63));
+    lines[10] = try Line.init(allocator, try Point.initCoords(allocator, 271, 135), try Point.initCoords(allocator, 237, 88));
 
     for (lines, 0..) |line, i| {
         try std.testing.expect(line.a.x == env.lines[i].a.x);

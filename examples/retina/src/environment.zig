@@ -61,7 +61,7 @@ pub const VisualObject = struct {
             .allocator = allocator,
             .side = side,
             .config = config,
-            .data = try parse_visual_object_config(allocator, config),
+            .data = try parseVisualObjectConfig(allocator, config),
         };
         return self;
     }
@@ -78,7 +78,7 @@ pub const VisualObject = struct {
 
 /// parses config semantically in the format
 /// (config = "x1 x2 \n x3 x4") to [ xf1, xf2, xf3, xf4 ]  where if xi == "o" => xfi = 1.0
-fn parse_visual_object_config(allocator: std.mem.Allocator, config: []const u8) ![]f64 {
+fn parseVisualObjectConfig(allocator: std.mem.Allocator, config: []const u8) ![]f64 {
     var data = std.ArrayList(f64).init(allocator);
     var new_line_iterator = std.mem.split(u8, config, "\n");
     while (new_line_iterator.next()) |line| {
@@ -109,7 +109,7 @@ test "parse VisualObject config" {
         .{ .config = ". .\n. .", .expected = [4]f64{ 0, 0, 0, 0 } },
     };
     for (resources) |res| {
-        var data = try parse_visual_object_config(allocator, res.config);
+        var data = try parseVisualObjectConfig(allocator, res.config);
         defer allocator.free(data);
         try std.testing.expectEqualSlices(f64, &res.expected, data);
     }

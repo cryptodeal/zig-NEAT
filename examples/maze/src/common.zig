@@ -53,7 +53,7 @@ pub const MazeSimResults = struct {
 };
 
 /// calculates item-wise difference between two vectors (of floats)
-pub fn hist_diff(comptime T: type, left: []T, right: []T) T {
+pub fn histDiff(comptime T: type, left: []T, right: []T) T {
     var diff_accum: T = 0;
     for (left, 0..) |_, i| {
         diff_accum += @fabs(left[i] - right[i]);
@@ -66,12 +66,12 @@ pub const MazeEvalResults = struct {
     exit_found: bool,
 };
 
-pub fn maze_simulation_evaluate(allocator: std.mem.Allocator, env: *Environment, org: *Organism, record: ?*AgentRecord, path_points: ?*std.ArrayList(*Point)) !MazeEvalResults {
+pub fn mazeSimulationEvaluate(allocator: std.mem.Allocator, env: *Environment, org: *Organism, record: ?*AgentRecord, path_points: ?*std.ArrayList(*Point)) !MazeEvalResults {
     var n_item = try NoveltyItem.init(allocator);
     errdefer n_item.deinit();
 
     // get Organism phenotype's network depth
-    var net_depth = try org.phenotype.?.max_activation_depth_capped(1); // The max depth of the network to be activated
+    var net_depth = try org.phenotype.?.maxActivationDepthCapped(1); // The max depth of the network to be activated
     logger.debug("Network depth: {d} for organism: {d}\n", .{ net_depth, org.genotype.id }, @src());
     if (net_depth == 0) {
         logger.debug("ALERT: Network depth is ZERO for Genome: {s}", .{org.genotype}, @src());
@@ -79,14 +79,14 @@ pub fn maze_simulation_evaluate(allocator: std.mem.Allocator, env: *Environment,
 
     // initialize maze simulation's environment specific to the provided organism - this will be a copy
     // of primordial environment provided
-    var org_env = try maze_simulation_init(allocator, env, org, net_depth);
+    var org_env = try mazeSimulationInit(allocator, env, org, net_depth);
     defer org_env.deinit();
 
     // do a specified amount of time steps emulations or while exit not found
     var steps: usize = 0;
     var i: usize = 0;
     while (i < org_env.time_steps and !org_env.exit_found) : (i += 1) {
-        try maze_simulation_step(allocator, org_env, org, net_depth);
+        try mazeSimulationStep(allocator, org_env, org, net_depth);
 
         // store agent path points at given sample size
         if (try std.math.mod(usize, org_env.time_steps - i, org_env.sample_size) == 0) {
@@ -105,7 +105,7 @@ pub fn maze_simulation_evaluate(allocator: std.mem.Allocator, env: *Environment,
     }
 
     // calculate fitness of an organism as closeness to target
-    var fitness = org_env.agent_distance_to_exit();
+    var fitness = org_env.agentDistanceToExit();
 
     // normalize fitness value in range (0;1] and store it
     fitness = (env.initial_distance - fitness) / env.initial_distance;
@@ -127,7 +127,7 @@ pub fn maze_simulation_evaluate(allocator: std.mem.Allocator, env: *Environment,
     return MazeEvalResults{ .item = n_item, .exit_found = org_env.exit_found };
 }
 
-pub fn maze_simulation_init(allocator: std.mem.Allocator, env: *Environment, org: *Organism, net_depth: i64) !*Environment {
+pub fn mazeSimulationInit(allocator: std.mem.Allocator, env: *Environment, org: *Organism, net_depth: i64) !*Environment {
     var env_copy = try env.clone(allocator);
     errdefer env_copy.deinit();
 
@@ -138,16 +138,16 @@ pub fn maze_simulation_init(allocator: std.mem.Allocator, env: *Environment, org
     try env_copy.update();
 
     // create neural net inputs from environment
-    var inputs = try env_copy.get_inputs(allocator);
+    var inputs = try env_copy.getInputs(allocator);
     defer allocator.free(inputs);
-    org.phenotype.?.load_sensors(inputs);
+    org.phenotype.?.loadSensors(inputs);
 
     // propagate input through the phenotype net
 
     // Use depth to ensure full relaxation
-    _ = org.phenotype.?.forward_steps(net_depth) catch |err| {
+    _ = org.phenotype.?.forwardSteps(net_depth) catch |err| {
         if (err != error.ErrNetExceededMaxActivationAttempts) {
-            logger.err("Failed to activate network at call to `forward_steps`", .{}, @src());
+            logger.err("Failed to activate network at call to `forwardSteps`", .{}, @src());
             return err;
         }
     };
@@ -156,22 +156,22 @@ pub fn maze_simulation_init(allocator: std.mem.Allocator, env: *Environment, org
 }
 
 /// executes a time step of the maze simulation evaluation within given Environment for provided Organism
-pub fn maze_simulation_step(allocator: std.mem.Allocator, env: *Environment, org: *Organism, net_depth: i64) !void {
+pub fn mazeSimulationStep(allocator: std.mem.Allocator, env: *Environment, org: *Organism, net_depth: i64) !void {
     // get simulation parameters as inputs to organism's network
-    var inputs = try env.get_inputs(allocator);
+    var inputs = try env.getInputs(allocator);
     defer allocator.free(inputs);
 
-    org.phenotype.?.load_sensors(inputs);
+    org.phenotype.?.loadSensors(inputs);
 
-    _ = org.phenotype.?.forward_steps(net_depth) catch |err| {
+    _ = org.phenotype.?.forwardSteps(net_depth) catch |err| {
         if (err != error.ErrNetExceededMaxActivationAttempts) {
-            logger.err("Failed to activate network at call to `forward_steps`", .{}, @src());
+            logger.err("Failed to activate network at call to `forwardSteps`", .{}, @src());
             return err;
         }
     };
 
     // use the net's outputs to change heading and velocity of maze agent
-    env.apply_outputs(org.phenotype.?.outputs[0].activation, org.phenotype.?.outputs[1].activation) catch |err| {
+    env.applyOutputs(org.phenotype.?.outputs[0].activation, org.phenotype.?.outputs[1].activation) catch |err| {
         logger.err("Failed to apply outputs", .{}, @src());
         return err;
     };
@@ -184,7 +184,7 @@ pub fn maze_simulation_step(allocator: std.mem.Allocator, env: *Environment, org
 }
 
 /// used to adjust species count by keeping it constant
-pub fn adjust_species_number(species_count: usize, epoch_id: usize, adjust_frequency: usize, number_species_target: usize, options: *Options) !void {
+pub fn adjustSpeciesNumber(species_count: usize, epoch_id: usize, adjust_frequency: usize, number_species_target: usize, options: *Options) !void {
     if (try std.math.mod(usize, epoch_id, adjust_frequency) == 0) {
         if (species_count < number_species_target) {
             options.compat_threshold -= compatibility_threshold_step;
@@ -199,7 +199,7 @@ pub fn adjust_species_number(species_count: usize, epoch_id: usize, adjust_frequ
     }
 }
 
-test "adjust_species_number" {
+test "adjustSpeciesNumber" {
     var initial_threshold: f64 = 0.5;
     var options = Options{ .compat_threshold = initial_threshold };
 
@@ -208,37 +208,37 @@ test "adjust_species_number" {
     var adjust_frequency: usize = 5;
     var species_count: usize = 10;
     var number_species_target: usize = 20;
-    try adjust_species_number(species_count, epoch_id, adjust_frequency, number_species_target, &options);
+    try adjustSpeciesNumber(species_count, epoch_id, adjust_frequency, number_species_target, &options);
     try std.testing.expect(options.compat_threshold == initial_threshold);
 
     // check species_count < number_species_target
     epoch_id = adjust_frequency;
-    try adjust_species_number(species_count, epoch_id, adjust_frequency, number_species_target, &options);
+    try adjustSpeciesNumber(species_count, epoch_id, adjust_frequency, number_species_target, &options);
     try std.testing.expect(options.compat_threshold == initial_threshold - compatibility_threshold_step);
 
     // check species_count > number_species_target
     options.compat_threshold = initial_threshold;
     species_count = number_species_target + 1;
-    try adjust_species_number(species_count, epoch_id, adjust_frequency, number_species_target, &options);
+    try adjustSpeciesNumber(species_count, epoch_id, adjust_frequency, number_species_target, &options);
     try std.testing.expect(options.compat_threshold == initial_threshold + compatibility_threshold_step);
 
     // check speciesCount == numberSpeciesTarget
     options.compat_threshold = initial_threshold;
     species_count = number_species_target;
-    try adjust_species_number(species_count, epoch_id, adjust_frequency, number_species_target, &options);
+    try adjustSpeciesNumber(species_count, epoch_id, adjust_frequency, number_species_target, &options);
     try std.testing.expect(options.compat_threshold == initial_threshold);
 
     // check avoiding of dropping too low
     options.compat_threshold = compatibility_threshold_min_value;
     species_count = number_species_target - 1;
-    try adjust_species_number(species_count, epoch_id, adjust_frequency, number_species_target, &options);
+    try adjustSpeciesNumber(species_count, epoch_id, adjust_frequency, number_species_target, &options);
     try std.testing.expect(options.compat_threshold == compatibility_threshold_min_value);
 }
 
-test "hist_diff" {
+test "histDiff" {
     var left = [_]f64{ 1, 2, 3, 4 };
     var right = [_]f64{ 4, 3, 2, 1 };
-    var diff = hist_diff(f64, &left, &right); // (3 + 1 + 1 + 3) / 4 = 2
+    var diff = histDiff(f64, &left, &right); // (3 + 1 + 1 + 3) / 4 = 2
     try std.testing.expect(diff == 2);
 }
 

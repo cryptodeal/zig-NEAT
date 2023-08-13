@@ -8,9 +8,9 @@ const ns = @import("maze_ns.zig");
 const archive_thresh = ns.archive_thresh;
 const novelty_metric = ns.novelty_metric;
 const NeatLogger = zig_neat.NeatLogger;
-const hist_diff = common.hist_diff;
-const maze_simulation_evaluate = common.maze_simulation_evaluate;
-const adjust_species_number = common.adjust_species_number;
+const histDiff = common.histDiff;
+const mazeSimulationEvaluate = common.mazeSimulationEvaluate;
+const adjustSpeciesNumber = common.adjustSpeciesNumber;
 const Environment = env.Environment;
 const Point = env.Point;
 const MazeSimResults = common.MazeSimResults;
@@ -23,7 +23,7 @@ const Trial = zig_neat.experiment.Trial;
 const Generation = zig_neat.experiment.Generation;
 const Organism = zig_neat.genetics.Organism;
 const Population = zig_neat.genetics.Population;
-const create_out_dir_for_trial = zig_neat.experiment.create_out_dir_for_trial;
+const createOutDirForTrial = zig_neat.experiment.createOutDirForTrial;
 
 const Options = zig_neat.Options;
 
@@ -43,7 +43,7 @@ pub const MazeObjectiveEvaluator = struct {
 
     allocator: std.mem.Allocator,
 
-    pub fn trial_run_started(self: *MazeObjectiveEvaluator, trial: *Trial) void {
+    pub fn trialRunStarted(self: *MazeObjectiveEvaluator, trial: *Trial) void {
         var opts = NoveltyArchiveOptions.init(self.allocator) catch |err| {
             logger.err("Failed to initialize novelty archive options: {any}", .{err}, @src());
             return;
@@ -62,27 +62,27 @@ pub const MazeObjectiveEvaluator = struct {
         };
     }
 
-    pub fn trial_run_finished(self: *MazeObjectiveEvaluator, trial: *Trial) void {
+    pub fn trialRunFinished(self: *MazeObjectiveEvaluator, trial: *Trial) void {
         _ = trial;
         // the last epoch executed
-        self.store_recorded(self.allocator) catch |err| {
+        self.storeRecorded(self.allocator) catch |err| {
             logger.err("Failed to store recorded data: {any}", .{err}, @src());
             return;
         };
         self.trial_sim.deinit();
     }
 
-    pub fn epoch_evaluated(self: *MazeObjectiveEvaluator, trial: *Trial, epoch: *Generation) void {
+    pub fn epochEvaluated(self: *MazeObjectiveEvaluator, trial: *Trial, epoch: *Generation) void {
         _ = self;
         _ = trial;
         _ = epoch;
     }
 
-    fn store_recorded(self: *MazeObjectiveEvaluator, allocator: std.mem.Allocator) !void {
+    fn storeRecorded(self: *MazeObjectiveEvaluator, allocator: std.mem.Allocator) !void {
         // store recorded agents' performance
         var buf = std.ArrayList(u8).init(allocator);
         defer buf.deinit();
-        try create_out_dir_for_trial(buf.writer(), self.output_path, self.trial_sim.trial_id);
+        try createOutDirForTrial(buf.writer(), self.output_path, self.trial_sim.trial_id);
         try buf.appendSlice("/record.dat");
         var dir_path = std.fs.path.dirname(buf.items);
         var file_name = std.fs.path.basename(buf.items);
@@ -99,15 +99,15 @@ pub const MazeObjectiveEvaluator = struct {
         buf.clearAndFree(); // reset path
 
         // print novelty points with maximal fitness
-        try create_out_dir_for_trial(buf.writer(), self.output_path, self.trial_sim.trial_id);
+        try createOutDirForTrial(buf.writer(), self.output_path, self.trial_sim.trial_id);
         try buf.appendSlice("/fittest_archive_points.json");
-        try self.trial_sim.archive.dump_fittest(buf.items);
+        try self.trial_sim.archive.dumpFittest(buf.items);
     }
 
-    pub fn generation_evaluate(self: *MazeObjectiveEvaluator, opts: *Options, pop: *Population, epoch: *Generation) !void {
+    pub fn generationEvaluate(self: *MazeObjectiveEvaluator, opts: *Options, pop: *Population, epoch: *Generation) !void {
         // Evaluate each organism on a test
         for (pop.organisms.items) |org| {
-            var res = try self.org_eval(self.allocator, org, epoch);
+            var res = try self.orgEval(self.allocator, org, epoch);
             if (res and (epoch.champion == null or org.fitness > epoch.champion.?.fitness)) {
                 epoch.solved = true;
                 epoch.winner_nodes = org.genotype.nodes.len;
@@ -118,26 +118,26 @@ pub const MazeObjectiveEvaluator = struct {
         }
 
         // Fill statistics about current epoch
-        try epoch.fill_population_statistics(pop);
+        try epoch.fillPopulationStatistics(pop);
 
         // TODO: Only print to file every print_every generation
 
         if (epoch.solved) {
             var org: *Organism = epoch.champion.?;
             std.debug.print("Winner organism fitness: {d}\n", .{org.fitness});
-            var depth = try org.phenotype.?.max_activation_depth_capped(0);
+            var depth = try org.phenotype.?.maxActivationDepthCapped(0);
             std.debug.print("Activation depth of the winner: {d}\n", .{depth});
         } else if (epoch.id < opts.num_generations - 1) {
             var species_count = pop.species.items.len;
 
             // adjust species count by keeping it constant
-            try adjust_species_number(species_count, epoch.id, self.compat_adjust_freq, self.num_species_target, opts);
+            try adjustSpeciesNumber(species_count, epoch.id, self.compat_adjust_freq, self.num_species_target, opts);
             logger.info("{d} species -> {d} organisms [compatibility threshold: {d:.1}, target: {d}]", .{ species_count, pop.organisms.items.len, opts.compat_threshold, self.num_species_target }, @src());
         }
     }
 
     /// Evaluates individual organism against maze environment and returns true if organism was able to solve maze by navigating to exit
-    fn org_eval(self: *MazeObjectiveEvaluator, allocator: std.mem.Allocator, org: *Organism, epoch: *Generation) !bool {
+    fn orgEval(self: *MazeObjectiveEvaluator, allocator: std.mem.Allocator, org: *Organism, epoch: *Generation) !bool {
         // create record to store simulation results for organism
         var record = try AgentRecord.init(allocator);
         errdefer record.deinit();
@@ -147,7 +147,7 @@ pub const MazeObjectiveEvaluator = struct {
         record.species_age = @as(usize, @intCast(org.species.age));
 
         // evaluate individual organism and get novelty point holding simulation results
-        var eval_res = maze_simulation_evaluate(allocator, self.maze_env, org, record, null) catch |err| {
+        var eval_res = mazeSimulationEvaluate(allocator, self.maze_env, org, record, null) catch |err| {
             if (err == error.OutputIsNaN) {
                 return false;
             }
@@ -166,7 +166,7 @@ pub const MazeObjectiveEvaluator = struct {
         if (solved) {
             // run simulation to store solver path points
             var path_points = try std.ArrayList(*Point).initCapacity(allocator, self.maze_env.time_steps);
-            var tmp_res = try maze_simulation_evaluate(allocator, self.maze_env, org, null, &path_points);
+            var tmp_res = try mazeSimulationEvaluate(allocator, self.maze_env, org, null, &path_points);
             tmp_res.item.deinit();
             for (self.trial_sim.records.solver_path_points.items) |p| {
                 p.deinit();
@@ -183,7 +183,7 @@ pub const MazeObjectiveEvaluator = struct {
 
         // update the fittest organisms list - needed for debugging output
         org.data = n_item;
-        try self.trial_sim.archive.update_fittest_with_organism(allocator, org);
+        try self.trial_sim.archive.updateFittestWithOrganism(allocator, org);
 
         return solved;
     }
