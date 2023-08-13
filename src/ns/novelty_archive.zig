@@ -13,10 +13,10 @@ const Genome = @import("../genetics/genome.zig").Genome;
 const NoveltyItem = novelty_item.NoveltyItem;
 const ItemsDistance = novelty_item.ItemsDistance;
 const Options = opt.Options;
-const read_file = utils.read_file;
-const get_writable_file = utils.get_writable_file;
-const novelty_item_comparison = novelty_item.novelty_item_comparison;
-const items_distance_comparison = novelty_item.items_distance_comparison;
+const readFile = utils.readFile;
+const getWritableFile = utils.getWritableFile;
+const noveltyItemComparison = novelty_item.noveltyItemComparison;
+const itemsDistanceComparison = novelty_item.itemsDistanceComparison;
 const logger = @constCast(opt.logger);
 
 /// The novelty archive contains all the novel items we have encountered thus far.
@@ -81,7 +81,7 @@ pub const NoveltyArchive = struct {
 
     /// Evaluates the novelty of a single individual organism within population and update
     /// its fitness (only_fitness = true) or store individual's novelty item into archive
-    pub fn evaluate_individual_novelty(self: *NoveltyArchive, allocator: std.mem.Allocator, org: *Organism, pop: *Population, only_fitness: bool) !void {
+    pub fn evaluateIndividualNovelty(self: *NoveltyArchive, allocator: std.mem.Allocator, org: *Organism, pop: *Population, only_fitness: bool) !void {
         if (org.data == null) {
             logger.info("WARNING! Found Organism without novelty point associated: {any}\nNovelty evaluation will be skipped for it. Probably winner found!", .{org}, @src());
             return;
@@ -91,13 +91,13 @@ pub const NoveltyArchive = struct {
         var result: f64 = undefined;
         if (only_fitness) {
             // assign organism fitness according to average novelty within archive and population
-            result = try self.novelty_avg_knn(allocator, item, -1, pop);
+            result = try self.noveltyAvgKNN(allocator, item, -1, pop);
             org.fitness = result;
         } else {
             // consider adding a point to archive based on dist to nearest neighbor
-            result = try self.novelty_avg_knn(allocator, item, 1, null);
+            result = try self.noveltyAvgKNN(allocator, item, 1, null);
             if (result > self.novelty_threshold or self.novel_items.items.len < self.options.archive_seed_amount) {
-                try self.add_novelty_item(item);
+                try self.addNoveltyItem(item);
                 item.age += 1;
             }
         }
@@ -110,13 +110,13 @@ pub const NoveltyArchive = struct {
 
     /// Evaluates the novelty of the whole population and update organisms fitness (only_fitness = true)
     /// or store each population individual's novelty items into archive
-    pub fn evaluate_population_novelty(self: *NoveltyArchive, allocator: std.mem.Allocator, pop: *Population, only_fitness: bool) !void {
+    pub fn evaluatePopulationNovelty(self: *NoveltyArchive, allocator: std.mem.Allocator, pop: *Population, only_fitness: bool) !void {
         for (pop.organisms.items) |org| {
-            try self.evaluate_individual_novelty(allocator, org, pop, only_fitness);
+            try self.evaluateIndividualNovelty(allocator, org, pop, only_fitness);
         }
     }
 
-    pub fn update_fittest_with_organism(self: *NoveltyArchive, allocator: std.mem.Allocator, org: *Organism) !void {
+    pub fn updateFittestWithOrganism(self: *NoveltyArchive, allocator: std.mem.Allocator, org: *Organism) !void {
         if (org.data == null) {
             logger.err("organism with no data provided", .{}, @src());
             return error.OrganismHasNoData;
@@ -128,7 +128,7 @@ pub const NoveltyArchive = struct {
             try self.fittest_items.append(item);
 
             // sort to have the most fit first
-            std.mem.sort(*NoveltyItem, self.fittest_items.items, {}, novelty_item_comparison);
+            std.mem.sort(*NoveltyItem, self.fittest_items.items, {}, noveltyItemComparison);
             std.mem.reverse(*NoveltyItem, self.fittest_items.items);
         } else {
             var last_item: *NoveltyItem = self.fittest_items.items[self.fittest_items.items.len - 1];
@@ -138,7 +138,7 @@ pub const NoveltyArchive = struct {
                 try self.fittest_items.append(org_item);
 
                 // sort to have the most fit first
-                std.mem.sort(*NoveltyItem, self.fittest_items.items, {}, novelty_item_comparison);
+                std.mem.sort(*NoveltyItem, self.fittest_items.items, {}, noveltyItemComparison);
                 std.mem.reverse(*NoveltyItem, self.fittest_items.items);
 
                 // remove less fit item
@@ -152,13 +152,13 @@ pub const NoveltyArchive = struct {
     }
 
     /// the steady-state end of generation call
-    pub fn end_of_generation(self: *NoveltyArchive) void {
+    pub fn endOfGeneration(self: *NoveltyArchive) void {
         self.generation += 1;
-        self.adjust_archive_settings();
+        self.adjustArchiveSettings();
     }
 
     /// adds novelty item to archive
-    pub fn add_novelty_item(self: *NoveltyArchive, i: *NoveltyItem) !void {
+    pub fn addNoveltyItem(self: *NoveltyArchive, i: *NoveltyItem) !void {
         i.added = true;
         i.generation = self.generation;
         try self.novel_items.append(i);
@@ -166,7 +166,7 @@ pub const NoveltyArchive = struct {
     }
 
     /// Used to adjust dynamic novelty threshold depending on how many have been added to archive recently
-    pub fn adjust_archive_settings(self: *NoveltyArchive) void {
+    pub fn adjustArchiveSettings(self: *NoveltyArchive) void {
         if (self.items_added_in_generation == 0) {
             self.timeout += 1;
         } else {
@@ -192,12 +192,12 @@ pub const NoveltyArchive = struct {
     }
 
     /// Allows the K nearest neighbor novelty score calculation for given item within provided population
-    pub fn novelty_avg_knn(self: *NoveltyArchive, allocator: std.mem.Allocator, item: *NoveltyItem, neighbors: i64, pop: ?*Population) !f64 {
+    pub fn noveltyAvgKNN(self: *NoveltyArchive, allocator: std.mem.Allocator, item: *NoveltyItem, neighbors: i64, pop: ?*Population) !f64 {
         var novelties: []*ItemsDistance = undefined;
         if (pop != null) {
-            novelties = try self.map_novelty_in_population(allocator, item, pop.?);
+            novelties = try self.mapNoveltyInPopulation(allocator, item, pop.?);
         } else {
-            novelties = try self.map_novelty(allocator, item);
+            novelties = try self.mapNovelty(allocator, item);
         }
         defer if (novelties.len > 0) {
             defer allocator.free(novelties);
@@ -207,7 +207,7 @@ pub const NoveltyArchive = struct {
         };
 
         // sort by distance - minimal first
-        std.mem.sort(*ItemsDistance, novelties, {}, items_distance_comparison);
+        std.mem.sort(*ItemsDistance, novelties, {}, itemsDistanceComparison);
         var length = novelties.len;
         var used_neighbors: usize = undefined;
         if (neighbors < 0) {
@@ -235,7 +235,7 @@ pub const NoveltyArchive = struct {
     }
 
     /// maps the novelty metric across the archive against provided item
-    pub fn map_novelty(self: *NoveltyArchive, allocator: std.mem.Allocator, item: *NoveltyItem) ![]*ItemsDistance {
+    pub fn mapNovelty(self: *NoveltyArchive, allocator: std.mem.Allocator, item: *NoveltyItem) ![]*ItemsDistance {
         var distances = try allocator.alloc(*ItemsDistance, self.novel_items.items.len);
         for (self.novel_items.items, 0..) |nov, i| {
             distances[i] = try ItemsDistance.init(allocator, nov, item, self.novelty_metric(nov, item));
@@ -244,7 +244,7 @@ pub const NoveltyArchive = struct {
     }
 
     /// Maps the novelty metric across the archive and the current population
-    pub fn map_novelty_in_population(self: *NoveltyArchive, allocator: std.mem.Allocator, item: *NoveltyItem, pop: *Population) ![]*ItemsDistance {
+    pub fn mapNoveltyInPopulation(self: *NoveltyArchive, allocator: std.mem.Allocator, item: *NoveltyItem, pop: *Population) ![]*ItemsDistance {
         var distances = try std.ArrayList(*ItemsDistance).initCapacity(allocator, self.novel_items.items.len);
 
         for (self.novel_items.items) |nov| {
@@ -263,29 +263,29 @@ pub const NoveltyArchive = struct {
     }
 
     /// dumps collected novelty points to file as JSON
-    pub fn dump_novelty_points(self: *NoveltyArchive, path: []const u8) !void {
+    pub fn dumpNoveltyPoints(self: *NoveltyArchive, path: []const u8) !void {
         if (self.novel_items.items.len == 0) return error.NoNovelItems;
-        var output_file = try get_writable_file(path);
+        var output_file = try getWritableFile(path);
         defer output_file.close();
-        try self.dump_novelty_items(self.novel_items.items, output_file.writer());
+        try self.dumpNoveltyItems(self.novel_items.items, output_file.writer());
     }
 
     /// dumps collected novelty points of individuals with maximal fitness found during evolution
-    pub fn dump_fittest(self: *NoveltyArchive, path: []const u8) !void {
+    pub fn dumpFittest(self: *NoveltyArchive, path: []const u8) !void {
         if (self.fittest_items.items.len == 0) return error.NoNovelItems;
-        var output_file = try get_writable_file(path);
+        var output_file = try getWritableFile(path);
         defer output_file.close();
-        try self.dump_novelty_items(self.fittest_items.items, output_file.writer());
+        try self.dumpNoveltyItems(self.fittest_items.items, output_file.writer());
     }
 
-    fn dump_novelty_items(_: *NoveltyArchive, items: []*NoveltyItem, writer: anytype) !void {
+    fn dumpNoveltyItems(_: *NoveltyArchive, items: []*NoveltyItem, writer: anytype) !void {
         try json.toPrettyWriter(null, items, writer);
     }
 };
 
 // test utility functions
 
-fn fill_organism_data(allocator: std.mem.Allocator, org: *Organism, novelty: f64, archive: *NoveltyArchive) !void {
+fn fillOrganismData(allocator: std.mem.Allocator, org: *Organism, novelty: f64, archive: *NoveltyArchive) !void {
     var nov_item = try allocator.create(NoveltyItem);
     var nov_data = std.ArrayList(f64).init(allocator);
     try nov_data.append(0.1);
@@ -300,16 +300,16 @@ fn fill_organism_data(allocator: std.mem.Allocator, org: *Organism, novelty: f64
     org.data = nov_item;
 }
 
-fn square_metric(x: *NoveltyItem, y: *NoveltyItem) f64 {
+fn squareMetric(x: *NoveltyItem, y: *NoveltyItem) f64 {
     return (x.fitness - y.fitness) * (x.fitness - y.fitness);
 }
 
-fn create_rand_population(allocator: std.mem.Allocator, rand: std.rand.Random, in: usize, out: usize, max_hidden: usize, link_prob: f64, opts: *Options, archive: *NoveltyArchive) !*Population {
-    var pop = try Population.init_random(allocator, rand, in, out, max_hidden, false, link_prob, opts);
+fn createRandPopulation(allocator: std.mem.Allocator, rand: std.rand.Random, in: usize, out: usize, max_hidden: usize, link_prob: f64, opts: *Options, archive: *NoveltyArchive) !*Population {
+    var pop = try Population.initRandom(allocator, rand, in, out, max_hidden, false, link_prob, opts);
     for (pop.organisms.items, 0..) |org, i| {
         var float_val = 0.1 * (1 + @as(f64, @floatFromInt(i)));
         org.fitness = float_val;
-        try fill_organism_data(allocator, org, float_val, archive);
+        try fillOrganismData(allocator, org, float_val, archive);
     }
     return pop;
 }
@@ -318,10 +318,10 @@ fn create_rand_population(allocator: std.mem.Allocator, rand: std.rand.Random, i
 test "NoveltyArchive update fittest with Organism" {
     var allocator = std.testing.allocator;
     var opts = try NoveltyArchiveOptions.init(allocator);
-    var archive = try NoveltyArchive.init(allocator, 1, &square_metric, opts);
+    var archive = try NoveltyArchive.init(allocator, 1, &squareMetric, opts);
     defer archive.deinit();
 
-    var gen = try Genome.read_from_file(allocator, "src/ns/test_data/initgenome");
+    var gen = try Genome.readFromFile(allocator, "src/ns/test_data/initgenome");
 
     // used to free allocated organisms
     var orgs_list = std.ArrayList(*Organism).init(allocator);
@@ -332,9 +332,9 @@ test "NoveltyArchive update fittest with Organism" {
 
     var org = try Organism.init(allocator, 0.1, gen, 1);
     try orgs_list.append(org);
-    try fill_organism_data(allocator, org, 0.0, archive);
+    try fillOrganismData(allocator, org, 0.0, archive);
 
-    try archive.update_fittest_with_organism(allocator, org);
+    try archive.updateFittestWithOrganism(allocator, org);
     try std.testing.expect(archive.fittest_items.items.len == 1);
 
     var idx: usize = 2;
@@ -342,8 +342,8 @@ test "NoveltyArchive update fittest with Organism" {
         var gen_copy = try gen.duplicate(allocator, gen.id);
         var new_org = try Organism.init(allocator, 0.1 * @as(f64, @floatFromInt(idx)), gen_copy, 1);
         try orgs_list.append(new_org);
-        try fill_organism_data(allocator, new_org, 0.0, archive);
-        try archive.update_fittest_with_organism(allocator, new_org);
+        try fillOrganismData(allocator, new_org, 0.0, archive);
+        try archive.updateFittestWithOrganism(allocator, new_org);
     }
 
     for (archive.fittest_items.items, 0..) |item, i| {
@@ -356,8 +356,8 @@ test "NoveltyArchive update fittest with Organism" {
     var gen_copy = try gen.duplicate(allocator, gen.id);
     var new_org = try Organism.init(allocator, fitness, gen_copy, 1);
     try orgs_list.append(new_org);
-    try fill_organism_data(allocator, new_org, 0.0, archive);
-    try archive.update_fittest_with_organism(allocator, new_org);
+    try fillOrganismData(allocator, new_org, 0.0, archive);
+    try archive.updateFittestWithOrganism(allocator, new_org);
     try std.testing.expect(archive.fittest_items.items.len == opts.fittest_allowed_size);
     try std.testing.expect(archive.fittest_items.items[0].fitness == fitness);
 }
@@ -365,17 +365,17 @@ test "NoveltyArchive update fittest with Organism" {
 test "NoveltyArchive add NoveltyItem" {
     var allocator = std.testing.allocator;
     var opts = try NoveltyArchiveOptions.init(allocator);
-    var archive = try NoveltyArchive.init(allocator, 1, &square_metric, opts);
+    var archive = try NoveltyArchive.init(allocator, 1, &squareMetric, opts);
     defer archive.deinit();
 
-    var gen = try Genome.read_from_file(allocator, "src/ns/test_data/initgenome");
+    var gen = try Genome.readFromFile(allocator, "src/ns/test_data/initgenome");
     var org = try Organism.init(allocator, 0.1, gen, 1);
     defer org.deinit();
-    try fill_organism_data(allocator, org, 0.0, archive);
+    try fillOrganismData(allocator, org, 0.0, archive);
 
     // test add novelty item
     var item: *NoveltyItem = @as(*NoveltyItem, @ptrCast(@alignCast(org.data.?)));
-    try archive.add_novelty_item(item);
+    try archive.addNoveltyItem(item);
 
     try std.testing.expect(archive.novel_items.items.len == 1);
     try std.testing.expect(archive.novel_items.items[0].added);
@@ -393,16 +393,16 @@ test "NoveltyArchive evaluate individual" {
     const rand = prng.random();
 
     var opts = try NoveltyArchiveOptions.init(allocator);
-    var archive = try NoveltyArchive.init(allocator, 1, &square_metric, opts);
+    var archive = try NoveltyArchive.init(allocator, 1, &squareMetric, opts);
     defer archive.deinit();
     archive.generation = 2;
 
-    var pop = try create_rand_population(allocator, rand, 3, 2, 5, 0.5, &neat_opts, archive);
+    var pop = try createRandPopulation(allocator, rand, 3, 2, 5, 0.5, &neat_opts, archive);
     defer pop.deinit();
 
     // test evaluate only in archive
     var org = pop.organisms.items[0];
-    try archive.evaluate_individual_novelty(allocator, org, pop, false);
+    try archive.evaluateIndividualNovelty(allocator, org, pop, false);
     try std.testing.expect(archive.novel_items.items.len == 1);
     try std.testing.expect(archive.novel_items.items[0].added);
 
@@ -412,7 +412,7 @@ test "NoveltyArchive evaluate individual" {
     try std.testing.expect(item.generation == archive.generation);
 
     // test evaluate in population as well
-    try archive.evaluate_individual_novelty(allocator, org, pop, true);
+    try archive.evaluateIndividualNovelty(allocator, org, pop, true);
     try std.testing.expect(archive.novel_items.items.len == 1);
     try std.testing.expect(org.fitness != 0.1);
 }
@@ -427,21 +427,21 @@ test "NoveltyArchive evaluate Population" {
     const rand = prng.random();
 
     var opts = try NoveltyArchiveOptions.init(allocator);
-    var archive = try NoveltyArchive.init(allocator, 0.1, &square_metric, opts);
+    var archive = try NoveltyArchive.init(allocator, 0.1, &squareMetric, opts);
     defer archive.deinit();
     archive.generation = 2;
 
-    var pop = try create_rand_population(allocator, rand, 3, 2, 5, 0.5, &neat_opts, archive);
+    var pop = try createRandPopulation(allocator, rand, 3, 2, 5, 0.5, &neat_opts, archive);
     defer pop.deinit();
 
     // test update fitness scores
-    try archive.evaluate_population_novelty(allocator, pop, true);
+    try archive.evaluatePopulationNovelty(allocator, pop, true);
     for (pop.organisms.items, 0..) |org, i| {
         var not_expected: f64 = 0.1 * (1 + @as(f64, @floatFromInt(i)));
         try std.testing.expect(org.fitness != not_expected);
     }
 
     // test add to archive
-    try archive.evaluate_population_novelty(allocator, pop, false);
+    try archive.evaluatePopulationNovelty(allocator, pop, false);
     try std.testing.expect(archive.novel_items.items.len == 3);
 }

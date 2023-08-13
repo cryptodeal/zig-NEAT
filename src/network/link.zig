@@ -40,17 +40,17 @@ pub const Link = struct {
         return link;
     }
 
-    pub fn init_with_trait(allocator: std.mem.Allocator, trait: ?*Trait, weight: f64, input_node: ?*NNode, output_node: ?*NNode, recurrent: bool) !*Link {
+    pub fn initWithTrait(allocator: std.mem.Allocator, trait: ?*Trait, weight: f64, input_node: ?*NNode, output_node: ?*NNode, recurrent: bool) !*Link {
         var link: *Link = try Link.init(allocator, weight, input_node, output_node, recurrent);
         link.trait = trait;
-        try link.derive_trait(trait);
+        try link.deriveTrait(trait);
         return link;
     }
 
-    pub fn init_copy(allocator: std.mem.Allocator, l: *Link, in_node: *NNode, out_node: *NNode) !*Link {
+    pub fn initCopy(allocator: std.mem.Allocator, l: *Link, in_node: *NNode, out_node: *NNode) !*Link {
         var link: *Link = try Link.init(allocator, l.cxn_weight, in_node, out_node, l.is_recurrent);
         link.trait = l.trait;
-        try link.derive_trait(l.trait);
+        try link.deriveTrait(l.trait);
         return link;
     }
 
@@ -61,7 +61,7 @@ pub const Link = struct {
         self.allocator.destroy(self);
     }
 
-    pub fn is_equal(self: *Link, l: *Link) bool {
+    pub fn isEql(self: *Link, l: *Link) bool {
         // check equality of fields w primitive types
         if (self.cxn_weight != l.cxn_weight or self.is_recurrent != l.is_recurrent or self.is_time_delayed != l.is_time_delayed or self.has_params != l.has_params) {
             return false;
@@ -69,7 +69,7 @@ pub const Link = struct {
         // check trait equality
         if ((self.trait == null and l.trait != null) or (self.trait != null and l.trait == null)) {
             return false;
-        } else if (self.trait != null and l.trait != null and !self.trait.?.is_equal(l.trait.?)) {
+        } else if (self.trait != null and l.trait != null and !self.trait.?.isEql(l.trait.?)) {
             return false;
         }
         // check param equality
@@ -79,19 +79,19 @@ pub const Link = struct {
         // check in_node equality
         if ((self.in_node == null and l.in_node != null) or (self.in_node != null and l.in_node == null)) {
             return false;
-        } else if (self.in_node != null and l.in_node != null and !self.in_node.?.is_equal(l.in_node.?)) {
+        } else if (self.in_node != null and l.in_node != null and !self.in_node.?.isEql(l.in_node.?)) {
             return false;
         }
         // check out node equality
         if ((self.out_node == null and l.out_node != null) or (self.out_node != null and l.out_node == null)) {
             return false;
-        } else if (self.out_node != null and l.out_node != null and !self.out_node.?.is_equal(l.out_node.?)) {
+        } else if (self.out_node != null and l.out_node != null and !self.out_node.?.isEql(l.out_node.?)) {
             return false;
         }
         return true;
     }
 
-    pub fn derive_trait(self: *Link, t: ?*Trait) !void {
+    pub fn deriveTrait(self: *Link, t: ?*Trait) !void {
         if (t != null) {
             // modifies Link params; use Link's allocator
             self.params = try self.allocator.alloc(f64, t.?.params.len);
@@ -102,7 +102,7 @@ pub const Link = struct {
         }
     }
 
-    pub fn is_genetically_eql(self: *Link, other: *Link) bool {
+    pub fn isGeneticallyEql(self: *Link, other: *Link) bool {
         const same_in_node: bool = self.in_node.?.id == other.in_node.?.id;
         // std.debug.print("\nsame_in_node: {any}; self.in_node.id: {d} - other.in_node.id: {d}\n", .{ same_in_node, self.in_node.?.id, other.in_node.?.id });
         const same_out_node: bool = self.out_node.?.id == other.out_node.?.id;
@@ -118,7 +118,7 @@ pub const Link = struct {
         return buffer.toOwnedSlice();
     }
 
-    pub fn id_string(self: *Link, allocator: std.mem.Allocator) ![]const u8 {
+    pub fn idString(self: *Link, allocator: std.mem.Allocator) ![]const u8 {
         var buffer = std.ArrayList(u8).init(allocator);
         try buffer.writer().print("{d}-{d}", .{ self.in_node.?.id, self.out_node.?.id });
         return buffer.toOwnedSlice();
@@ -137,26 +137,26 @@ test "is genetically equal" {
     var link2 = try Link.init(allocator, 2.0, in, out, false);
     defer link2.deinit();
 
-    var equals = link1.is_genetically_eql(link2);
+    var equals = link1.isGeneticallyEql(link2);
     try std.testing.expect(equals);
 
     var link3 = try Link.init(allocator, 2.0, in, out, true);
     defer link3.deinit();
-    equals = link1.is_genetically_eql(link3);
+    equals = link1.isGeneticallyEql(link3);
     try std.testing.expect(!equals);
 
     var hidden = try NNode.init(allocator, 3, NodeNeuronType.HiddenNeuron);
     defer hidden.deinit();
     var link4 = try Link.init(allocator, 2.0, in, hidden, false);
     defer link4.deinit();
-    equals = link1.is_genetically_eql(link4);
+    equals = link1.isGeneticallyEql(link4);
     try std.testing.expect(!equals);
 
     var in2 = try NNode.init(allocator, 3, NodeNeuronType.InputNeuron);
     defer in2.deinit();
     var link5 = try Link.init(allocator, 2.0, in2, out, false);
     defer link5.deinit();
-    equals = link1.is_genetically_eql(link5);
+    equals = link1.isGeneticallyEql(link5);
     try std.testing.expect(!equals);
 }
 
@@ -177,14 +177,14 @@ test "new link copy" {
     trait.params[4] = 5.5;
     trait.params[5] = 6.7;
 
-    var link = try Link.init_with_trait(allocator, trait, 1.0, in, out, false);
+    var link = try Link.initWithTrait(allocator, trait, 1.0, in, out, false);
     defer link.deinit();
 
     var in_copy = try NNode.init(allocator, 3, NodeNeuronType.InputNeuron);
     defer in_copy.deinit();
     var out_copy = try NNode.init(allocator, 4, NodeNeuronType.HiddenNeuron);
     defer out_copy.deinit();
-    var link_copy = try Link.init_copy(allocator, link, in_copy, out_copy);
+    var link_copy = try Link.initCopy(allocator, link, in_copy, out_copy);
     defer link_copy.deinit();
 
     try std.testing.expect(link.cxn_weight == link_copy.cxn_weight);
@@ -213,7 +213,7 @@ test "new link w trait" {
     trait.params[4] = 5.5;
     trait.params[5] = 6.7;
 
-    var link = try Link.init_with_trait(allocator, trait, w, in, out, false);
+    var link = try Link.initWithTrait(allocator, trait, w, in, out, false);
     defer link.deinit();
 
     try std.testing.expectEqual(in, link.in_node.?);
@@ -269,7 +269,7 @@ test "link id string" {
     var link = try Link.init(allocator, 0, in, out, true);
     defer link.deinit();
 
-    const id_str = try link.id_string(allocator);
+    const id_str = try link.idString(allocator);
     defer allocator.free(id_str);
     try std.testing.expect(id_str.len > 0);
     try std.testing.expectEqualStrings("1-2", id_str);

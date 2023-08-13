@@ -2,8 +2,8 @@ const std = @import("std");
 const net_math = @import("../math/activations.zig");
 const net = @import("network.zig");
 
-const build_network = net.build_network;
-const build_modular_network = net.build_modular_network;
+const buildNetwork = net.buildNetwork;
+const buildModularNetwork = net.buildModularNetwork;
 
 /// FastNetworkLink The connection descriptor for fast network
 pub const FastNetworkLink = struct {
@@ -212,16 +212,16 @@ pub const FastModularNetworkSolver = struct {
         self.allocator.destroy(self);
     }
 
-    pub fn forward_steps(self: *FastModularNetworkSolver, allocator: std.mem.Allocator, steps: usize) !bool {
+    pub fn forwardSteps(self: *FastModularNetworkSolver, allocator: std.mem.Allocator, steps: usize) !bool {
         var res: bool = undefined;
         var i: usize = 0;
         while (i < steps) : (i += 1) {
-            res = try self.forward_step(allocator, 0);
+            res = try self.forwardStep(allocator, 0);
         }
         return res;
     }
 
-    pub fn recursive_steps(self: *FastModularNetworkSolver) !bool {
+    pub fn recursiveSteps(self: *FastModularNetworkSolver) !bool {
         if (self.modules != null and self.modules.?.len > 0) {
             std.debug.print("recursive activation can not be used for network with defined modules", .{});
             return error.FailedRecursiveStep;
@@ -244,7 +244,7 @@ pub const FastModularNetworkSolver = struct {
         while (i < self.output_neuron_count) : (i += 1) {
             const index = self.sensor_neuron_count + i;
             // TODO: below function call is not implemented
-            res = try self.recursive_activate_node(index);
+            res = try self.recursiveActivateNode(index);
             if (!res) {
                 std.debug.print("failed to recursively activate the output neuron at {d}", .{index});
                 return error.FailedRecursiveStep;
@@ -254,7 +254,7 @@ pub const FastModularNetworkSolver = struct {
         return res;
     }
 
-    pub fn recursive_activate_node(self: *FastModularNetworkSolver, current_node: usize) !bool {
+    pub fn recursiveActivateNode(self: *FastModularNetworkSolver, current_node: usize) !bool {
         // return if we've reached an input node (signal already set)
         if (self.activated[current_node]) {
             self.in_activation[current_node] = false;
@@ -280,7 +280,7 @@ pub const FastModularNetworkSolver = struct {
                 // else proceed normally
                 // recurse if neuron not yet activated
                 if (!self.activated[current_adj_node]) {
-                    const res = try self.recursive_activate_node(current_adj_node);
+                    const res = try self.recursiveActivateNode(current_adj_node);
                     if (!res) {
                         std.debug.print("failed to recursively activate neuron at {d}", .{current_adj_node});
                         return false;
@@ -298,7 +298,7 @@ pub const FastModularNetworkSolver = struct {
         self.in_activation[current_node] = false;
 
         // set signal now that activation is complete
-        self.neuron_signals[current_node] = try net_math.NodeActivationType.activate_by_type(self.neuron_signals_processing[current_node], null, self.activation_functions[current_node]);
+        self.neuron_signals[current_node] = try net_math.NodeActivationType.activateByType(self.neuron_signals_processing[current_node], null, self.activation_functions[current_node]);
         return true;
     }
 
@@ -306,13 +306,13 @@ pub const FastModularNetworkSolver = struct {
         var relaxed: bool = false;
         var i: usize = 0;
         while (i < max_steps) : (i += 1) {
-            relaxed = try self.forward_step(allocator, max_allowed_signal_delta);
+            relaxed = try self.forwardStep(allocator, max_allowed_signal_delta);
             if (relaxed) break;
         }
         return relaxed;
     }
 
-    pub fn forward_step(self: *FastModularNetworkSolver, allocator: std.mem.Allocator, max_allowed_signal_delta: f64) !bool {
+    pub fn forwardStep(self: *FastModularNetworkSolver, allocator: std.mem.Allocator, max_allowed_signal_delta: f64) !bool {
         var is_relaxed = true;
 
         // calculate output signal per each cxn and add signals to target neurons
@@ -329,7 +329,7 @@ pub const FastModularNetworkSolver = struct {
                 // append BIAS value if need be
                 signal += self.bias_list.?[i];
             }
-            self.neuron_signals_processing[i] = try net_math.NodeActivationType.activate_by_type(signal, undefined, self.activation_functions[i]);
+            self.neuron_signals_processing[i] = try net_math.NodeActivationType.activateByType(signal, undefined, self.activation_functions[i]);
         }
 
         // pass signals through each module (activation function with more than one input or output)
@@ -339,7 +339,7 @@ pub const FastModularNetworkSolver = struct {
             for (module.input_idxs, 0..) |inIndex, idx| {
                 inputs[idx] = self.neuron_signals_processing[inIndex];
             }
-            var outputs = try net_math.NodeActivationType.activate_module_by_type(inputs, undefined, module.activation_type);
+            var outputs = try net_math.NodeActivationType.activateModuleByType(inputs, undefined, module.activation_type);
             for (module.output_idxs, 0..) |outIndex, idx| {
                 self.neuron_signals_processing[outIndex] = outputs[idx];
             }
@@ -374,7 +374,7 @@ pub const FastModularNetworkSolver = struct {
         return true;
     }
 
-    pub fn load_sensors(self: *FastModularNetworkSolver, inputs: []f64) !void {
+    pub fn loadSensors(self: *FastModularNetworkSolver, inputs: []f64) !void {
         if (inputs.len == self.input_neuron_count) {
             // only inputs should be provided
             var i: usize = 0;
@@ -387,18 +387,18 @@ pub const FastModularNetworkSolver = struct {
         }
     }
 
-    pub fn read_outputs(self: *FastModularNetworkSolver, allocator: std.mem.Allocator) ![]f64 {
+    pub fn readOutputs(self: *FastModularNetworkSolver, allocator: std.mem.Allocator) ![]f64 {
         // decouple & return
         var outs = try allocator.alloc(f64, self.output_neuron_count);
         @memcpy(outs, self.neuron_signals[self.sensor_neuron_count .. self.sensor_neuron_count + self.output_neuron_count]);
         return outs;
     }
 
-    pub fn node_count(self: *FastModularNetworkSolver) usize {
+    pub fn nodeCount(self: *FastModularNetworkSolver) usize {
         return self.total_neuron_count + if (self.modules != null) self.modules.?.len else 0;
     }
 
-    pub fn link_count(self: *FastModularNetworkSolver) usize {
+    pub fn linkCount(self: *FastModularNetworkSolver) usize {
         // count all cxns
         var num_links: usize = self.cxns.len;
 
@@ -423,7 +423,7 @@ pub const FastModularNetworkSolver = struct {
     }
 };
 
-fn count_active_signals(impl: *FastModularNetworkSolver) usize {
+fn countActiveSignals(impl: *FastModularNetworkSolver) usize {
     var active: usize = 0;
     var i: usize = impl.bias_neuron_count;
     while (i < impl.total_neuron_count) : (i += 1) {
@@ -436,44 +436,44 @@ fn count_active_signals(impl: *FastModularNetworkSolver) usize {
 
 test "FastModularNetworkSolver load sensors" {
     const allocator = std.testing.allocator;
-    var n = try build_network(allocator);
+    var n = try buildNetwork(allocator);
     defer n.deinit();
 
-    var fmm = try n.fast_network_solver(allocator);
+    var fmm = try n.fastNetworkSolve(allocator);
     defer fmm.deinit();
 
     // test normal
     var d1 = [_]f64{ 0.5, 1.1 };
     var erred = false;
-    fmm.load_sensors(&d1) catch {
+    fmm.loadSensors(&d1) catch {
         erred = true;
     };
     try std.testing.expect(!erred);
 
     var d2 = [_]f64{ 0.5, 1.1, 1 };
-    try std.testing.expectError(error.ErrNetUnsupportedSensorsArraySize, fmm.load_sensors(&d2));
+    try std.testing.expectError(error.ErrNetUnsupportedSensorsArraySize, fmm.loadSensors(&d2));
 }
 
 test "FastModularNetworkSolver recursive steps" {
     const allocator = std.testing.allocator;
-    var n = try build_network(allocator);
+    var n = try buildNetwork(allocator);
     defer n.deinit();
 
     // Create network solver
     var d1 = [_]f64{ 0.5, 1.1 };
-    var fmm = try n.fast_network_solver(allocator);
+    var fmm = try n.fastNetworkSolve(allocator);
     defer fmm.deinit();
     var erred = false;
-    fmm.load_sensors(&d1) catch {
+    fmm.loadSensors(&d1) catch {
         erred = true;
     };
     try std.testing.expect(!erred);
 
     // Activate objective network
     var d2 = [_]f64{ 0.5, 1.1, 1 }; // BIAS is third value
-    n.load_sensors(&d2);
+    n.loadSensors(&d2);
 
-    var depth = n.max_activation_depth() catch blk: {
+    var depth = n.maxActivationDepth() catch blk: {
         erred = true;
         break :blk -1;
     };
@@ -482,15 +482,15 @@ test "FastModularNetworkSolver recursive steps" {
     std.debug.print("depth: {d}\n", .{depth});
     // TODO: log network activation path
 
-    var res = try n.forward_steps(depth);
+    var res = try n.forwardSteps(depth);
     try std.testing.expect(res);
 
     // Do recursive activation of the Fast Network Solver
-    res = try fmm.recursive_steps();
+    res = try fmm.recursiveSteps();
     try std.testing.expect(res);
 
     // Compare activations of objective network and Fast Network Solver
-    var fmm_outputs = try fmm.read_outputs(allocator);
+    var fmm_outputs = try fmm.readOutputs(allocator);
     defer allocator.free(fmm_outputs);
     try std.testing.expect(fmm_outputs.len == n.outputs.len);
     for (fmm_outputs, 0..) |out, i| {
@@ -500,20 +500,20 @@ test "FastModularNetworkSolver recursive steps" {
 
 test "FastModularNetworkSolver forward steps" {
     const allocator = std.testing.allocator;
-    var n = try build_modular_network(allocator);
+    var n = try buildModularNetwork(allocator);
     defer n.deinit();
 
     // create network solver
     var d1 = [_]f64{ 1, 2 }; // bias inherent
-    var fmm = try n.fast_network_solver(allocator);
+    var fmm = try n.fastNetworkSolve(allocator);
     defer fmm.deinit();
     var erred = false;
-    fmm.load_sensors(&d1) catch {
+    fmm.loadSensors(&d1) catch {
         erred = true;
     };
     try std.testing.expect(!erred);
 
-    var depth = n.max_activation_depth() catch blk: {
+    var depth = n.maxActivationDepth() catch blk: {
         erred = true;
         break :blk -1;
     };
@@ -524,16 +524,16 @@ test "FastModularNetworkSolver forward steps" {
 
     // activate objective network
     var d2 = [_]f64{ 1, 2, 1 }; // bias is third value
-    n.load_sensors(&d2);
-    var res = try n.forward_steps(depth);
+    n.loadSensors(&d2);
+    var res = try n.forwardSteps(depth);
     try std.testing.expect(res);
 
     // do forward steps through the solver and test results
-    res = try fmm.forward_steps(allocator, @as(usize, @intCast(depth)));
+    res = try fmm.forwardSteps(allocator, @as(usize, @intCast(depth)));
     try std.testing.expect(res);
 
     // check results by comparing activations of objective network and fast network solver
-    var fmm_outputs = try fmm.read_outputs(allocator);
+    var fmm_outputs = try fmm.readOutputs(allocator);
     defer allocator.free(fmm_outputs);
     try std.testing.expect(fmm_outputs.len == n.outputs.len);
     for (fmm_outputs, 0..) |out, i| {
@@ -543,20 +543,20 @@ test "FastModularNetworkSolver forward steps" {
 
 test "FastModularNetworkSolver relax" {
     const allocator = std.testing.allocator;
-    var n = try build_modular_network(allocator);
+    var n = try buildModularNetwork(allocator);
     defer n.deinit();
 
     // create network solver
     var d1 = [_]f64{ 1.5, 2 }; // bias inherent
-    var fmm = try n.fast_network_solver(allocator);
+    var fmm = try n.fastNetworkSolve(allocator);
     defer fmm.deinit();
     var erred = false;
-    fmm.load_sensors(&d1) catch {
+    fmm.loadSensors(&d1) catch {
         erred = true;
     };
     try std.testing.expect(!erred);
 
-    var depth = n.max_activation_depth() catch blk: {
+    var depth = n.maxActivationDepth() catch blk: {
         erred = true;
         break :blk -1;
     };
@@ -566,9 +566,9 @@ test "FastModularNetworkSolver relax" {
     // TODO: log network activation path
 
     var d2 = [_]f64{ 1.5, 2, 1 }; // bias is third value
-    n.load_sensors(&d2);
+    n.loadSensors(&d2);
 
-    var res = try n.forward_steps(depth);
+    var res = try n.forwardSteps(depth);
     try std.testing.expect(res);
 
     // relax fast network solver
@@ -580,7 +580,7 @@ test "FastModularNetworkSolver relax" {
     try std.testing.expect(res);
 
     // check results by comparing activations of objective network and fast network solver
-    var fmm_outputs = try fmm.read_outputs(allocator);
+    var fmm_outputs = try fmm.readOutputs(allocator);
     defer allocator.free(fmm_outputs);
     for (fmm_outputs, 0..) |out, i| {
         try std.testing.expect(out == n.outputs[i].activation);
@@ -589,48 +589,48 @@ test "FastModularNetworkSolver relax" {
 
 test "FastModularNetworkSolver flush" {
     const allocator = std.testing.allocator;
-    var n = try build_modular_network(allocator);
+    var n = try buildModularNetwork(allocator);
     defer n.deinit();
 
     // create network solver
     var d1 = [_]f64{ 1.5, 2 }; // bias inherent
-    var fmm = try n.fast_network_solver(allocator);
+    var fmm = try n.fastNetworkSolve(allocator);
     defer fmm.deinit();
     var erred = false;
-    fmm.load_sensors(&d1) catch {
+    fmm.loadSensors(&d1) catch {
         erred = true;
     };
     try std.testing.expect(!erred);
 
     var fmm_impl: *FastModularNetworkSolver = @ptrCast(@alignCast(fmm.ptr));
     // test that network has active signals
-    var active = count_active_signals(fmm_impl);
+    var active = countActiveSignals(fmm_impl);
     try std.testing.expect(active != 0);
 
     // flush and test
     var res = try fmm.flush();
     try std.testing.expect(res);
 
-    active = count_active_signals(fmm_impl);
+    active = countActiveSignals(fmm_impl);
     try std.testing.expect(active == 0);
 }
 
 test "FastModularNetworkSolver node count" {
     const allocator = std.testing.allocator;
-    var n = try build_modular_network(allocator);
+    var n = try buildModularNetwork(allocator);
     defer n.deinit();
 
-    var fmm = try n.fast_network_solver(allocator);
+    var fmm = try n.fastNetworkSolve(allocator);
     defer fmm.deinit();
-    try std.testing.expect(fmm.node_count() == 9);
+    try std.testing.expect(fmm.nodeCount() == 9);
 }
 
 test "FastModularNetworkSolver link count" {
     const allocator = std.testing.allocator;
-    var n = try build_modular_network(allocator);
+    var n = try buildModularNetwork(allocator);
     defer n.deinit();
 
-    var fmm = try n.fast_network_solver(allocator);
+    var fmm = try n.fastNetworkSolve(allocator);
     defer fmm.deinit();
-    try std.testing.expect(fmm.link_count() == 9);
+    try std.testing.expect(fmm.linkCount() == 9);
 }

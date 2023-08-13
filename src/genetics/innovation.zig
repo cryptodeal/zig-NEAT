@@ -26,7 +26,7 @@ pub const Innovation = struct {
 
     allocator: std.mem.Allocator,
 
-    pub fn init_for_node(allocator: std.mem.Allocator, in_node_id: i64, out_node_id: i64, innovation_num_1: i64, innovation_num_2: i64, new_node_id: i64, old_innovation_num: i64) !*Innovation {
+    pub fn initForNode(allocator: std.mem.Allocator, in_node_id: i64, out_node_id: i64, innovation_num_1: i64, innovation_num_2: i64, new_node_id: i64, old_innovation_num: i64) !*Innovation {
         var self = try allocator.create(Innovation);
         self.* = .{
             .allocator = allocator,
@@ -41,7 +41,7 @@ pub const Innovation = struct {
         return self;
     }
 
-    pub fn init_for_link(allocator: std.mem.Allocator, in_node_id: i64, out_node_id: i64, innovation_num: i64, weight: f64, trait_id: usize) !*Innovation {
+    pub fn initForLink(allocator: std.mem.Allocator, in_node_id: i64, out_node_id: i64, innovation_num: i64, weight: f64, trait_id: usize) !*Innovation {
         var self = try allocator.create(Innovation);
         self.* = .{
             .allocator = allocator,
@@ -55,7 +55,7 @@ pub const Innovation = struct {
         return self;
     }
 
-    pub fn init_for_recurrent_link(allocator: std.mem.Allocator, in_node_id: i64, out_node_id: i64, innovation_num: i64, weight: f64, trait_id: usize, recur: bool) !*Innovation {
+    pub fn initForRecurrentLink(allocator: std.mem.Allocator, in_node_id: i64, out_node_id: i64, innovation_num: i64, weight: f64, trait_id: usize, recur: bool) !*Innovation {
         var self = try allocator.create(Innovation);
         self.* = .{
             .allocator = allocator,

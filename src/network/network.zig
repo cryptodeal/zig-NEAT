@@ -48,7 +48,7 @@ pub const Network = struct {
         var graph = Graph(i64, void, f64).init(allocator);
         for (all) |node| {
             for (node.outgoing.items) |edge| {
-                try graph.add_edge(edge.in_node.?.id, {}, edge.out_node.?.id, {}, edge.cxn_weight);
+                try graph.addEdge(edge.in_node.?.id, {}, edge.out_node.?.id, {}, edge.cxn_weight);
             }
         }
         self.* = .{
@@ -65,16 +65,16 @@ pub const Network = struct {
         return self;
     }
 
-    pub fn init_modular(allocator: std.mem.Allocator, in: []*NNode, out: []*NNode, all: []*NNode, control: []*NNode, net_id: i64) !*Network {
+    pub fn initModular(allocator: std.mem.Allocator, in: []*NNode, out: []*NNode, all: []*NNode, control: []*NNode, net_id: i64) !*Network {
         var self: *Network = try Network.init(allocator, in, out, all, net_id);
         self.control_nodes = control;
         self.has_control_nodes = true;
         for (control) |node| {
             for (node.incoming.items) |edge| {
-                try self.graph.add_edge(edge.in_node.?.id, {}, edge.out_node.?.id, {}, edge.cxn_weight);
+                try self.graph.addEdge(edge.in_node.?.id, {}, edge.out_node.?.id, {}, edge.cxn_weight);
             }
             for (node.outgoing.items) |edge| {
-                try self.graph.add_edge(edge.in_node.?.id, {}, edge.out_node.?.id, {}, edge.cxn_weight);
+                try self.graph.addEdge(edge.in_node.?.id, {}, edge.out_node.?.id, {}, edge.cxn_weight);
             }
         }
         try self.all_nodes_MIMO.appendSlice(control);
@@ -104,11 +104,11 @@ pub const Network = struct {
         self.allocator.destroy(self);
     }
 
-    pub fn get_solver(self: *Network, allocator: std.mem.Allocator) !*NetworkSolver {
+    pub fn getSolver(self: *Network, allocator: std.mem.Allocator) !*NetworkSolver {
         return try NetworkSolver.init(allocator, self);
     }
 
-    pub fn fast_network_solver(self: *Network, allocator: std.mem.Allocator) !Solver {
+    pub fn fastNetworkSolve(self: *Network, allocator: std.mem.Allocator) !Solver {
         // calculate neurons per layer
         const output_neuron_count = self.outputs.len;
 
@@ -141,10 +141,10 @@ pub const Network = struct {
         defer neuron_lookup.deinit();
 
         // walk through neuron nodes in order: bias, input, output, hidden
-        var neuron_idx = try self.process_list(0, bias_list.items, activations, &neuron_lookup);
-        neuron_idx = try self.process_list(neuron_idx, in_list.items, activations, &neuron_lookup);
-        neuron_idx = try self.process_list(neuron_idx, self.outputs, activations, &neuron_lookup);
-        _ = try self.process_list(neuron_idx, hidden_list.items, activations, &neuron_lookup);
+        var neuron_idx = try self.processList(0, bias_list.items, activations, &neuron_lookup);
+        neuron_idx = try self.processList(neuron_idx, in_list.items, activations, &neuron_lookup);
+        neuron_idx = try self.processList(neuron_idx, self.outputs, activations, &neuron_lookup);
+        _ = try self.processList(neuron_idx, hidden_list.items, activations, &neuron_lookup);
 
         // walk through neurons in order: input, output, hidden and create bias and connections lists
         var biases = try allocator.alloc(f64, total_neuron_count);
@@ -152,13 +152,13 @@ pub const Network = struct {
 
         var connections = std.ArrayList(*FastNetworkLink).init(allocator);
 
-        var in_connects = try self.process_incoming_connections(allocator, in_list.items, biases, &neuron_lookup);
+        var in_connects = try self.processIncomingConnections(allocator, in_list.items, biases, &neuron_lookup);
         try connections.appendSlice(in_connects);
         allocator.free(in_connects);
-        in_connects = try self.process_incoming_connections(allocator, hidden_list.items, biases, &neuron_lookup);
+        in_connects = try self.processIncomingConnections(allocator, hidden_list.items, biases, &neuron_lookup);
         try connections.appendSlice(in_connects);
         allocator.free(in_connects);
-        in_connects = try self.process_incoming_connections(allocator, self.outputs, biases, &neuron_lookup);
+        in_connects = try self.processIncomingConnections(allocator, self.outputs, biases, &neuron_lookup);
         try connections.appendSlice(in_connects);
         allocator.free(in_connects);
 
@@ -199,11 +199,11 @@ pub const Network = struct {
         return Solver.init(modular_solver);
     }
 
-    pub fn node_id_generator(self: *Network) i64 {
+    pub fn nodeIdGenerator(self: *Network) i64 {
         return @as(i64, @intCast(self.all_nodes.len));
     }
 
-    fn process_list(_: *Network, start_idx: usize, n_list: []*NNode, activations: []net_math.NodeActivationType, neuron_lookup: *std.AutoHashMap(i64, usize)) !usize {
+    fn processList(_: *Network, start_idx: usize, n_list: []*NNode, activations: []net_math.NodeActivationType, neuron_lookup: *std.AutoHashMap(i64, usize)) !usize {
         var idx = start_idx;
         for (n_list) |ne| {
             activations[idx] = ne.activation_type;
@@ -213,7 +213,7 @@ pub const Network = struct {
         return idx;
     }
 
-    pub fn process_incoming_connections(_: *Network, allocator: std.mem.Allocator, n_list: []*NNode, biases: []f64, neuron_lookup: *std.AutoHashMap(i64, usize)) ![]*FastNetworkLink {
+    pub fn processIncomingConnections(_: *Network, allocator: std.mem.Allocator, n_list: []*NNode, biases: []f64, neuron_lookup: *std.AutoHashMap(i64, usize)) ![]*FastNetworkLink {
         var connections = std.ArrayList(*FastNetworkLink).init(allocator);
         for (n_list) |ne| {
             var target_i = neuron_lookup.get(ne.id);
@@ -244,7 +244,7 @@ pub const Network = struct {
         return connections.toOwnedSlice();
     }
 
-    pub fn is_control_node(self: *Network, nid: i64) bool {
+    pub fn isControlNode(self: *Network, nid: i64) bool {
         for (self.control_nodes) |cn| {
             if (cn.id == nid) {
                 return true;
@@ -256,12 +256,12 @@ pub const Network = struct {
     pub fn flush(self: *Network) !bool {
         for (self.all_nodes) |node| {
             node.flushback();
-            try node.flushback_check();
+            try node.flushbackCheck();
         }
         return true;
     }
 
-    pub fn print_activation(self: *Network, allocator: std.mem.Allocator) ![]const u8 {
+    pub fn printActivation(self: *Network, allocator: std.mem.Allocator) ![]const u8 {
         var buffer = std.ArrayList(u8).init(allocator);
         try buffer.writer().print("Network {s} with id {d} outputs: (", .{ self.name, self.id });
         for (self.outputs, 0..) |node, i| {
@@ -271,7 +271,7 @@ pub const Network = struct {
         return buffer.toOwnedSlice();
     }
 
-    pub fn print_input(self: *Network, allocator: std.mem.Allocator) ![]const u8 {
+    pub fn printInput(self: *Network, allocator: std.mem.Allocator) ![]const u8 {
         var buffer = std.ArrayList(u8).init(allocator);
         try buffer.writer().print("Network {s} with id {d} inputs: (", .{ self.name, self.id });
         for (self.inputs, 0..) |node, i| {
@@ -281,7 +281,7 @@ pub const Network = struct {
         return buffer.toOwnedSlice();
     }
 
-    pub fn output_is_off(self: *Network) bool {
+    pub fn outputIsOff(self: *Network) bool {
         for (self.outputs) |node| {
             if (node.activations_count == 0) {
                 return true;
@@ -290,7 +290,7 @@ pub const Network = struct {
         return false;
     }
 
-    pub fn activate_steps(self: *Network, max_steps: i64) !bool {
+    pub fn activateSteps(self: *Network, max_steps: i64) !bool {
         if (max_steps == 0) {
             return error.ErrZeroActivationStepsRequested;
         }
@@ -303,13 +303,13 @@ pub const Network = struct {
         var abort_count: i64 = 0;
 
         // loop until all the outputs are activated
-        while (self.output_is_off() or !one_time) {
+        while (self.outputIsOff() or !one_time) {
             if (abort_count >= max_steps) {
                 return error.ErrNetExceededMaxActivationAttempts;
             }
 
             for (self.all_nodes) |np| {
-                if (np.is_neuron()) {
+                if (np.isNeuron()) {
                     // reset activation value
                     np.activation_sum = 0.0;
 
@@ -317,12 +317,12 @@ pub const Network = struct {
                     for (np.incoming.items) |link| {
                         // handle potential time delayed cxns
                         if (!link.is_time_delayed) {
-                            add_amount = link.cxn_weight * link.in_node.?.get_active_out();
-                            if (link.in_node.?.is_active or link.in_node.?.is_sensor()) {
+                            add_amount = link.cxn_weight * link.in_node.?.getActiveOut();
+                            if (link.in_node.?.is_active or link.in_node.?.isSensor()) {
                                 np.is_active = true;
                             }
                         } else {
-                            add_amount = link.cxn_weight * link.in_node.?.get_active_out_td();
+                            add_amount = link.cxn_weight * link.in_node.?.getActiveOutTd();
                         }
                         np.activation_sum += add_amount;
                     } // End {for} over incoming links
@@ -332,10 +332,10 @@ pub const Network = struct {
             // activate all the neuron nodes off their incoming activation
             // only activate if some active input recvd
             for (self.all_nodes) |np| {
-                if (np.is_neuron()) {
+                if (np.isNeuron()) {
                     // Only activate if some active input came in
                     if (np.is_active) {
-                        try common.activate_node(np);
+                        try common.activateNode(np);
                     }
                 }
             }
@@ -345,7 +345,7 @@ pub const Network = struct {
                 for (self.control_nodes) |cn| {
                     cn.is_active = false;
                     // activate control MIMO node as control module
-                    try common.activate_module(cn);
+                    try common.activateModule(cn);
                     cn.is_active = true;
                 }
             }
@@ -358,23 +358,23 @@ pub const Network = struct {
     }
 
     pub fn activate(self: *Network) !bool {
-        return self.activate_steps(20);
+        return self.activateSteps(20);
     }
 
-    pub fn forward_steps(self: *Network, steps: i64) !bool {
+    pub fn forwardSteps(self: *Network, steps: i64) !bool {
         if (steps == 0) {
             return error.ErrZeroActivationStepsRequested;
         }
         var i: usize = 0;
         while (i < steps) : (i += 1) {
-            _ = try self.activate_steps(steps);
+            _ = try self.activateSteps(steps);
         }
         return true;
     }
 
-    pub fn recursive_steps(self: *Network) !bool {
-        var net_depth = try self.max_activation_depth_capped(0);
-        return self.forward_steps(net_depth);
+    pub fn recursiveSteps(self: *Network) !bool {
+        var net_depth = try self.maxActivationDepthCapped(0);
+        return self.forwardSteps(net_depth);
     }
 
     pub fn relax(self: *Network) !bool {
@@ -383,13 +383,13 @@ pub const Network = struct {
         return error.ErrNotImplemented;
     }
 
-    pub fn load_sensors(self: *Network, sensors: []f64) void {
+    pub fn loadSensors(self: *Network, sensors: []f64) void {
         var counter: usize = 0;
         if (sensors.len == self.inputs.len) {
             // BIAS value provided as input
             for (self.inputs) |node| {
-                if (node.is_sensor()) {
-                    _ = node.sensor_load(sensors[counter]);
+                if (node.isSensor()) {
+                    _ = node.sensorLoad(sensors[counter]);
                     counter += 1;
                 }
             }
@@ -397,17 +397,17 @@ pub const Network = struct {
             // use default BIAS value
             for (self.inputs) |node| {
                 if (node.neuron_type == NodeNeuronType.InputNeuron) {
-                    _ = node.sensor_load(sensors[counter]);
+                    _ = node.sensorLoad(sensors[counter]);
                     counter += 1;
                 } else {
                     // default BIAS value
-                    _ = node.sensor_load(1.0);
+                    _ = node.sensorLoad(1.0);
                 }
             }
         }
     }
 
-    pub fn read_outputs(self: *Network, allocator: std.mem.Allocator) ![]f64 {
+    pub fn readOutputs(self: *Network, allocator: std.mem.Allocator) ![]f64 {
         var outs = try allocator.alloc(f64, self.outputs.len);
         for (self.outputs, 0..) |o, i| {
             outs[i] = o.activation;
@@ -415,7 +415,7 @@ pub const Network = struct {
         return outs;
     }
 
-    pub fn node_count(self: *Network) usize {
+    pub fn nodeCount(self: *Network) usize {
         if (!self.has_control_nodes or self.control_nodes.len == 0) {
             return self.all_nodes.len;
         } else {
@@ -423,7 +423,7 @@ pub const Network = struct {
         }
     }
 
-    pub fn link_count(self: *Network) usize {
+    pub fn linkCount(self: *Network) usize {
         self.num_links = 0;
         for (self.all_nodes) |node| {
             self.num_links += node.incoming.items.len;
@@ -438,10 +438,10 @@ pub const Network = struct {
     }
 
     pub fn complexity(self: *Network) usize {
-        return self.node_count() + self.link_count();
+        return self.nodeCount() + self.linkCount();
     }
 
-    pub fn is_recurrent(self: *Network, in_node: *NNode, out_node: *NNode, count: *i64, thresh: i64) bool {
+    pub fn isRecurrent(self: *Network, in_node: *NNode, out_node: *NNode, count: *i64, thresh: i64) bool {
         // count node as visited
         count.* += 1;
         if (count.* > thresh) {
@@ -456,7 +456,7 @@ pub const Network = struct {
                 // skip links that are marked recurrent
                 // only want to check back through the forward flow of signals
                 if (!link.is_recurrent) {
-                    if (self.is_recurrent(link.in_node.?, out_node, count, thresh)) {
+                    if (self.isRecurrent(link.in_node.?, out_node, count, thresh)) {
                         return true;
                     }
                 }
@@ -465,15 +465,15 @@ pub const Network = struct {
         return false;
     }
 
-    pub fn max_activation_depth(self: *Network) !i64 {
+    pub fn maxActivationDepth(self: *Network) !i64 {
         if (!self.has_control_nodes or self.control_nodes.len == 0) {
-            return self.max_activation_depth_capped(0);
+            return self.maxActivationDepthCapped(0);
         } else {
-            return self.calc_max_activation_depth();
+            return self.maxActivationDepthModular();
         }
     }
 
-    pub fn max_activation_depth_capped(self: *Network, max_depth_cap: i64) !i64 {
+    pub fn maxActivationDepthCapped(self: *Network, max_depth_cap: i64) !i64 {
         if (self.has_control_nodes and self.control_nodes.len > 0) {
             std.debug.print("unsupported for modular networks", .{});
             return error.ErrModularNetworkUnsupported;
@@ -494,25 +494,25 @@ pub const Network = struct {
         return max;
     }
 
-    pub fn get_all_nodes(self: *Network) []*NNode {
+    pub fn getAllNodes(self: *Network) []*NNode {
         return self.all_nodes_MIMO.items;
     }
 
-    pub fn get_control_nodes(self: *Network) []*NNode {
+    pub fn getControlNodes(self: *Network) []*NNode {
         return self.control_nodes;
     }
 
-    pub fn get_base_nodes(self: *Network) []*NNode {
+    pub fn getBaseNodes(self: *Network) []*NNode {
         return self.all_nodes;
     }
 
-    pub fn calc_max_activation_depth(self: *Network) !i64 {
-        var all_paths = self.graph.johnson_all_paths() catch try self.graph.floyd_warshall();
+    pub fn maxActivationDepthModular(self: *Network) !i64 {
+        var all_paths = self.graph.johnsonAllPaths() catch try self.graph.floydWarshall();
         defer all_paths.deinit();
         var max: usize = 0;
         for (self.inputs) |in| {
             for (self.outputs) |out| {
-                var paths = try all_paths.all_between(in.id, out.id);
+                var paths = try all_paths.allBetween(in.id, out.id);
                 defer paths.deinit();
                 if (paths.paths != null) {
                     // iterate over returned paths and find the one with maximal length
@@ -547,13 +547,13 @@ pub const NetworkSolver = struct {
         self.allocator.destroy(self);
     }
 
-    pub fn forward_steps(self: *NetworkSolver, allocator: std.mem.Allocator, steps: usize) !bool {
+    pub fn forwardSteps(self: *NetworkSolver, allocator: std.mem.Allocator, steps: usize) !bool {
         _ = allocator;
-        return self.network.forward_steps(@as(i64, @intCast(steps)));
+        return self.network.forwardSteps(@as(i64, @intCast(steps)));
     }
 
-    pub fn recursive_steps(self: *NetworkSolver) !bool {
-        return self.network.recursive_steps();
+    pub fn recursiveSteps(self: *NetworkSolver) !bool {
+        return self.network.recursiveSteps();
     }
 
     pub fn relax(self: *NetworkSolver, allocator: std.mem.Allocator, max_steps: usize, max_allowed_signal_delta: f64) !bool {
@@ -567,25 +567,25 @@ pub const NetworkSolver = struct {
         return self.network.flush();
     }
 
-    pub fn load_sensors(self: *NetworkSolver, sensors: []f64) !void {
-        return self.network.load_sensors(sensors);
+    pub fn loadSensors(self: *NetworkSolver, sensors: []f64) !void {
+        return self.network.loadSensors(sensors);
     }
 
-    pub fn read_outputs(self: *NetworkSolver, allocator: std.mem.Allocator) ![]f64 {
-        return self.network.read_outputs(allocator);
+    pub fn readOutputs(self: *NetworkSolver, allocator: std.mem.Allocator) ![]f64 {
+        return self.network.readOutputs(allocator);
     }
 
-    pub fn node_count(self: *NetworkSolver) usize {
-        return self.network.node_count();
+    pub fn nodeCount(self: *NetworkSolver) usize {
+        return self.network.nodeCount();
     }
 
-    pub fn link_count(self: *NetworkSolver) usize {
-        return self.network.link_count();
+    pub fn linkCount(self: *NetworkSolver) usize {
+        return self.network.linkCount();
     }
 };
 
 // test utils
-fn build_plain_network(allocator: std.mem.Allocator) !*Network {
+fn buildPlainNetwork(allocator: std.mem.Allocator) !*Network {
     var all_nodes = try allocator.alloc(*NNode, 5);
     all_nodes[0] = try NNode.init(allocator, 1, .InputNeuron);
     all_nodes[1] = try NNode.init(allocator, 2, .InputNeuron);
@@ -594,10 +594,10 @@ fn build_plain_network(allocator: std.mem.Allocator) !*Network {
     all_nodes[4] = try NNode.init(allocator, 8, .OutputNeuron);
 
     // OUTPUT 7
-    _ = try all_nodes[3].connect_from(allocator, all_nodes[1], 7);
-    _ = try all_nodes[3].connect_from(allocator, all_nodes[2], 4.5);
+    _ = try all_nodes[3].connectFrom(allocator, all_nodes[1], 7);
+    _ = try all_nodes[3].connectFrom(allocator, all_nodes[2], 4.5);
     // OUTPUT 8
-    _ = try all_nodes[4].connect_from(allocator, all_nodes[3], 13);
+    _ = try all_nodes[4].connectFrom(allocator, all_nodes[3], 13);
 
     var in = try allocator.alloc(*NNode, 3);
     @memcpy(in, all_nodes[0..3]);
@@ -607,7 +607,7 @@ fn build_plain_network(allocator: std.mem.Allocator) !*Network {
     return Network.init(allocator, in, out, all_nodes, 0);
 }
 
-fn build_disconnected_network(allocator: std.mem.Allocator) !*Network {
+fn buildDisconnectedNetwork(allocator: std.mem.Allocator) !*Network {
     var all_nodes = try allocator.alloc(*NNode, 8);
     all_nodes[0] = try NNode.init(allocator, 1, .InputNeuron);
     all_nodes[1] = try NNode.init(allocator, 2, .InputNeuron);
@@ -626,7 +626,7 @@ fn build_disconnected_network(allocator: std.mem.Allocator) !*Network {
     return Network.init(allocator, in, out, all_nodes, 0);
 }
 
-pub fn build_network(allocator: std.mem.Allocator) !*Network {
+pub fn buildNetwork(allocator: std.mem.Allocator) !*Network {
     var all_nodes = try allocator.alloc(*NNode, 8);
     all_nodes[0] = try NNode.init(allocator, 1, .InputNeuron);
     all_nodes[1] = try NNode.init(allocator, 2, .InputNeuron);
@@ -638,18 +638,18 @@ pub fn build_network(allocator: std.mem.Allocator) !*Network {
     all_nodes[7] = try NNode.init(allocator, 8, .OutputNeuron);
 
     // HIDDEN 4
-    _ = try all_nodes[3].connect_from(allocator, all_nodes[0], 15);
-    _ = try all_nodes[3].connect_from(allocator, all_nodes[1], 10);
+    _ = try all_nodes[3].connectFrom(allocator, all_nodes[0], 15);
+    _ = try all_nodes[3].connectFrom(allocator, all_nodes[1], 10);
     // HIDDEN 5
-    _ = try all_nodes[4].connect_from(allocator, all_nodes[1], 5);
-    _ = try all_nodes[4].connect_from(allocator, all_nodes[2], 1);
+    _ = try all_nodes[4].connectFrom(allocator, all_nodes[1], 5);
+    _ = try all_nodes[4].connectFrom(allocator, all_nodes[2], 1);
     // HIDDEN 6
-    _ = try all_nodes[5].connect_from(allocator, all_nodes[4], 17);
+    _ = try all_nodes[5].connectFrom(allocator, all_nodes[4], 17);
     // OUTPUT 7
-    _ = try all_nodes[6].connect_from(allocator, all_nodes[3], 7);
-    _ = try all_nodes[6].connect_from(allocator, all_nodes[5], 4.5);
+    _ = try all_nodes[6].connectFrom(allocator, all_nodes[3], 7);
+    _ = try all_nodes[6].connectFrom(allocator, all_nodes[5], 4.5);
     // OUTPUT 8
-    _ = try all_nodes[7].connect_from(allocator, all_nodes[5], 13);
+    _ = try all_nodes[7].connectFrom(allocator, all_nodes[5], 13);
 
     var in = try allocator.alloc(*NNode, 3);
     @memcpy(in, all_nodes[0..3]);
@@ -659,7 +659,7 @@ pub fn build_network(allocator: std.mem.Allocator) !*Network {
     return Network.init(allocator, in, out, all_nodes, 0);
 }
 
-pub fn build_modular_network(allocator: std.mem.Allocator) !*Network {
+pub fn buildModularNetwork(allocator: std.mem.Allocator) !*Network {
     var all_nodes = try allocator.alloc(*NNode, 8);
     all_nodes[0] = try NNode.init(allocator, 1, .InputNeuron); // INPUT 1
     all_nodes[1] = try NNode.init(allocator, 2, .InputNeuron); // INPUT 2
@@ -674,41 +674,41 @@ pub fn build_modular_network(allocator: std.mem.Allocator) !*Network {
     control_nodes[0] = try NNode.init(allocator, 6, .HiddenNeuron);
     // HIDDEN 6 - control node
     control_nodes[0].activation_type = .MultiplyModuleActivation;
-    _ = try control_nodes[0].add_incoming(allocator, all_nodes[3], 1); // <- HIDDEN 4
-    _ = try control_nodes[0].add_incoming(allocator, all_nodes[4], 1); // <- HIDDEN 5
-    _ = try control_nodes[0].add_outgoing(allocator, all_nodes[5], 1); // <- HIDDEN 5
+    _ = try control_nodes[0].addIncoming(allocator, all_nodes[3], 1); // <- HIDDEN 4
+    _ = try control_nodes[0].addIncoming(allocator, all_nodes[4], 1); // <- HIDDEN 5
+    _ = try control_nodes[0].addOutgoing(allocator, all_nodes[5], 1); // <- HIDDEN 5
 
     // HIDDEN 4
     all_nodes[3].activation_type = .LinearActivation;
-    _ = try all_nodes[3].connect_from(allocator, all_nodes[0], 15); // <- INPUT 1
-    _ = try all_nodes[3].connect_from(allocator, all_nodes[2], 10); // <- BIAS
+    _ = try all_nodes[3].connectFrom(allocator, all_nodes[0], 15); // <- INPUT 1
+    _ = try all_nodes[3].connectFrom(allocator, all_nodes[2], 10); // <- BIAS
     // HIDDEN 5
     all_nodes[4].activation_type = .LinearActivation;
-    _ = try all_nodes[4].connect_from(allocator, all_nodes[1], 5); // <- INPUT 2
-    _ = try all_nodes[4].connect_from(allocator, all_nodes[2], 1); // <- BIAS
+    _ = try all_nodes[4].connectFrom(allocator, all_nodes[1], 5); // <- INPUT 2
+    _ = try all_nodes[4].connectFrom(allocator, all_nodes[2], 1); // <- BIAS
 
     // HIDDEN 7
     all_nodes[5].activation_type = .NullActivation;
 
     // OUTPUT 8
     all_nodes[6].activation_type = .LinearActivation;
-    _ = try all_nodes[6].connect_from(allocator, all_nodes[5], 4.5); // <- HIDDEN 7
+    _ = try all_nodes[6].connectFrom(allocator, all_nodes[5], 4.5); // <- HIDDEN 7
     // OUTPUT 9
     all_nodes[7].activation_type = .LinearActivation;
-    _ = try all_nodes[7].connect_from(allocator, all_nodes[5], 13); // <- HIDDEN 7
+    _ = try all_nodes[7].connectFrom(allocator, all_nodes[5], 13); // <- HIDDEN 7
 
     var in = try allocator.alloc(*NNode, 3);
     @memcpy(in, all_nodes[0..3]);
     var out = try allocator.alloc(*NNode, 2);
     @memcpy(out, all_nodes[6..8]);
-    return Network.init_modular(allocator, in, out, all_nodes, control_nodes, 0);
+    return Network.initModular(allocator, in, out, all_nodes, control_nodes, 0);
 }
 
 test "Modular Network activate" {
-    var net = try build_modular_network(std.testing.allocator);
+    var net = try buildModularNetwork(std.testing.allocator);
     defer net.deinit();
     var data = [_]f64{ 1, 2, 1 };
-    net.load_sensors(&data);
+    net.loadSensors(&data);
     var i: usize = 0;
     while (i < 5) : (i += 1) {
         var res = try net.activate();
@@ -720,34 +720,34 @@ test "Modular Network activate" {
 }
 
 test "Network max activation depth (simple)" {
-    var net = try build_network(std.testing.allocator);
+    var net = try buildNetwork(std.testing.allocator);
     defer net.deinit();
-    var depth = try net.max_activation_depth();
+    var depth = try net.maxActivationDepth();
     try std.testing.expect(depth == 3);
 
     // TODO: log network activation path
 }
 
 test "Modular Network max activation depth" {
-    var net = try build_modular_network(std.testing.allocator);
+    var net = try buildModularNetwork(std.testing.allocator);
     defer net.deinit();
-    var depth = try net.max_activation_depth();
+    var depth = try net.maxActivationDepth();
     try std.testing.expect(depth == 4);
 
     // TODO: log network activation path
 }
 
 test "Network max activation depth (no hidden or control)" {
-    var net = try build_plain_network(std.testing.allocator);
+    var net = try buildPlainNetwork(std.testing.allocator);
     defer net.deinit();
-    var depth = try net.max_activation_depth();
+    var depth = try net.maxActivationDepth();
     try std.testing.expect(depth == 1);
 }
 
 test "Network max activation depth capped (simple)" {
-    var net = try build_network(std.testing.allocator);
+    var net = try buildNetwork(std.testing.allocator);
     defer net.deinit();
-    var depth = try net.max_activation_depth_capped(0);
+    var depth = try net.maxActivationDepthCapped(0);
     try std.testing.expect(depth == 3);
 
     // TODO: log network activation path
@@ -755,26 +755,26 @@ test "Network max activation depth capped (simple)" {
 }
 
 test "Network max activation depth (simple - exceed cap)" {
-    var net = try build_network(std.testing.allocator);
+    var net = try buildNetwork(std.testing.allocator);
     defer net.deinit();
-    var depth = try net.max_activation_depth_capped(2);
+    var depth = try net.maxActivationDepthCapped(2);
     try std.testing.expect(depth == 2);
 }
 
 test "Modular Network max activation depth capped" {
-    var net = try build_modular_network(std.testing.allocator);
+    var net = try buildModularNetwork(std.testing.allocator);
     defer net.deinit();
-    try std.testing.expectError(error.ErrModularNetworkUnsupported, net.max_activation_depth_capped(0));
+    try std.testing.expectError(error.ErrModularNetworkUnsupported, net.maxActivationDepthCapped(0));
 }
 
 test "Network output is off" {
-    var net = try build_network(std.testing.allocator);
+    var net = try buildNetwork(std.testing.allocator);
     defer net.deinit();
-    try std.testing.expect(net.output_is_off());
+    try std.testing.expect(net.outputIsOff());
 }
 
 test "Network activate" {
-    var net = try build_network(std.testing.allocator);
+    var net = try buildNetwork(std.testing.allocator);
     defer net.deinit();
 
     var res = try net.activate();
@@ -782,43 +782,43 @@ test "Network activate" {
 
     // check activation
     for (net.all_nodes) |node| {
-        if (node.is_neuron()) {
+        if (node.isNeuron()) {
             try std.testing.expect(node.activations_count != 0);
             try std.testing.expect(node.activation != 0);
 
             // Check activation and time delayed activation
-            try std.testing.expect(node.get_active_out() != 0);
+            try std.testing.expect(node.getActiveOut() != 0);
         }
     }
 }
 
 test "Network forward steps" {
     const allocator = std.testing.allocator;
-    var net = try build_network(allocator);
+    var net = try buildNetwork(allocator);
     defer net.deinit();
 
-    var res = try net.forward_steps(3);
+    var res = try net.forwardSteps(3);
     try std.testing.expect(res);
 
     var expected_outs = [_]f64{ 1, 1 };
-    var net_outs = try net.read_outputs(allocator);
+    var net_outs = try net.readOutputs(allocator);
     defer allocator.free(net_outs);
     try std.testing.expect(net_outs.len == expected_outs.len);
     try std.testing.expectEqualSlices(f64, &expected_outs, net_outs);
 
     // test zero steps
-    try std.testing.expectError(error.ErrZeroActivationStepsRequested, net.forward_steps(0));
+    try std.testing.expectError(error.ErrZeroActivationStepsRequested, net.forwardSteps(0));
 }
 
 test "Network recursive steps" {
     const allocator = std.testing.allocator;
-    var net = try build_network(allocator);
+    var net = try buildNetwork(allocator);
     defer net.deinit();
 
     var data = [_]f64{ 0.5, 0, 1.5 };
-    net.load_sensors(&data);
+    net.loadSensors(&data);
 
-    var relaxed = try net.recursive_steps();
+    var relaxed = try net.recursiveSteps();
     try std.testing.expect(relaxed);
 
     // TODO: log network activation path
@@ -826,21 +826,21 @@ test "Network recursive steps" {
 
 test "Network forward steps (disconnected)" {
     const allocator = std.testing.allocator;
-    var net = try build_disconnected_network(allocator);
+    var net = try buildDisconnectedNetwork(allocator);
     defer net.deinit();
-    try std.testing.expectError(error.ErrNetExceededMaxActivationAttempts, net.forward_steps(3));
+    try std.testing.expectError(error.ErrNetExceededMaxActivationAttempts, net.forwardSteps(3));
 }
 
 test "Network load sensors" {
     const allocator = std.testing.allocator;
-    var net = try build_network(allocator);
+    var net = try buildNetwork(allocator);
     defer net.deinit();
 
     var sensors = [_]f64{ 1, 3.4, 5.6 };
-    net.load_sensors(&sensors);
+    net.loadSensors(&sensors);
     var counter: usize = 0;
-    for (net.get_all_nodes()) |node| {
-        if (node.is_sensor()) {
+    for (net.getAllNodes()) |node| {
+        if (node.isSensor()) {
             try std.testing.expect(sensors[counter] == node.activation);
             try std.testing.expect(node.activations_count == 1);
             counter += 1;
@@ -850,7 +850,7 @@ test "Network load sensors" {
 
 test "Network flush" {
     const allocator = std.testing.allocator;
-    var net = try build_network(allocator);
+    var net = try buildNetwork(allocator);
     defer net.deinit();
 
     // activate and check state
@@ -861,71 +861,71 @@ test "Network flush" {
     res = try net.flush();
     try std.testing.expect(res);
 
-    for (net.get_all_nodes()) |node| {
+    for (net.getAllNodes()) |node| {
         try std.testing.expect(node.activations_count == 0);
         try std.testing.expect(node.activation == 0);
 
         // Check activation and time delayed activation
-        try std.testing.expect(node.get_active_out() == 0);
-        try std.testing.expect(node.get_active_out_td() == 0);
+        try std.testing.expect(node.getActiveOut() == 0);
+        try std.testing.expect(node.getActiveOutTd() == 0);
     }
 }
 
 test "Network node count" {
     const allocator = std.testing.allocator;
-    var net = try build_network(allocator);
+    var net = try buildNetwork(allocator);
     defer net.deinit();
 
-    try std.testing.expect(net.node_count() == 8);
+    try std.testing.expect(net.nodeCount() == 8);
 }
 
 test "Network link count" {
     const allocator = std.testing.allocator;
-    var net = try build_network(allocator);
+    var net = try buildNetwork(allocator);
     defer net.deinit();
 
-    try std.testing.expect(net.link_count() == 8);
+    try std.testing.expect(net.linkCount() == 8);
 }
 
 test "Network fast network solver" {
     const allocator = std.testing.allocator;
-    var net = try build_network(allocator);
+    var net = try buildNetwork(allocator);
     defer net.deinit();
 
-    var solver = try net.fast_network_solver(allocator);
+    var solver = try net.fastNetworkSolve(allocator);
     defer solver.deinit();
 
     // check solver structure
-    try std.testing.expect(solver.node_count() == @as(usize, @intCast(net.node_count())));
-    try std.testing.expect(solver.link_count() == @as(usize, @intCast(net.link_count())));
+    try std.testing.expect(solver.nodeCount() == @as(usize, @intCast(net.nodeCount())));
+    try std.testing.expect(solver.linkCount() == @as(usize, @intCast(net.linkCount())));
 }
 
 test "Network activate steps with zero activation steps" {
     const allocator = std.testing.allocator;
-    var net = try build_network(allocator);
+    var net = try buildNetwork(allocator);
     defer net.deinit();
-    try std.testing.expectError(error.ErrZeroActivationStepsRequested, net.activate_steps(0));
+    try std.testing.expectError(error.ErrZeroActivationStepsRequested, net.activateSteps(0));
 }
 
 test "Network activate steps exceed max activation attempts" {
     const allocator = std.testing.allocator;
-    var net = try build_disconnected_network(allocator);
+    var net = try buildDisconnectedNetwork(allocator);
     defer net.deinit();
-    try std.testing.expectError(error.ErrNetExceededMaxActivationAttempts, net.activate_steps(3));
+    try std.testing.expectError(error.ErrNetExceededMaxActivationAttempts, net.activateSteps(3));
 }
 
 test "Modular Network control nodes" {
     const allocator = std.testing.allocator;
-    var net = try build_modular_network(allocator);
+    var net = try buildModularNetwork(allocator);
     defer net.deinit();
-    var c_nodes = net.get_control_nodes();
+    var c_nodes = net.getControlNodes();
     try std.testing.expect(c_nodes.len == net.control_nodes.len);
 }
 
 test "Modular Network base nodes" {
     const allocator = std.testing.allocator;
-    var net = try build_modular_network(allocator);
+    var net = try buildModularNetwork(allocator);
     defer net.deinit();
-    var base_nodes = net.get_base_nodes();
+    var base_nodes = net.getBaseNodes();
     try std.testing.expect(base_nodes.len == net.all_nodes.len);
 }

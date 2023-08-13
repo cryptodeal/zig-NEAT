@@ -4,7 +4,7 @@ const NNode = @import("../network/nnode.zig").NNode;
 const Trait = @import("../trait.zig").Trait;
 const neat_math = @import("../math/activations.zig");
 const NodeNeuronType = @import("../network/common.zig").NodeNeuronType;
-const trait_with_id = @import("common.zig").trait_with_id;
+const traitWithId = @import("common.zig").traitWithId;
 
 pub const GeneJSON = struct {
     src_id: i64,
@@ -42,8 +42,8 @@ pub const Gene = struct {
         };
     }
 
-    pub fn init_from_json(allocator: std.mem.Allocator, value: GeneJSON, traits: []*Trait, nodes: []*NNode) !*Gene {
-        var trait = trait_with_id(if (value.trait_id == null) 0 else value.trait_id.?, traits);
+    pub fn initFromJSON(allocator: std.mem.Allocator, value: GeneJSON, traits: []*Trait, nodes: []*NNode) !*Gene {
+        var trait = traitWithId(if (value.trait_id == null) 0 else value.trait_id.?, traits);
         var innov_num = value.innov_num;
         var weight = value.weight;
         var mut_num = value.mut_num;
@@ -56,9 +56,9 @@ pub const Gene = struct {
             if (node.id == value.tgt_id) out_node = node;
         }
         if (trait != null) {
-            return Gene.init_cxn_gene(allocator, try Link.init_with_trait(allocator, trait, weight, in_node, out_node, recurrent), innov_num, mut_num, enabled);
+            return Gene.initConnectionGene(allocator, try Link.initWithTrait(allocator, trait, weight, in_node, out_node, recurrent), innov_num, mut_num, enabled);
         } else {
-            return Gene.init_cxn_gene(allocator, try Link.init(allocator, weight, in_node, out_node, recurrent), innov_num, mut_num, enabled);
+            return Gene.initConnectionGene(allocator, try Link.init(allocator, weight, in_node, out_node, recurrent), innov_num, mut_num, enabled);
         }
     }
 
@@ -74,11 +74,11 @@ pub const Gene = struct {
         return gene;
     }
 
-    pub fn init_with_trait(allocator: std.mem.Allocator, trait: ?*Trait, weight: f64, in_node: ?*NNode, out_node: ?*NNode, recurrent: bool, innovation_num: i64, mutation_num: f64) !*Gene {
+    pub fn initWithTrait(allocator: std.mem.Allocator, trait: ?*Trait, weight: f64, in_node: ?*NNode, out_node: ?*NNode, recurrent: bool, innovation_num: i64, mutation_num: f64) !*Gene {
         var gene: *Gene = try allocator.create(Gene);
         gene.* = .{
             .allocator = allocator,
-            .link = try Link.init_with_trait(allocator, trait, weight, in_node, out_node, recurrent),
+            .link = try Link.initWithTrait(allocator, trait, weight, in_node, out_node, recurrent),
             .innovation_num = innovation_num,
             .mutation_num = mutation_num,
             .is_enabled = true,
@@ -86,11 +86,11 @@ pub const Gene = struct {
         return gene;
     }
 
-    pub fn init_copy(allocator: std.mem.Allocator, gene: *Gene, trait: ?*Trait, in_node: ?*NNode, out_node: ?*NNode) !*Gene {
+    pub fn initCopy(allocator: std.mem.Allocator, gene: *Gene, trait: ?*Trait, in_node: ?*NNode, out_node: ?*NNode) !*Gene {
         var new_gene: *Gene = try allocator.create(Gene);
         new_gene.* = .{
             .allocator = allocator,
-            .link = try Link.init_with_trait(allocator, trait, gene.link.cxn_weight, in_node, out_node, gene.link.is_recurrent),
+            .link = try Link.initWithTrait(allocator, trait, gene.link.cxn_weight, in_node, out_node, gene.link.is_recurrent),
             .innovation_num = gene.innovation_num,
             .mutation_num = gene.mutation_num,
             .is_enabled = true,
@@ -98,7 +98,7 @@ pub const Gene = struct {
         return new_gene;
     }
 
-    pub fn init_cxn_gene(allocator: std.mem.Allocator, link: *Link, innovation_num: i64, mutation_num: f64, enabled: bool) !*Gene {
+    pub fn initConnectionGene(allocator: std.mem.Allocator, link: *Link, innovation_num: i64, mutation_num: f64, enabled: bool) !*Gene {
         var self = try allocator.create(Gene);
         self.* = .{
             .allocator = allocator,
@@ -110,7 +110,7 @@ pub const Gene = struct {
         return self;
     }
 
-    pub fn read_from_file(allocator: std.mem.Allocator, data: []const u8, traits: []*Trait, nodes: []*NNode) !*Gene {
+    pub fn readFromFile(allocator: std.mem.Allocator, data: []const u8, traits: []*Trait, nodes: []*NNode) !*Gene {
         var trait_id: i64 = undefined;
         var in_node_id: i64 = undefined;
         var out_node_id: i64 = undefined;
@@ -147,13 +147,13 @@ pub const Gene = struct {
             if (nd.id == in_node_id) in_node = nd;
             if (nd.id == out_node_id) out_node = nd;
         }
-        var trait = trait_with_id(trait_id, traits);
+        var trait = traitWithId(trait_id, traits);
         if (trait != null) {
-            var link = try Link.init_with_trait(allocator, trait, weight, in_node, out_node, recurrent);
-            return Gene.init_cxn_gene(allocator, link, innovation_num, mut_num, enabled);
+            var link = try Link.initWithTrait(allocator, trait, weight, in_node, out_node, recurrent);
+            return Gene.initConnectionGene(allocator, link, innovation_num, mut_num, enabled);
         } else {
             var link = try Link.init(allocator, weight, in_node, out_node, recurrent);
-            return Gene.init_cxn_gene(allocator, link, innovation_num, mut_num, enabled);
+            return Gene.initConnectionGene(allocator, link, innovation_num, mut_num, enabled);
         }
     }
 
@@ -162,11 +162,11 @@ pub const Gene = struct {
         self.allocator.destroy(self);
     }
 
-    pub fn is_equal(self: *Gene, g: *Gene) bool {
+    pub fn isEql(self: *Gene, g: *Gene) bool {
         if (self.innovation_num != g.innovation_num or self.mutation_num != g.mutation_num or self.is_enabled != g.is_enabled) {
             return false;
         }
-        return self.link.is_equal(g.link);
+        return self.link.isEql(g.link);
     }
     pub fn format(value: Gene, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
         var enabled_str: []const u8 = "";
@@ -205,10 +205,10 @@ test "new Gene copy" {
     }
 
     // init gene1
-    var g1 = try Gene.init_with_trait(allocator, trait, 3.2, node1, node2, true, 42, 5.2);
+    var g1 = try Gene.initWithTrait(allocator, trait, 3.2, node1, node2, true, 42, 5.2);
     defer g1.deinit();
 
-    var g_copy = try Gene.init_copy(allocator, g1, trait, node1, node2);
+    var g_copy = try Gene.initCopy(allocator, g1, trait, node1, node2);
     defer g_copy.deinit();
 
     // check for equality

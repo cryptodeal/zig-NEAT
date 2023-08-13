@@ -5,8 +5,8 @@ const genetics_common = @import("common.zig");
 const NNode = @import("../network/nnode.zig").NNode;
 const Link = @import("../network/link.zig").Link;
 const Trait = @import("../trait.zig").Trait;
-const trait_with_id = genetics_common.trait_with_id;
-const node_with_id = genetics_common.node_with_id;
+const traitWithId = genetics_common.traitWithId;
+const nodeWithId = genetics_common.nodeWithId;
 
 pub const MIMOControlGeneLinkJSON = struct {
     id: i64,
@@ -83,15 +83,15 @@ pub const MIMOControlGene = struct {
         return gene;
     }
 
-    pub fn init_from_copy(allocator: std.mem.Allocator, g: *MIMOControlGene, control_node: *NNode) !*MIMOControlGene {
+    pub fn initCopy(allocator: std.mem.Allocator, g: *MIMOControlGene, control_node: *NNode) !*MIMOControlGene {
         return MIMOControlGene.init(allocator, control_node, g.innovation_num, g.mutation_num, g.is_enabled);
     }
 
-    pub fn init_from_json(allocator: std.mem.Allocator, value: MIMOControlGeneJSON, traits: []*Trait, nodes: []*NNode) !*MIMOControlGene {
+    pub fn initFromJSON(allocator: std.mem.Allocator, value: MIMOControlGeneJSON, traits: []*Trait, nodes: []*NNode) !*MIMOControlGene {
         var control_node = try NNode.init(allocator, value.id, .HiddenNeuron);
         // set activation function
         control_node.activation_type = value.activation;
-        var trait = trait_with_id(if (value.trait_id == null) 0 else value.trait_id.?, traits);
+        var trait = traitWithId(if (value.trait_id == null) 0 else value.trait_id.?, traits);
         if (trait != null) control_node.trait = trait.?;
 
         // read MIMO gene parameters
@@ -101,7 +101,7 @@ pub const MIMOControlGene = struct {
 
         // read input links
         for (value.inputs) |input| {
-            var node = node_with_id(input.id, nodes);
+            var node = nodeWithId(input.id, nodes);
             if (node != null) {
                 try control_node.incoming.append(try Link.init(allocator, 1, node.?, control_node, false));
             } else {
@@ -112,7 +112,7 @@ pub const MIMOControlGene = struct {
 
         // read output links
         for (value.outputs) |output| {
-            var node = node_with_id(output.id, nodes);
+            var node = nodeWithId(output.id, nodes);
             if (node != null) {
                 try control_node.outgoing.append(try Link.init(allocator, 1, control_node, node.?, false));
             } else {
@@ -136,24 +136,24 @@ pub const MIMOControlGene = struct {
         self.allocator.destroy(self);
     }
 
-    pub fn is_equal(self: *MIMOControlGene, m: *MIMOControlGene) bool {
+    pub fn isEql(self: *MIMOControlGene, m: *MIMOControlGene) bool {
         if (self.innovation_num != m.innovation_num or self.mutation_num != m.mutation_num or self.is_enabled != m.is_enabled) {
             return false;
         }
         // TODO: debug this crash/validate node fully
-        // if (!self.control_node.is_equal(m.control_node)) {
+        // if (!self.control_node.isEql(m.control_node)) {
         if (self.control_node.id != m.control_node.id) {
             return false;
         }
         for (self.io_nodes, m.io_nodes) |a, b| {
-            if (!a.is_equal(b)) {
+            if (!a.isEql(b)) {
                 return false;
             }
         }
         return true;
     }
 
-    pub fn has_intersection(self: *MIMOControlGene, nodes: *std.AutoHashMap(i64, *NNode)) bool {
+    pub fn hasIntersection(self: *MIMOControlGene, nodes: *std.AutoHashMap(i64, *NNode)) bool {
         for (self.io_nodes) |nd| {
             if (nodes.contains(nd.id)) {
                 // found

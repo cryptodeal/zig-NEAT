@@ -18,8 +18,8 @@ const Options = neat_options.Options;
 const logger = @constCast(neat_options.logger);
 const GenerationEvaluator = @import("generation_evaluator.zig");
 const Generation = exp_generation.Generation;
-const fitness_comparison = neat_organism.fitness_comparison;
-const epoch_executor_for_ctx = exp_common.epoch_executor_for_ctx;
+const fitnessComparison = neat_organism.fitnessComparison;
+const epochExecutorForCtx = exp_common.epochExecutorForCtx;
 
 /// An Experiment is a collection of trials for one experiment.
 /// It's helpful for analysis of a series of experiments.
@@ -53,10 +53,10 @@ pub const Experiment = struct {
         self.allocator.destroy(self);
     }
 
-    /// `avg_trial_duration` Calculates average duration of experiment's trial. Returns EmptyDuration for experiment with no trials.
+    /// Calculates average duration of experiment's trial. Returns EmptyDuration for experiment with no trials.
     /// Note, that most trials finish after solution solved, so this metric can be used to represent how efficient the solvers
     /// was generated
-    pub fn avg_trial_duration(self: *Experiment) f64 {
+    pub fn avgTrialDuration(self: *Experiment) f64 {
         var total: u64 = 0;
         for (self.trials.items) |t| {
             total += t.duration;
@@ -68,11 +68,11 @@ pub const Experiment = struct {
         }
     }
 
-    /// `avg_epoch_duration` Calculates average duration of evaluations among all generations of organism populations in this experiment
-    pub fn avg_epoch_duration(self: *Experiment) f64 {
+    /// Calculates average duration of evaluations among all generations of organism populations in this experiment
+    pub fn avgEpochDuration(self: *Experiment) f64 {
         var total: i64 = 0;
         for (self.trials.items) |t| {
-            total += t.avg_epoch_duration();
+            total += t.avgEpochDuration();
         }
         if (self.trials.items.len > 0) {
             return @as(f64, @floatFromInt(total)) / @as(f64, @floatFromInt(self.trials.items.len));
@@ -81,10 +81,10 @@ pub const Experiment = struct {
         }
     }
 
-    /// `avg_generation_per_trial` Calculates average number of generations evaluated per trial during this experiment.
+    /// Calculates average number of generations evaluated per trial during this experiment.
     /// This can be helpful when estimating algorithm efficiency, because when winner organism is found the trial is
     /// terminated, i.e. less evaluations - more fast convergence.
-    pub fn avg_generations_per_trial(self: *Experiment) f64 {
+    pub fn avgGenerationsPerTrial(self: *Experiment) f64 {
         var total: f64 = 0;
         for (self.trials.items) |t| {
             total += @as(f64, @floatFromInt(t.generations.items.len));
@@ -96,14 +96,14 @@ pub const Experiment = struct {
         }
     }
 
-    /// `most_recent_trial_eval_time` Returns the time of evaluation of the most recent trial
-    pub fn most_recent_trial_eval_time(self: *Experiment) ?std.time.Instant {
+    /// Returns the time of evaluation of the most recent trial
+    pub fn mostRecentTrialEvalTime(self: *Experiment) ?std.time.Instant {
         if (self.trials.items.len == 0) {
             return null;
         }
         var u: std.time.Instant = undefined;
         for (self.trials.items, 0..) |t, i| {
-            var ut = t.recent_epoch_eval_time();
+            var ut = t.recentEpochEvalTime();
             if (i == 0) {
                 u = ut;
                 continue;
@@ -115,21 +115,21 @@ pub const Experiment = struct {
         return u;
     }
 
-    /// `best_organism` Finds the most fit organism among all trials in this experiment. It's also possible to get the best organism
+    /// Finds the most fit organism among all trials in this experiment. It's also possible to get the best organism
     /// only among the ones which was able to solve the experiment's problem. Returns the best fit organism in this experiment
     /// among with ID of trial where it was found and boolean value to indicate if search was successful.
-    pub fn best_organism(self: *Experiment, allocator: std.mem.Allocator, only_solvers: bool) !?*Organism {
+    pub fn bestOrganism(self: *Experiment, allocator: std.mem.Allocator, only_solvers: bool) !?*Organism {
         var orgs = std.ArrayList(*Organism).init(allocator);
         defer orgs.deinit();
         for (self.trials.items, 0..) |t, i| {
-            var org = try t.best_organism(allocator, only_solvers);
+            var org = try t.bestOrganism(allocator, only_solvers);
             if (org != null) {
                 try orgs.append(org.?);
                 org.?.flag = i;
             }
         }
         if (orgs.items.len > 0) {
-            std.mem.sort(*Organism, orgs.items, {}, fitness_comparison);
+            std.mem.sort(*Organism, orgs.items, {}, fitnessComparison);
             std.mem.reverse(*Organism, orgs.items);
             return orgs.items[0];
         } else {
@@ -137,7 +137,7 @@ pub const Experiment = struct {
         }
     }
 
-    /// `solved` checks whether solution was found in at least one trial
+    /// Checks whether solution was found in at least one trial
     pub fn solved(self: *Experiment) bool {
         for (self.trials.items) |t| {
             if (t.solved()) {
@@ -147,11 +147,11 @@ pub const Experiment = struct {
         return false;
     }
 
-    /// `best_fitness` finds the fitness values of the best organisms for each trial.
-    pub fn best_fitness(self: *Experiment, allocator: std.mem.Allocator) ![]f64 {
+    /// Finds the fitness values of the best organisms for each trial.
+    pub fn bestFitness(self: *Experiment, allocator: std.mem.Allocator) ![]f64 {
         var x = try allocator.alloc(f64, self.trials.items.len);
         for (self.trials.items, 0..) |t, i| {
-            var org = try t.best_organism(allocator, false);
+            var org = try t.bestOrganism(allocator, false);
             if (org != null) {
                 x[i] = org.?.fitness;
             }
@@ -159,11 +159,11 @@ pub const Experiment = struct {
         return x;
     }
 
-    /// `best_species_age` finds the age values of the species with the best organisms for each trial.
-    pub fn best_species_age(self: *Experiment, allocator: std.mem.Allocator) ![]f64 {
+    /// Finds the age values of the species with the best organisms for each trial.
+    pub fn bestSpeciesAge(self: *Experiment, allocator: std.mem.Allocator) ![]f64 {
         var x = try allocator.alloc(f64, self.trials.items.len);
         for (self.trials.items, 0..) |t, i| {
-            var org = try t.best_organism(allocator, false);
+            var org = try t.bestOrganism(allocator, false);
             if (org != null) {
                 x[i] = @as(f64, @floatFromInt(org.?.species.age));
             }
@@ -171,11 +171,11 @@ pub const Experiment = struct {
         return x;
     }
 
-    /// `best_complexity` finds the complexity values of the best organisms for each trial.
-    pub fn best_complexity(self: *Experiment, allocator: std.mem.Allocator) ![]f64 {
+    /// Finds the complexity values of the best organisms for each trial.
+    pub fn bestComplexity(self: *Experiment, allocator: std.mem.Allocator) ![]f64 {
         var x = try allocator.alloc(f64, self.trials.items.len);
         for (self.trials.items, 0..) |t, i| {
-            var org = try t.best_organism(allocator, false);
+            var org = try t.bestOrganism(allocator, false);
             if (org != null) {
                 x[i] = @as(f64, @floatFromInt(org.?.phenotype.?.complexity()));
             }
@@ -183,8 +183,8 @@ pub const Experiment = struct {
         return x;
     }
 
-    /// `avg_diversity` returns the average number of species in each trial
-    pub fn avg_diversity(self: *Experiment, allocator: std.mem.Allocator) ![]f64 {
+    /// Returns the average number of species in each trial
+    pub fn avgDiversity(self: *Experiment, allocator: std.mem.Allocator) ![]f64 {
         var x = try allocator.alloc(f64, self.trials.items.len);
         for (self.trials.items, 0..) |t, i| {
             // TODO: arena allocator (w free and retain capacity, might be faster)
@@ -195,8 +195,8 @@ pub const Experiment = struct {
         return x;
     }
 
-    /// `epochs_per_trial` calculates the number of epochs per trial
-    pub fn epochs_per_trial(self: *Experiment, allocator: std.mem.Allocator) ![]f64 {
+    /// Calculates the number of epochs per trial
+    pub fn epochsPerTrial(self: *Experiment, allocator: std.mem.Allocator) ![]f64 {
         var x = try allocator.alloc(f64, self.trials.items.len);
         for (self.trials.items, 0..) |t, i| {
             x[i] = @as(f64, @floatFromInt(t.generations.items.len));
@@ -204,8 +204,8 @@ pub const Experiment = struct {
         return x;
     }
 
-    /// `trials_solved` calculates the number of trials solved
-    pub fn trials_solved(self: *Experiment) u64 {
+    /// Calculates the number of trials solved
+    pub fn trialsSolved(self: *Experiment) u64 {
         var count: u64 = 0;
         for (self.trials.items) |t| {
             if (t.solved()) {
@@ -215,10 +215,10 @@ pub const Experiment = struct {
         return count;
     }
 
-    /// `success_rate` calculates the success rate of the experiment as ratio
+    /// Calculates the success rate of the experiment as ratio
     /// of trials with successful solvers per total number of trials executed.
-    pub fn success_rate(self: *Experiment) f64 {
-        var is_solved = @as(f64, @floatFromInt(self.trials_solved()));
+    pub fn successRate(self: *Experiment) f64 {
+        var is_solved = @as(f64, @floatFromInt(self.trialsSolved()));
         if (self.trials.items.len > 0) {
             return is_solved / @as(f64, @floatFromInt(self.trials.items.len));
         } else {
@@ -226,9 +226,9 @@ pub const Experiment = struct {
         }
     }
 
-    /// `avg_winner_statistics` calculates the average number of nodes, genes, organisms evaluations,
+    /// Calculates the average number of nodes, genes, organisms evaluations,
     /// and species diversity of winners among all trials, i.e. for all trials where winning solution was found.
-    pub fn avg_winner_statistics(self: *Experiment) *AvgWinnerStats {
+    pub fn avgWinnerStats(self: *Experiment) *AvgWinnerStats {
         var avg_winner_stats = AvgWinnerStats{};
         var count: f64 = 0;
         var total_nodes: i64 = 0;
@@ -238,7 +238,7 @@ pub const Experiment = struct {
         for (self.trials.items) |t| {
             if (t.solved()) {
                 // TODO: arena allocator (w free and retain capacity, might be faster)
-                var t_stats = t.winner_statistics();
+                var t_stats = t.winnerStats();
                 total_nodes += t_stats.nodes;
                 total_genes += t_stats.genes;
                 total_evals += t_stats.evals;
@@ -256,7 +256,7 @@ pub const Experiment = struct {
         return avg_winner_stats;
     }
 
-    pub fn efficiency_score(self: *Experiment) f64 {
+    pub fn efficiencyScore(self: *Experiment) f64 {
         var mean_complexity: f64 = 0;
         var mean_fitness: f64 = 0;
         if (self.trials.items.len > 0) {
@@ -265,7 +265,7 @@ pub const Experiment = struct {
                 if (t.solved()) {
                     if (t.winner_generation == null) {
                         // find winner
-                        _ = t.winner_statistics();
+                        _ = t.winnerStats();
                     }
                     mean_complexity += @as(f64, @floatFromInt(t.winner_generation.?.champion.?.phenotype.?.complexity()));
                     mean_fitness += t.winner_generation.?.champion.?.fitness;
@@ -283,18 +283,18 @@ pub const Experiment = struct {
             fitness_score = (fitness_score / self.max_fitness_score.?) * 100;
         }
 
-        var score = self.penalty_score(mean_complexity);
+        var score = self.penaltyScore(mean_complexity);
         if (score > 0) {
             // calculate normalized score
-            var succeed_rate = self.success_rate();
+            var succeed_rate = self.successRate();
             var log_penalty_score = @log(score);
             score = succeed_rate / log_penalty_score;
         }
         return score;
     }
 
-    fn penalty_score(self: *Experiment, mean_complexity: f64) f64 {
-        return self.avg_epoch_duration() * self.avg_generations_per_trial() * mean_complexity;
+    fn penaltyScore(self: *Experiment, mean_complexity: f64) f64 {
+        return self.avgEpochDuration() * self.avgGenerationsPerTrial() * mean_complexity;
     }
 
     pub fn execute(self: *Experiment, allocator: std.mem.Allocator, rand: std.rand.Random, opts: *Options, start_genome: *Genome, evaluator: GenerationEvaluator, trial_observer: ?TrialRunObserver) !void {
@@ -315,14 +315,14 @@ pub const Experiment = struct {
             std.debug.print("OK <<<<<", .{});
 
             // create appropriate population's epoch executor
-            var epoch_executor: EpochExecutor = try epoch_executor_for_ctx(allocator, opts);
+            var epoch_executor: EpochExecutor = try epochExecutorForCtx(allocator, opts);
             defer epoch_executor.deinit();
 
             // start new trial
             var trial = try Trial.init(allocator, run);
 
             if (trial_observer != null) {
-                trial_observer.?.trial_run_started(trial);
+                trial_observer.?.trialRunStarted(trial);
             }
 
             var generation_id: usize = 0;
@@ -330,9 +330,9 @@ pub const Experiment = struct {
                 std.debug.print("\n>>>>> Generation:{d}\tRun: {d}\n", .{ generation_id, run });
                 var generation = try Generation.init(allocator, generation_id, run);
                 var gen_start_time = std.time.Instant.now() catch unreachable;
-                evaluator.generation_evaluate(opts, pop, generation) catch |err| {
+                evaluator.generationEvaluate(opts, pop, generation) catch |err| {
                     std.debug.print("!!!!! Generation [{d}] evaluation failed !!!!!\n", .{generation_id});
-                    generation.deinit_early();
+                    generation.deinitEarly();
                     return err;
                 };
 
@@ -342,7 +342,7 @@ pub const Experiment = struct {
                 if (!generation.solved) {
                     // std.debug.print(">>>>> start next generation\n", .{});
                     std.debug.print("\n\nNEXT EPOCH:\n\n", .{});
-                    epoch_executor.next_epoch(allocator, rand, opts, generation_id, pop) catch |err| {
+                    epoch_executor.nextEpoch(allocator, rand, opts, generation_id, pop) catch |err| {
                         std.debug.print("!!!!! Epoch execution failed in generation [{d}] !!!!!\n", .{generation_id});
                         return err;
                     };
@@ -353,7 +353,7 @@ pub const Experiment = struct {
                 try trial.generations.append(generation);
 
                 if (trial_observer != null) {
-                    trial_observer.?.epoch_evaluated(trial, generation);
+                    trial_observer.?.epochEvaluated(trial, generation);
                 }
 
                 if (generation.solved) {
@@ -371,7 +371,7 @@ pub const Experiment = struct {
             self.trials.appendAssumeCapacity(trial);
 
             if (trial_observer != null) {
-                trial_observer.?.trial_run_finished(trial);
+                trial_observer.?.trialRunFinished(trial);
             }
         }
     }
@@ -398,6 +398,6 @@ test "Experiment avg Trial duration" {
     trial3.duration = 2;
     try exp.trials.append(trial3);
 
-    var duration = exp.avg_trial_duration();
+    var duration = exp.avgTrialDuration();
     try std.testing.expect(duration == 5);
 }

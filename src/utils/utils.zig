@@ -1,6 +1,6 @@
 const std = @import("std");
 
-pub fn get_writable_file(path: []const u8) !std.fs.File {
+pub fn getWritableFile(path: []const u8) !std.fs.File {
     const dir_path = std.fs.path.dirname(path);
     const file_name = std.fs.path.basename(path);
     var file_dir: std.fs.Dir = undefined;
@@ -13,7 +13,7 @@ pub fn get_writable_file(path: []const u8) !std.fs.File {
     return file_dir.createFile(file_name, .{});
 }
 
-pub fn read_file(allocator: std.mem.Allocator, path: []const u8) ![]u8 {
+pub fn readFile(allocator: std.mem.Allocator, path: []const u8) ![]u8 {
     const dir_path = std.fs.path.dirname(path);
     const file_name = std.fs.path.basename(path);
     var file_dir: std.fs.Dir = undefined;

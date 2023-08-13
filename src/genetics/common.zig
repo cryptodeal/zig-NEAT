@@ -16,7 +16,7 @@ pub const MIMOControlGene = @import("mimo_gene.zig").MIMOControlGene;
 pub const Organism = @import("organism.zig").Organism;
 pub const ReproductionResult = pop_epoch.ReproductionResult;
 pub const SequentialPopulationEpochExecutor = pop_epoch.SequentialPopulationEpochExecutor;
-pub const species_org_sort = pop_epoch.fitness_comparison;
+pub const speciesOrgSort = pop_epoch.speciesOrgSort;
 pub const ParallelPopulationEpochExecutor = pop_epoch.ParallelPopulationEpochExecutor;
 pub const WorkerCtx = pop_epoch.WorkerCtx;
 pub const Population = @import("population.zig").Population;
@@ -39,7 +39,7 @@ pub const GenomeEncoding = enum(u8) {
     YAMLGenomeEncoding,
 };
 
-pub fn trait_with_id(trait_id: i64, traits: ?[]*Trait) ?*Trait {
+pub fn traitWithId(trait_id: i64, traits: ?[]*Trait) ?*Trait {
     if (trait_id != 0 and traits != null) {
         for (traits.?) |tr| {
             if (tr.id.? == trait_id) {
@@ -50,7 +50,7 @@ pub fn trait_with_id(trait_id: i64, traits: ?[]*Trait) ?*Trait {
     return null;
 }
 
-pub fn node_with_id(node_id: i64, nodes: ?[]*NNode) ?*NNode {
+pub fn nodeWithId(node_id: i64, nodes: ?[]*NNode) ?*NNode {
     if (node_id != 0 and nodes != null) {
         for (nodes.?) |n| {
             if (n.id == node_id) {
@@ -59,14 +59,6 @@ pub fn node_with_id(node_id: i64, nodes: ?[]*NNode) ?*NNode {
         }
     }
     return null;
-}
-
-pub fn genome_encoding_from_file_name(file_name: []const u8) GenomeEncoding {
-    if (std.mem.endsWith(u8, file_name, "yml") or std.mem.endsWith(u8, file_name, "yaml")) {
-        return GenomeEncoding.YAMLGenomeEncoding;
-    } else {
-        return GenomeEncoding.PlainGenomeEncoding;
-    }
 }
 
 test {

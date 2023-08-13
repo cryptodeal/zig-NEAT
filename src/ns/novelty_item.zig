@@ -72,12 +72,12 @@ pub const ItemsDistance = struct {
     }
 };
 
-pub fn items_distance_comparison(context: void, a: *ItemsDistance, b: *ItemsDistance) bool {
+pub fn itemsDistanceComparison(context: void, a: *ItemsDistance, b: *ItemsDistance) bool {
     _ = context;
     return a.distance < b.distance;
 }
 
-pub fn novelty_item_comparison(context: void, a: *NoveltyItem, b: *NoveltyItem) bool {
+pub fn noveltyItemComparison(context: void, a: *NoveltyItem, b: *NoveltyItem) bool {
     _ = context;
     if (a.fitness < b.fitness) {
         return true;

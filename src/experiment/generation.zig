@@ -3,7 +3,7 @@ const neat_organism = @import("../genetics/organism.zig");
 const neat_population = @import("../genetics/population.zig");
 const floats = @import("floats.zig");
 
-const fitness_comparison = neat_organism.fitness_comparison;
+const fitnessComparison = neat_organism.fitnessComparison;
 const Population = neat_population.Population;
 const Organism = neat_organism.Organism;
 const mean = floats.mean;
@@ -59,12 +59,12 @@ pub const Generation = struct {
         self.allocator.destroy(self);
     }
 
-    pub fn deinit_early(self: *Generation) void {
+    pub fn deinitEarly(self: *Generation) void {
         self.allocator.destroy(self);
     }
 
     // FillPopulationStatistics Collects statistics about given population
-    pub fn fill_population_statistics(self: *Generation, pop: *Population) !void {
+    pub fn fillPopulationStatistics(self: *Generation, pop: *Population) !void {
         var max_fitness: f64 = @as(f64, @floatFromInt(std.math.minInt(i64)));
         self.diversity = pop.species.items.len;
         // since these set Generation struct fields, alloc using Generation allocator
@@ -74,7 +74,7 @@ pub const Generation = struct {
         for (pop.species.items, 0..) |curr_species, i| {
             self.age[i] = @as(f64, @floatFromInt(curr_species.age));
             // sort organisms from current species by fitness to have most fit first
-            std.mem.sort(*Organism, curr_species.organisms.items, {}, fitness_comparison);
+            std.mem.sort(*Organism, curr_species.organisms.items, {}, fitnessComparison);
             std.mem.reverse(*Organism, curr_species.organisms.items);
             self.complexity[i] = @as(f64, @floatFromInt(curr_species.organisms.items[0].phenotype.?.complexity()));
             self.fitness[i] = curr_species.organisms.items[0].fitness;

@@ -10,7 +10,7 @@ const Genome = neat_genome.Genome;
 const Options = opt.Options;
 const Population = neat_population.Population;
 const MutatorType = neat_common.MutatorType;
-const fitness_comparison = orgn.fitness_comparison;
+const fitnessComparison = orgn.fitnessComparison;
 const logger = @constCast(opt.logger);
 
 pub const MaxAvgFitness = struct {
@@ -57,7 +57,7 @@ pub const Species = struct {
         return self;
     }
 
-    pub fn init_novel(allocator: std.mem.Allocator, id: i64, novel: bool) !*Species {
+    pub fn initNovel(allocator: std.mem.Allocator, id: i64, novel: bool) !*Species {
         var self = try Species.init(allocator, id);
         self.is_novel = novel;
         return self;
@@ -71,11 +71,11 @@ pub const Species = struct {
         self.allocator.destroy(self);
     }
 
-    pub fn add_organism(self: *Species, o: *Organism) !void {
+    pub fn addOrganism(self: *Species, o: *Organism) !void {
         try self.organisms.append(o);
     }
 
-    pub fn remove_organism(self: *Species, allocator: std.mem.Allocator, org: *Organism) !void {
+    pub fn removeOrganism(self: *Species, allocator: std.mem.Allocator, org: *Organism) !void {
         var old_orgs = self.organisms;
         var orgs = std.ArrayList(*Organism).init(allocator);
         errdefer orgs.deinit();
@@ -97,7 +97,7 @@ pub const Species = struct {
         }
     }
 
-    pub fn adjust_fitness(self: *Species, opts: *Options) void {
+    pub fn adjustFitness(self: *Species, opts: *Options) void {
         var age_debt = (self.age - self.age_of_last_improvement + 1) - opts.dropoff_age;
         if (age_debt == 0) {
             age_debt = 1;
@@ -130,7 +130,7 @@ pub const Species = struct {
         }
 
         // sort the population (most fit first) and mark for death those after : survival_threshold * pop_size
-        std.mem.sort(*Organism, self.organisms.items, {}, fitness_comparison);
+        std.mem.sort(*Organism, self.organisms.items, {}, fitnessComparison);
         std.mem.reverse(*Organism, self.organisms.items);
 
         // update age of last improvement
@@ -150,7 +150,7 @@ pub const Species = struct {
         }
     }
 
-    pub fn compute_max_and_avg_fitness(self: *Species) MaxAvgFitness {
+    pub fn computeMaxAndAvgFitness(self: *Species) MaxAvgFitness {
         var res = MaxAvgFitness{};
         var total: f64 = 0.0;
         for (self.organisms.items) |o| {
@@ -165,7 +165,7 @@ pub const Species = struct {
         return res;
     }
 
-    pub fn find_champion(self: *Species) ?*Organism {
+    pub fn findChampion(self: *Species) ?*Organism {
         var champ_fitness: f64 = 0.0;
         var champ: ?*Organism = null;
 
@@ -178,7 +178,7 @@ pub const Species = struct {
         return champ;
     }
 
-    pub fn first_organism(self: *Species) ?*Organism {
+    pub fn firstOrganism(self: *Species) ?*Organism {
         if (self.organisms.items.len > 0) {
             return self.organisms.items[0];
         } else {
@@ -186,7 +186,7 @@ pub const Species = struct {
         }
     }
 
-    pub fn count_offspring(self: *Species, skim: f64) !OffspringCount {
+    pub fn countOffspring(self: *Species, skim: f64) !OffspringCount {
         var org_off_int_part: i64 = undefined;
         var org_off_fract_part: f64 = undefined;
         var skim_int_part: f64 = undefined;
@@ -213,7 +213,7 @@ pub const Species = struct {
         return res;
     }
 
-    pub fn last_improved(self: *Species) i64 {
+    pub fn lastImproved(self: *Species) i64 {
         return self.age - self.age_of_last_improvement;
     }
 
@@ -221,10 +221,10 @@ pub const Species = struct {
         return self.organisms.items.len;
     }
 
-    pub fn sort_find_champion(self: *Species) ?*Organism {
+    pub fn sortFindChampion(self: *Species) ?*Organism {
         var champ: ?*Organism = null;
         // sort the population (most fit first) and mark for death those after : survival_threshold * pop_size
-        std.mem.sort(*Organism, self.organisms.items, {}, fitness_comparison);
+        std.mem.sort(*Organism, self.organisms.items, {}, fitnessComparison);
         std.mem.reverse(*Organism, self.organisms.items);
         champ = self.organisms.items[0];
         return champ;
@@ -276,11 +276,11 @@ pub const Species = struct {
                 if (the_champ.super_champ_offspring > 1) {
                     if (rand.float(f64) < 0.8 or opts.mut_add_link_prob == 0.0) {
                         // Make sure no links get added when the system has link adding disabled
-                        _ = try new_genome.mutate_link_weights(rand, opts.weight_mut_power, 1.0, MutatorType.GaussianMutator);
+                        _ = try new_genome.mutateLinkWeights(rand, opts.weight_mut_power, 1.0, MutatorType.GaussianMutator);
                     } else {
                         // Sometimes we add a link to a superchamp
                         _ = try new_genome.genesis(allocator, @as(i64, @intCast(generation)));
-                        _ = try new_genome.mutate_add_link(allocator, rand, pop, opts);
+                        _ = try new_genome.mutateAddLink(allocator, rand, pop, opts);
                         mut_struct_offspring = true;
                     }
                 }
@@ -310,29 +310,29 @@ pub const Species = struct {
 
                 // Do the mutation depending on probabilities of various mutations
                 if (rand.float(f64) < opts.mut_add_node_prob) {
-                    logger.debug("SPECIES: ---> mutate_add_node", .{}, @src());
+                    logger.debug("SPECIES: ---> mutateAddNode", .{}, @src());
 
                     // Mutate add node
-                    _ = try new_genome.mutate_add_node(allocator, rand, pop, opts);
+                    _ = try new_genome.mutateAddNode(allocator, rand, pop, opts);
                     mut_struct_offspring = true;
                 } else if (rand.float(f64) < opts.mut_add_link_prob) {
-                    logger.debug("SPECIES: ---> mutate_add_link", .{}, @src());
+                    logger.debug("SPECIES: ---> mutateAddLink", .{}, @src());
 
                     // Mutate add link
                     _ = try new_genome.genesis(allocator, @as(i64, @intCast(generation)));
-                    _ = try new_genome.mutate_add_link(allocator, rand, pop, opts);
+                    _ = try new_genome.mutateAddLink(allocator, rand, pop, opts);
                     mut_struct_offspring = true;
                 } else if (rand.float(f64) < opts.mut_connect_sensors) {
-                    logger.debug("SPECIES: ---> mutate_connect_sensors", .{}, @src());
+                    logger.debug("SPECIES: ---> mutateConnectSensors", .{}, @src());
 
-                    mut_struct_offspring = try new_genome.mutate_connect_sensors(allocator, rand, pop, opts);
+                    mut_struct_offspring = try new_genome.mutateConnectSensors(allocator, rand, pop, opts);
                 }
 
                 if (!mut_struct_offspring) {
-                    logger.debug("SPECIES: ---> mutate_all_nonstructural", .{}, @src());
+                    logger.debug("SPECIES: ---> mutateAllNonstructural", .{}, @src());
 
                     // If we didn't do a structural mutation, we do the other kinds
-                    _ = try new_genome.mutate_all_nonstructural(rand, opts);
+                    _ = try new_genome.mutateAllNonstructural(rand, opts);
                 }
 
                 // Create the new baby organism
@@ -373,20 +373,20 @@ pub const Species = struct {
                 // Perform mating based on probabilities of different mating types
                 var new_genome: *Genome = undefined;
                 if (rand.float(f64) < opts.mate_multipoint_prob) {
-                    logger.debug("SPECIES: ------> mate_multipoint", .{}, @src());
+                    logger.debug("SPECIES: ------> mateMultipoint", .{}, @src());
 
                     // mate multipoint baby
-                    new_genome = try mom.genotype.mate_multipoint(allocator, rand, dad.genotype, @as(i64, @intCast(count)), mom.og_fitness, dad.og_fitness);
+                    new_genome = try mom.genotype.mateMultipoint(allocator, rand, dad.genotype, @as(i64, @intCast(count)), mom.og_fitness, dad.og_fitness);
                 } else if (rand.float(f64) < opts.mate_multipoint_avg_prob / (opts.mate_multipoint_avg_prob + opts.mate_singlepoint_prob)) {
-                    logger.debug("SPECIES: ------> mate_multipoint_avg", .{}, @src());
+                    logger.debug("SPECIES: ------> mateMultipointAvg", .{}, @src());
 
                     // mate multipoint_avg baby
-                    new_genome = try mom.genotype.mate_multipoint_avg(allocator, rand, dad.genotype, @as(i64, @intCast(count)), mom.og_fitness, dad.og_fitness);
+                    new_genome = try mom.genotype.mateMultipointAvg(allocator, rand, dad.genotype, @as(i64, @intCast(count)), mom.og_fitness, dad.og_fitness);
                 } else {
-                    logger.debug("SPECIES: ------> mate_singlepoint", .{}, @src());
+                    logger.debug("SPECIES: ------> mateSinglepoint", .{}, @src());
 
                     // mate singlepoint baby
-                    new_genome = try mom.genotype.mate_singlepoint(allocator, rand, dad.genotype, @as(i64, @intCast(count)));
+                    new_genome = try mom.genotype.mateSinglepoint(allocator, rand, dad.genotype, @as(i64, @intCast(count)));
                 }
 
                 mate_offspring = true;
@@ -398,27 +398,27 @@ pub const Species = struct {
 
                     // Do the mutation depending on probabilities of  various mutations
                     if (rand.float(f64) < opts.mut_add_node_prob) {
-                        logger.debug("SPECIES: ---------> mutate_add_node", .{}, @src());
+                        logger.debug("SPECIES: ---------> mutateAddNode", .{}, @src());
 
-                        // mutate_add_node
-                        _ = try new_genome.mutate_add_node(allocator, rand, pop, opts);
+                        // mutateAddNode
+                        _ = try new_genome.mutateAddNode(allocator, rand, pop, opts);
                         mut_struct_offspring = true;
                     } else if (rand.float(f64) < opts.mut_add_link_prob) {
-                        logger.debug("SPECIES: ---------> mutate_add_link", .{}, @src());
+                        logger.debug("SPECIES: ---------> mutateAddLink", .{}, @src());
 
-                        // mutate_add_link
+                        // mutateAddLink
                         _ = try new_genome.genesis(allocator, @as(i64, @intCast(generation)));
-                        _ = try new_genome.mutate_add_link(allocator, rand, pop, opts);
+                        _ = try new_genome.mutateAddLink(allocator, rand, pop, opts);
                         mut_struct_offspring = true;
                     } else if (rand.float(f64) < opts.mut_connect_sensors) {
-                        logger.debug("SPECIES: ---------> mutate_connect_sensors", .{}, @src());
-                        mut_struct_offspring = try new_genome.mutate_connect_sensors(allocator, rand, pop, opts);
+                        logger.debug("SPECIES: ---------> mutateConnectSensors", .{}, @src());
+                        mut_struct_offspring = try new_genome.mutateConnectSensors(allocator, rand, pop, opts);
                     }
 
                     if (!mut_struct_offspring) {
-                        logger.debug("SPECIES: ---------> mutate_all_nonstructural", .{}, @src());
+                        logger.debug("SPECIES: ---------> mutateAllNonstructural", .{}, @src());
                         // If we didn't do a structural mutation, we do the other kinds
-                        _ = try new_genome.mutate_all_nonstructural(rand, opts);
+                        _ = try new_genome.mutateAllNonstructural(rand, opts);
                     }
                 }
                 baby = try Organism.init(allocator, 0.0, new_genome, generation);
@@ -431,7 +431,7 @@ pub const Species = struct {
     }
 };
 
-pub fn og_fitness_comparison(context: void, a: *Species, b: *Species) bool {
+fn ogFitnessComparison(context: void, a: *Species, b: *Species) bool {
     _ = context;
     const org1: Organism = a.organisms.items[0].*;
     const org2: Organism = b.organisms.items[0].*;
@@ -455,30 +455,30 @@ pub const ReproductionError = error{
     CannotReproduceEmptySpecies,
 } || neat_genome.GenomeError || std.mem.Allocator.Error;
 
-pub fn create_first_species(allocator: std.mem.Allocator, pop: *Population, baby: *Organism) !void {
+pub fn createFirstSpecies(allocator: std.mem.Allocator, pop: *Population, baby: *Organism) !void {
     pop.last_species += 1;
-    var species = try Species.init_novel(allocator, pop.last_species, true);
+    var species = try Species.initNovel(allocator, pop.last_species, true);
     try pop.species.append(species);
-    try species.add_organism(baby); // add the new offspring
+    try species.addOrganism(baby); // add the new offspring
     baby.species = species; // point offspring to its species
 }
 
-pub fn build_test_species_with_organisms(allocator: std.mem.Allocator, id: usize) !*Species {
-    var gen = try neat_genome.build_test_genome(allocator, 1);
+pub fn buildTestSpeciesWithOrganisms(allocator: std.mem.Allocator, id: usize) !*Species {
+    var gen = try neat_genome.buildTestGenome(allocator, 1);
     defer gen.deinit();
     var sp = try Species.init(allocator, @as(i64, @intCast(id)));
     var i: usize = 0;
     while (i < 3) : (i += 1) {
         var gnome_cpy = try gen.duplicate(allocator, gen.id);
         var org = try Organism.init(allocator, @as(f64, @floatFromInt(i + 1)) * 5.0 * @as(f64, @floatFromInt(id)), gnome_cpy, id);
-        try sp.add_organism(org);
+        try sp.addOrganism(org);
     }
     return sp;
 }
 
 test "Species adjust fitness" {
     var allocator = std.testing.allocator;
-    var sp = try build_test_species_with_organisms(allocator, 1);
+    var sp = try buildTestSpeciesWithOrganisms(allocator, 1);
     defer sp.deinit();
 
     // configuration
@@ -487,7 +487,7 @@ test "Species adjust fitness" {
         .survival_thresh = 0.5,
         .age_significance = 0.5,
     };
-    sp.adjust_fitness(&options);
+    sp.adjustFitness(&options);
 
     // test results
     try std.testing.expect(sp.organisms.items[0].is_champion);
@@ -498,23 +498,23 @@ test "Species adjust fitness" {
 
 test "Species count offspring" {
     var allocator = std.testing.allocator;
-    var sp = try build_test_species_with_organisms(allocator, 1);
+    var sp = try buildTestSpeciesWithOrganisms(allocator, 1);
     defer sp.deinit();
     for (sp.organisms.items, 0..) |o, i| {
         o.expected_offspring = @as(f64, @floatFromInt(i)) * 1.5;
     }
-    var res = try sp.count_offspring(0.5);
+    var res = try sp.countOffspring(0.5);
     sp.expected_offspring = res.expected;
     try std.testing.expect(sp.expected_offspring == 5);
     try std.testing.expect(res.skim == 0);
 
     // build and test another species
-    var sp2 = try build_test_species_with_organisms(allocator, 2);
+    var sp2 = try buildTestSpeciesWithOrganisms(allocator, 2);
     defer sp2.deinit();
     for (sp2.organisms.items, 0..) |o, i| {
         o.expected_offspring = @as(f64, @floatFromInt(i)) * 1.5;
     }
-    res = try sp.count_offspring(0.4);
+    res = try sp.countOffspring(0.4);
     sp2.expected_offspring = res.expected;
     try std.testing.expect(sp2.expected_offspring == 4);
     try std.testing.expect(res.skim == 0.9);
@@ -522,7 +522,7 @@ test "Species count offspring" {
 
 test "Species compute max fitness" {
     var allocator = std.testing.allocator;
-    var sp = try build_test_species_with_organisms(allocator, 1);
+    var sp = try buildTestSpeciesWithOrganisms(allocator, 1);
     defer sp.deinit();
     var avg_check: f64 = 0;
     for (sp.organisms.items) |o| {
@@ -530,36 +530,36 @@ test "Species compute max fitness" {
     }
     avg_check /= @as(f64, @floatFromInt(sp.organisms.items.len));
 
-    var res = sp.compute_max_and_avg_fitness();
+    var res = sp.computeMaxAndAvgFitness();
     try std.testing.expect(res.max == 15.0);
     try std.testing.expect(res.avg == avg_check);
 }
 
 test "Species find champion" {
     var allocator = std.testing.allocator;
-    var sp = try build_test_species_with_organisms(allocator, 1);
+    var sp = try buildTestSpeciesWithOrganisms(allocator, 1);
     defer sp.deinit();
 
-    var champ = sp.find_champion();
+    var champ = sp.findChampion();
     try std.testing.expect(champ.?.fitness == 15.0);
 }
 
 test "Species remove organism" {
     var allocator = std.testing.allocator;
-    var sp = try build_test_species_with_organisms(allocator, 1);
+    var sp = try buildTestSpeciesWithOrganisms(allocator, 1);
     defer sp.deinit();
 
     // test remove
     var size = sp.organisms.items.len;
-    try sp.remove_organism(allocator, sp.organisms.items[0]);
+    try sp.removeOrganism(allocator, sp.organisms.items[0]);
     try std.testing.expect(sp.organisms.items.len == size - 1);
 
     // test fail to remove
     size = sp.organisms.items.len;
-    var gen = try neat_genome.build_test_genome(allocator, 1);
+    var gen = try neat_genome.buildTestGenome(allocator, 1);
     var org = try Organism.init(allocator, 6.0, gen, 1);
     defer org.deinit();
-    try std.testing.expectError(error.FailedToRemoveOrganism, sp.remove_organism(allocator, org));
+    try std.testing.expectError(error.FailedToRemoveOrganism, sp.removeOrganism(allocator, org));
     try std.testing.expect(sp.organisms.items.len == size);
 }
 
@@ -582,7 +582,7 @@ test "Species reproduce" {
         .pop_size = 30,
         .compat_threshold = 0.6,
     };
-    var gen = try Genome.init_rand(allocator, rand, 1, in, out, n, nmax, false, link_prob);
+    var gen = try Genome.initRand(allocator, rand, 1, in, out, n, nmax, false, link_prob);
     defer gen.deinit();
     var pop = try Population.init(allocator, rand, gen, &options);
     defer pop.deinit();
@@ -593,7 +593,7 @@ test "Species reproduce" {
     @memcpy(sorted_species, pop.species.items);
 
     // sort the Species by max original fitness of its first organism
-    std.mem.sort(*Species, sorted_species, {}, og_fitness_comparison);
+    std.mem.sort(*Species, sorted_species, {}, ogFitnessComparison);
 
     pop.species.items[0].expected_offspring = 11;
 

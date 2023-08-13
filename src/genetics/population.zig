@@ -7,7 +7,7 @@ const common = @import("common.zig");
 const neat_innovation = @import("innovation.zig");
 
 const Species = neat_species.Species;
-const create_first_species = neat_species.create_first_species;
+const createFirstSpecies = neat_species.createFirstSpecies;
 const Organism = neat_organism.Organism;
 const Innovation = neat_innovation.Innovation;
 const Options = opt.Options;
@@ -50,7 +50,7 @@ pub const Population = struct {
     allocator: std.mem.Allocator,
     org_mem_pool: ?std.heap.MemoryPoolExtra(Organism, .{}) = null,
 
-    pub fn raw_init(allocator: std.mem.Allocator) !*Population {
+    pub fn rawInit(allocator: std.mem.Allocator) !*Population {
         var multi_thread_alloc = std.heap.ThreadSafeAllocator{ .child_allocator = allocator };
         var self = try allocator.create(Population);
         self.* = .{
@@ -68,21 +68,21 @@ pub const Population = struct {
             std.debug.print("wrong population size in the context: {d}\n", .{opts.pop_size});
             return error.InvalidPopulationSize;
         }
-        var self = try Population.raw_init(allocator);
+        var self = try Population.rawInit(allocator);
         try self.spawn(allocator, rand, g, opts);
         return self;
     }
 
-    pub fn init_random(allocator: std.mem.Allocator, rand: std.rand.Random, in: usize, out: usize, max_hidden: usize, recurrent: bool, link_prob: f64, opts: *Options) !*Population {
+    pub fn initRandom(allocator: std.mem.Allocator, rand: std.rand.Random, in: usize, out: usize, max_hidden: usize, recurrent: bool, link_prob: f64, opts: *Options) !*Population {
         if (opts.pop_size <= 0) {
             std.debug.print("wrong population size in the options: {d}", .{opts.pop_size});
             return error.InvalidPopulationSize;
         }
 
-        var self = try Population.raw_init(allocator);
+        var self = try Population.rawInit(allocator);
         var count: usize = 0;
         while (count < opts.pop_size) : (count += 1) {
-            var gen = try Genome.init_rand(allocator, rand, @as(i64, @intCast(count)), @as(i64, @intCast(in)), @as(i64, @intCast(out)), rand.intRangeLessThan(i64, 0, @as(i64, @intCast(max_hidden))), @as(i64, @intCast(max_hidden)), recurrent, link_prob);
+            var gen = try Genome.initRand(allocator, rand, @as(i64, @intCast(count)), @as(i64, @intCast(in)), @as(i64, @intCast(out)), rand.intRangeLessThan(i64, 0, @as(i64, @intCast(max_hidden))), @as(i64, @intCast(max_hidden)), recurrent, link_prob);
             var org = try Organism.init(allocator, 0.0, gen, 1);
             try self.organisms.append(org);
         }
@@ -114,23 +114,23 @@ pub const Population = struct {
         return true;
     }
 
-    pub fn get_next_node_id(self: *Population) i64 {
+    pub fn getNextNodeId(self: *Population) i64 {
         var res = self.next_node_id.fetchAdd(1, .Monotonic);
         return res + 1;
     }
 
-    pub fn get_next_innovation_number(self: *Population) i64 {
+    pub fn getNextInnovationNumber(self: *Population) i64 {
         var res = self.next_innov_number.fetchAdd(1, .Monotonic);
         return res + 1;
     }
 
-    pub fn store_innovation(self: *Population, innovation: *Innovation) !void {
+    pub fn storeInnovation(self: *Population, innovation: *Innovation) !void {
         self.mutex.lock();
         defer self.mutex.unlock();
         try self.innovations.append(innovation);
     }
 
-    pub fn get_innovations(self: *Population) []*Innovation {
+    pub fn getInnovations(self: *Population) []*Innovation {
         return self.innovations.items;
     }
 
@@ -140,21 +140,21 @@ pub const Population = struct {
             // make genome duplicate for new organism
             var new_genome = try g.duplicate(allocator, @as(i64, @intCast(count)));
             // introduce initial mutations
-            _ = try new_genome.mutate_link_weights(rand, 1.0, 1.0, MutatorType.GaussianMutator);
+            _ = try new_genome.mutateLinkWeights(rand, 1.0, 1.0, MutatorType.GaussianMutator);
             // create organism for new genome
             var new_organism = try Organism.init(allocator, 0, new_genome, 1);
             try self.organisms.append(new_organism);
         }
         // keep track of innovation and node number
-        var next_node_id = try g.get_last_node_id();
+        var next_node_id = try g.getLastNodeId();
         self.next_node_id = std.atomic.Atomic(i64).init(next_node_id + 1);
-        self.next_innov_number = std.atomic.Atomic(i64).init(try g.get_next_gene_innov_num());
+        self.next_innov_number = std.atomic.Atomic(i64).init(try g.getNextGeneInnovNum());
         _ = self.next_innov_number.fetchSub(1, .Monotonic);
 
         try self.speciate(allocator, opts, self.organisms.items);
     }
 
-    pub fn check_best_species_alive(self: *Population, best_species_id: i64, best_species_reproduced: bool) !void {
+    pub fn checkBestSpeciesAlive(self: *Population, best_species_id: i64, best_species_reproduced: bool) !void {
         var best_ok = false;
         var best_sp_max_fitness: f64 = undefined;
         for (self.species.items) |curr_species| {
@@ -179,7 +179,7 @@ pub const Population = struct {
         for (organisms) |curr_org| {
             if (self.species.items.len == 0) {
                 // create the first species
-                try create_first_species(allocator, self, curr_org);
+                try createFirstSpecies(allocator, self, curr_org);
             } else {
                 if (opts.compat_threshold == 0) {
                     std.debug.print("compatibility threshold is set to ZERO; will not find any compatible species\n", .{});
@@ -190,7 +190,7 @@ pub const Population = struct {
                 var best_compatible: ?*Species = null;
                 var best_compat_value = std.math.inf(f64);
                 for (self.species.items) |curr_species| {
-                    var comp_org = curr_species.first_organism();
+                    var comp_org = curr_species.firstOrganism();
                     // compare current organism with first organism in current species
                     if (comp_org != null) {
                         var curr_compat = curr_org.genotype.compatability(comp_org.?.genotype, opts);
@@ -203,18 +203,18 @@ pub const Population = struct {
                 }
                 if (best_compatible != null and done) {
                     // found compatible species, so add the current organism to it
-                    try best_compatible.?.add_organism(curr_org);
+                    try best_compatible.?.addOrganism(curr_org);
                     // point organism to its species
                     curr_org.species = best_compatible.?;
                 } else {
                     // if we didn't find a match, create a new species
-                    try create_first_species(allocator, self, curr_org);
+                    try createFirstSpecies(allocator, self, curr_org);
                 }
             }
         }
     }
 
-    pub fn purge_zero_offspring_species(self: *Population, allocator: std.mem.Allocator, generation: usize) !void {
+    pub fn purgeZeroOffspringSpecies(self: *Population, allocator: std.mem.Allocator, generation: usize) !void {
         _ = generation;
         // used to compute avg fitness over all Organisms
         var total: f64 = 0.0;
@@ -241,7 +241,7 @@ pub const Population = struct {
         // precision checking
         var total_expected: i64 = 0;
         for (self.species.items) |sp| {
-            var offspring_count = try sp.count_offspring(skim);
+            var offspring_count = try sp.countOffspring(skim);
             sp.expected_offspring = offspring_count.expected;
             skim = offspring_count.skim;
             total_expected += sp.expected_offspring;
@@ -303,7 +303,7 @@ pub const Population = struct {
     }
 
     // When population stagnation detected the delta coding will be performed in attempt to fix this
-    pub fn delta_coding(self: *Population, sorted_species: []*Species, opts: *Options) void {
+    pub fn deltaCoding(self: *Population, sorted_species: []*Species, opts: *Options) void {
         self.epoch_highest_last_changed = 0;
         var half_pop = opts.pop_size / 2;
 
@@ -334,7 +334,7 @@ pub const Population = struct {
 
     // The system can take expected offspring away from worse species and give them
     // to superior species depending on the system parameter BabiesStolen (when BabiesStolen > 0)
-    pub fn give_babies_to_the_best(_: *Population, rand: std.rand.Random, sorted_species: []*Species, opts: *Options) !void {
+    pub fn giveBabiesToTheBest(_: *Population, rand: std.rand.Random, sorted_species: []*Species, opts: *Options) !void {
         // Babies taken from the bad species and given to the champs
         var stolen_babies: usize = 0;
 
@@ -362,7 +362,7 @@ pub const Population = struct {
         var stolen_blocks = [3]usize{ opts.babies_stolen / 5, opts.babies_stolen / 5, opts.babies_stolen / 10 };
         var block_idx: usize = 0;
         for (sorted_species) |curr_species| {
-            if (curr_species.last_improved() > opts.dropoff_age) {
+            if (curr_species.lastImproved() > opts.dropoff_age) {
                 // Don't give a chance to dying species even if they are champs
                 continue;
             }
@@ -402,12 +402,12 @@ pub const Population = struct {
     }
 
     // Purge from population all organisms marked to be eliminated
-    pub fn purge_organisms(self: *Population, allocator: std.mem.Allocator) !void {
+    pub fn purgeOrganisms(self: *Population, allocator: std.mem.Allocator) !void {
         var org_to_keep = std.ArrayList(*Organism).init(allocator);
         for (self.organisms.items) |org| {
             if (org.to_eliminate) {
                 // Remove the organism from its Species
-                try org.species.remove_organism(allocator, org);
+                try org.species.removeOrganism(allocator, org);
             } else {
                 try org_to_keep.append(org);
             }
@@ -417,17 +417,17 @@ pub const Population = struct {
     }
 
     // Destroy and remove the old generation of the organisms and of the species
-    pub fn purge_old_generation(self: *Population, allocator: std.mem.Allocator) !void {
+    pub fn purgeOldGeneration(self: *Population, allocator: std.mem.Allocator) !void {
         for (self.organisms.items) |org| {
             // Remove the organism from its Species
-            try org.species.remove_organism(allocator, org);
+            try org.species.removeOrganism(allocator, org);
         }
 
         self.organisms.deinit();
         self.organisms = std.ArrayList(*Organism).init(allocator);
     }
 
-    pub fn purge_or_age_species(self: *Population, allocator: std.mem.Allocator) !void {
+    pub fn purgeOrAgeSpecies(self: *Population, allocator: std.mem.Allocator) !void {
         var org_count: usize = 0;
         var species_to_keep = std.ArrayList(*Species).init(allocator);
         for (self.species.items) |curr_species| {
@@ -470,7 +470,7 @@ test "Population init random" {
         .compat_threshold = 0.5,
         .pop_size = 10,
     };
-    var pop = try Population.init_random(allocator, rand, in, out, nmax, false, link_prob, &options);
+    var pop = try Population.initRandom(allocator, rand, in, out, nmax, false, link_prob, &options);
     defer pop.deinit();
 
     try std.testing.expect(pop.organisms.items.len == options.pop_size);
@@ -504,16 +504,16 @@ test "Population init" {
         .pop_size = 10,
     };
 
-    var gen = try Genome.init_rand(allocator, rand, 1, in, out, n, nmax, false, link_prob);
+    var gen = try Genome.initRand(allocator, rand, 1, in, out, n, nmax, false, link_prob);
     defer gen.deinit();
     var pop = try Population.init(allocator, rand, gen, &options);
     defer pop.deinit();
 
     try std.testing.expect(pop.organisms.items.len == options.pop_size);
-    var last_node_id = try gen.get_last_node_id();
+    var last_node_id = try gen.getLastNodeId();
     try std.testing.expect(last_node_id + 1 == pop.next_node_id.loadUnchecked());
 
-    var next_gene_innov_num = try gen.get_next_gene_innov_num();
+    var next_gene_innov_num = try gen.getNextGeneInnovNum();
     try std.testing.expect(next_gene_innov_num - 1 == pop.next_innov_number.loadUnchecked());
     try std.testing.expect(pop.species.items.len == 1);
 }

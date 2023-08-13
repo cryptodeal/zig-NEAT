@@ -16,7 +16,7 @@ pub const GenerationAvg = exp_generation.GenerationAvg;
 pub const Trial = trial.Trial;
 pub const WinnerStats = trial.WinnerStats;
 pub const TrialAvg = trial.TrialAvg;
-pub const create_out_dir_for_trial = utils.create_out_dir_for_trial;
+pub const createOutDirForTrial = utils.createOutDirForTrial;
 pub const TrialRunObserver = @import("trial_run_observer.zig");
 pub const GenerationEvaluator = @import("generation_evaluator.zig");
 
@@ -36,14 +36,14 @@ pub const EpochExecutor = union(enum) {
         }
     }
 
-    pub fn next_epoch(self: EpochExecutor, allocator: std.mem.Allocator, rand: std.rand.Random, opts: *Options, generation: usize, population: *Population) !void {
+    pub fn nextEpoch(self: EpochExecutor, allocator: std.mem.Allocator, rand: std.rand.Random, opts: *Options, generation: usize, population: *Population) !void {
         try switch (self) {
-            inline else => |s| s.next_epoch(allocator, rand, opts, generation, population),
+            inline else => |s| s.nextEpoch(allocator, rand, opts, generation, population),
         };
     }
 };
 
-pub fn epoch_executor_for_ctx(allocator: std.mem.Allocator, ctx: *Options) !EpochExecutor {
+pub fn epochExecutorForCtx(allocator: std.mem.Allocator, ctx: *Options) !EpochExecutor {
     return switch (ctx.epoch_executor_type) {
         EpochExecutorType.EpochExecutorTypeSequential => {
             var executor = try SequentialPopulationEpochExecutor.init(allocator);

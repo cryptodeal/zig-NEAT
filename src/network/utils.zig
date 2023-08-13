@@ -4,14 +4,14 @@ const Network = @import("network.zig").Network;
 
 const GraphNode = graph.GraphNode;
 
-pub fn print_all_activation_depth_paths(n: *Network, writer: anytype) !void {
+pub fn printAllActivationDepthPaths(n: *Network, writer: anytype) !void {
     _ = writer;
     _ = n;
     // TODO: implement
 }
 
 /// prints the given paths into specified writer
-pub fn print_path(writer: anytype, paths: ?std.ArrayList(std.ArrayList(*GraphNode(i64, {})))) !void {
+pub fn printPath(writer: anytype, paths: ?std.ArrayList(std.ArrayList(*GraphNode(i64, {})))) !void {
     if (paths == null) {
         return error.PathsAreEmpty;
     }

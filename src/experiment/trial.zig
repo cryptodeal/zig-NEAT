@@ -3,7 +3,7 @@ const Generation = @import("generation.zig").Generation;
 const neat_organism = @import("../genetics/organism.zig");
 
 const Organism = neat_organism.Organism;
-const fitness_comparison = neat_organism.fitness_comparison;
+const fitnessComparison = neat_organism.fitnessComparison;
 
 pub const Trial = struct {
     // The trial number
@@ -36,7 +36,7 @@ pub const Trial = struct {
         self.allocator.destroy(self);
     }
 
-    pub fn avg_epoch_duration(self: *Trial) i64 {
+    pub fn avgEpochDuration(self: *Trial) i64 {
         var total: u64 = 0;
         for (self.generations.items) |generation| {
             total += generation.duration;
@@ -48,7 +48,7 @@ pub const Trial = struct {
         }
     }
 
-    pub fn recent_epoch_eval_time(self: *Trial) std.time.Instant {
+    pub fn recentEpochEvalTime(self: *Trial) std.time.Instant {
         var u: std.time.Instant = undefined;
         for (self.generations.items, 0..) |i, idx| {
             if (idx == 0) {
@@ -62,7 +62,7 @@ pub const Trial = struct {
         return u;
     }
 
-    pub fn best_organism(self: *Trial, allocator: std.mem.Allocator, only_solvers: bool) !?*Organism {
+    pub fn bestOrganism(self: *Trial, allocator: std.mem.Allocator, only_solvers: bool) !?*Organism {
         var orgs = std.ArrayList(*Organism).init(allocator);
         defer orgs.deinit();
         for (self.generations.items) |e| {
@@ -73,7 +73,7 @@ pub const Trial = struct {
             }
         }
         if (orgs.items.len > 0) {
-            std.mem.sort(*Organism, orgs.items, {}, fitness_comparison);
+            std.mem.sort(*Organism, orgs.items, {}, fitnessComparison);
             std.mem.reverse(*Organism, orgs.items);
             return orgs.items[0];
         } else {
@@ -90,7 +90,7 @@ pub const Trial = struct {
         return false;
     }
 
-    pub fn champions_fitness(self: *Trial, allocator: std.mem.Allocator) ![]f64 {
+    pub fn championsFitness(self: *Trial, allocator: std.mem.Allocator) ![]f64 {
         var x = try allocator.alloc(f64, self.generations.items.len);
         for (self.generations.items, 0..) |e, i| {
             x[i] = e.champion.?.fitness;
@@ -98,7 +98,7 @@ pub const Trial = struct {
         return x;
     }
 
-    pub fn champion_species_ages(self: *Trial, allocator: std.mem.Allocator) ![]f64 {
+    pub fn championSpeciesAges(self: *Trial, allocator: std.mem.Allocator) ![]f64 {
         var x = try allocator.alloc(f64, self.generations.items.len);
         for (self.generations.items, 0..) |e, i| {
             x[i] = @as(f64, @floatFromInt(e.champion.?.species.age));
@@ -106,7 +106,7 @@ pub const Trial = struct {
         return x;
     }
 
-    pub fn champions_complexities(self: *Trial, allocator: std.mem.Allocator) ![]f64 {
+    pub fn championsComplexities(self: *Trial, allocator: std.mem.Allocator) ![]f64 {
         var x = try allocator.alloc(f64, self.generations.items.len);
         for (self.generations.items, 0..) |e, i| {
             x[i] = @as(f64, @floatFromInt(e.champion.?.phenotype.?.complexity()));
@@ -133,7 +133,7 @@ pub const Trial = struct {
         return self_avg;
     }
 
-    pub fn winner_statistics(self: *Trial) WinnerStats {
+    pub fn winnerStats(self: *Trial) WinnerStats {
         var stats = WinnerStats{};
         if (self.winner_generation != null) {
             stats.nodes = @as(i64, @intCast(self.winner_generation.?.winner_nodes));

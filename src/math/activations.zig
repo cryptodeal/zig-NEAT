@@ -61,45 +61,45 @@ pub const NodeActivationType = enum(usize) {
         "MinModuleActivation",
     };
 
-    pub fn activate_by_type(input: f64, aux_params: ?[]f64, activation_type: NodeActivationType) !f64 {
+    pub fn activateByType(input: f64, aux_params: ?[]f64, activation_type: NodeActivationType) !f64 {
         return switch (activation_type) {
-            NodeActivationType.SigmoidPlainActivation => plain_sigmoid(input, aux_params),
-            NodeActivationType.SigmoidReducedActivation => reduced_sigmoid(input, aux_params),
-            NodeActivationType.SigmoidBipolarActivation => bipolar_sigmoid(input, aux_params),
-            NodeActivationType.SigmoidSteepenedActivation => steepened_sigmoid(input, aux_params),
-            NodeActivationType.SigmoidApproximationActivation => approximation_sigmoid(input, aux_params),
-            NodeActivationType.SigmoidSteepenedApproximationActivation => approximation_steepened_sigmoid(input, aux_params),
-            NodeActivationType.SigmoidInverseAbsoluteActivation => inverse_absolute_sigmoid(input, aux_params),
-            NodeActivationType.SigmoidLeftShiftedActivation => left_shifted_sigmoid(input, aux_params),
-            NodeActivationType.SigmoidLeftShiftedSteepenedActivation => left_shifted_steepened_sigmoid(input, aux_params),
-            NodeActivationType.SigmoidRightShiftedSteepenedActivation => right_shifted_steepened_sigmoid(input, aux_params),
-            NodeActivationType.TanhActivation => hyperbolic_tangent(input, aux_params),
-            NodeActivationType.GaussianBipolarActivation => bipolar_gaussian(input, aux_params),
+            NodeActivationType.SigmoidPlainActivation => plainSigmoid(input, aux_params),
+            NodeActivationType.SigmoidReducedActivation => reducedSigmoid(input, aux_params),
+            NodeActivationType.SigmoidBipolarActivation => bipolarSigmoid(input, aux_params),
+            NodeActivationType.SigmoidSteepenedActivation => steepenedSigmoid(input, aux_params),
+            NodeActivationType.SigmoidApproximationActivation => approximationSigmoid(input, aux_params),
+            NodeActivationType.SigmoidSteepenedApproximationActivation => approximationSteepenedSigmoid(input, aux_params),
+            NodeActivationType.SigmoidInverseAbsoluteActivation => inverseAbsoluteSigmoid(input, aux_params),
+            NodeActivationType.SigmoidLeftShiftedActivation => leftShiftedSigmoid(input, aux_params),
+            NodeActivationType.SigmoidLeftShiftedSteepenedActivation => leftShiftedSteepenedSigmoid(input, aux_params),
+            NodeActivationType.SigmoidRightShiftedSteepenedActivation => rightShiftedSteepenedSigmoid(input, aux_params),
+            NodeActivationType.TanhActivation => hyperbolicTangent(input, aux_params),
+            NodeActivationType.GaussianBipolarActivation => bipolarGaussian(input, aux_params),
             NodeActivationType.LinearActivation => linear(input, aux_params),
-            NodeActivationType.LinearAbsActivation => absolute_linear(input, aux_params),
-            NodeActivationType.LinearClippedActivation => clipped_linear(input, aux_params),
-            NodeActivationType.NullActivation => null_functor(input, aux_params),
-            NodeActivationType.SignActivation => sign_function(input, aux_params),
-            NodeActivationType.SineActivation => sine_function(input, aux_params),
-            NodeActivationType.StepActivation => step_function(input, aux_params),
+            NodeActivationType.LinearAbsActivation => absoluteLinear(input, aux_params),
+            NodeActivationType.LinearClippedActivation => clippedLinear(input, aux_params),
+            NodeActivationType.NullActivation => nullFunctor(input, aux_params),
+            NodeActivationType.SignActivation => signFunction(input, aux_params),
+            NodeActivationType.SineActivation => sineFunction(input, aux_params),
+            NodeActivationType.StepActivation => stepFunction(input, aux_params),
             else => error.UnknownNodeActivationType,
         };
     }
 
-    pub fn activate_module_by_type(inputs: []f64, aux_params: ?[]f64, activation_type: NodeActivationType) ![1]f64 {
+    pub fn activateModuleByType(inputs: []f64, aux_params: ?[]f64, activation_type: NodeActivationType) ![1]f64 {
         return switch (activation_type) {
-            NodeActivationType.MultiplyModuleActivation => multiply_module(inputs, aux_params),
-            NodeActivationType.MaxModuleActivation => max_module(inputs, aux_params),
-            NodeActivationType.MinModuleActivation => min_module(inputs, aux_params),
+            NodeActivationType.MultiplyModuleActivation => multiplyModule(inputs, aux_params),
+            NodeActivationType.MaxModuleActivation => maxModule(inputs, aux_params),
+            NodeActivationType.MinModuleActivation => minModule(inputs, aux_params),
             else => error.UnknownModuleActivationType,
         };
     }
 
-    pub fn activation_name_by_type(self: NodeActivationType) []const u8 {
+    pub fn activationNameByType(self: NodeActivationType) []const u8 {
         return @tagName(self);
     }
 
-    pub fn activation_type_by_name(name: []const u8) NodeActivationType {
+    pub fn activationTypeByName(name: []const u8) NodeActivationType {
         inline for (ActivationNameTable, 0..) |enum_name, idx| {
             if (std.mem.eql(u8, name, enum_name)) {
                 return @as(NodeActivationType, @enumFromInt(idx));
@@ -110,31 +110,31 @@ pub const NodeActivationType = enum(usize) {
 };
 
 /// plain sigmoid
-fn plain_sigmoid(input: f64, aux_params: ?[]f64) f64 {
+fn plainSigmoid(input: f64, aux_params: ?[]f64) f64 {
     _ = aux_params;
     return 1.0 / (1.0 + @exp(-input));
 }
 
 /// plain reduced sigmoid
-fn reduced_sigmoid(input: f64, aux_params: ?[]f64) f64 {
+fn reducedSigmoid(input: f64, aux_params: ?[]f64) f64 {
     _ = aux_params;
     return 1.0 / (1.0 + @exp(-0.5 * input));
 }
 
 /// steepened sigmoid
-fn steepened_sigmoid(input: f64, aux_params: ?[]f64) f64 {
+fn steepenedSigmoid(input: f64, aux_params: ?[]f64) f64 {
     _ = aux_params;
     return 1.0 / (1.0 + @exp(-4.924273 * input));
 }
 
 /// bipolar sigmoid
-fn bipolar_sigmoid(input: f64, aux_params: ?[]f64) f64 {
+fn bipolarSigmoid(input: f64, aux_params: ?[]f64) f64 {
     _ = aux_params;
     return (2.0 / (1.0 + @exp(-4.924273 * input))) - 1.0;
 }
 
 /// approximation sigmoid w squashing range [-4.0; 4.0]
-fn approximation_sigmoid(input: f64, aux_params: ?[]f64) f64 {
+fn approximationSigmoid(input: f64, aux_params: ?[]f64) f64 {
     _ = aux_params;
     if (input < -4.0) {
         return 0.0;
@@ -148,7 +148,7 @@ fn approximation_sigmoid(input: f64, aux_params: ?[]f64) f64 {
 }
 
 /// approximation steepened sigmoid w squashing range [-1.0; 1.0]
-fn approximation_steepened_sigmoid(input: f64, aux_params: ?[]f64) f64 {
+fn approximationSteepenedSigmoid(input: f64, aux_params: ?[]f64) f64 {
     _ = aux_params;
     if (input < -1.0) {
         return 0.0;
@@ -162,35 +162,35 @@ fn approximation_steepened_sigmoid(input: f64, aux_params: ?[]f64) f64 {
 }
 
 /// inverse absolute sigmoid
-fn inverse_absolute_sigmoid(input: f64, aux_params: ?[]f64) f64 {
+fn inverseAbsoluteSigmoid(input: f64, aux_params: ?[]f64) f64 {
     _ = aux_params;
     return 0.5 + (input / (1.0 + @fabs(input))) * 0.5;
 }
 
 /// left/right shifted sigmoid
-fn left_shifted_sigmoid(input: f64, aux_params: ?[]f64) f64 {
+fn leftShiftedSigmoid(input: f64, aux_params: ?[]f64) f64 {
     _ = aux_params;
     return 1.0 / (1.0 + @exp(-input - 2.4621365));
 }
 
-fn left_shifted_steepened_sigmoid(input: f64, aux_params: ?[]f64) f64 {
+fn leftShiftedSteepenedSigmoid(input: f64, aux_params: ?[]f64) f64 {
     _ = aux_params;
     return 1.0 / (1.0 + @exp(-(4.924273 * input + 2.4621365)));
 }
 
-fn right_shifted_steepened_sigmoid(input: f64, aux_params: ?[]f64) f64 {
+fn rightShiftedSteepenedSigmoid(input: f64, aux_params: ?[]f64) f64 {
     _ = aux_params;
     return 1.0 / (1.0 + @exp(-(4.924273 * input - 2.4621365)));
 }
 
 /// hyperbolic tangent
-fn hyperbolic_tangent(input: f64, aux_params: ?[]f64) f64 {
+fn hyperbolicTangent(input: f64, aux_params: ?[]f64) f64 {
     _ = aux_params;
     return std.math.tanh(0.9 * input);
 }
 
 /// bipolar Gaussian w xrange->[-1,1] yrange->[-1,1]
-fn bipolar_gaussian(input: f64, aux_params: ?[]f64) f64 {
+fn bipolarGaussian(input: f64, aux_params: ?[]f64) f64 {
     _ = aux_params;
     return 2.0 * @exp(-std.math.pow(f64, input * 2.5, 2.0)) - 1.0;
 }
@@ -202,13 +202,13 @@ fn linear(input: f64, aux_params: ?[]f64) f64 {
 }
 
 /// absolute linear activation
-fn absolute_linear(input: f64, aux_params: ?[]f64) f64 {
+fn absoluteLinear(input: f64, aux_params: ?[]f64) f64 {
     _ = aux_params;
     return @fabs(input);
 }
 
 /// linear activation w clipping; output is linear between [-1; 1] or clipped at -1/1 if outside range
-fn clipped_linear(input: f64, aux_params: ?[]f64) f64 {
+fn clippedLinear(input: f64, aux_params: ?[]f64) f64 {
     _ = aux_params;
     if (input < -1.0) {
         return -1.0;
@@ -220,14 +220,14 @@ fn clipped_linear(input: f64, aux_params: ?[]f64) f64 {
 }
 
 /// null activator
-fn null_functor(input: f64, aux_params: ?[]f64) f64 {
+fn nullFunctor(input: f64, aux_params: ?[]f64) f64 {
     _ = aux_params;
     _ = input;
     return 0.0;
 }
 
 /// sign activator
-fn sign_function(input: f64, aux_params: ?[]f64) f64 {
+fn signFunction(input: f64, aux_params: ?[]f64) f64 {
     _ = aux_params;
     if (std.math.isNan(input) or input == 0.0) {
         return 0.0;
@@ -239,13 +239,13 @@ fn sign_function(input: f64, aux_params: ?[]f64) f64 {
 }
 
 /// sine periodic activation with doubled period
-fn sine_function(input: f64, aux_params: ?[]f64) f64 {
+fn sineFunction(input: f64, aux_params: ?[]f64) f64 {
     _ = aux_params;
     return @sin(2.0 * input);
 }
 
 /// step function x < 0 ? 0.0 : 1.0
-fn step_function(input: f64, aux_params: ?[]f64) f64 {
+fn stepFunction(input: f64, aux_params: ?[]f64) f64 {
     _ = aux_params;
     if (std.math.signbit(input)) {
         return 0.0;
@@ -255,7 +255,7 @@ fn step_function(input: f64, aux_params: ?[]f64) f64 {
 }
 
 /// multiplies input values and returns multiplication result
-fn multiply_module(inputs: []f64, aux_params: ?[]f64) [1]f64 {
+fn multiplyModule(inputs: []f64, aux_params: ?[]f64) [1]f64 {
     _ = aux_params;
     var res: f64 = 1.0;
     for (inputs) |v| {
@@ -266,7 +266,7 @@ fn multiply_module(inputs: []f64, aux_params: ?[]f64) [1]f64 {
 }
 
 /// finds maximal value among inputs and return it
-fn max_module(inputs: []f64, aux_params: ?[]f64) [1]f64 {
+fn maxModule(inputs: []f64, aux_params: ?[]f64) [1]f64 {
     _ = aux_params;
     var max = std.math.floatMin(f64);
     for (inputs) |v| {
@@ -277,7 +277,7 @@ fn max_module(inputs: []f64, aux_params: ?[]f64) [1]f64 {
 }
 
 /// finds minimal value among inputs and returns it
-fn min_module(inputs: []f64, aux_params: ?[]f64) [1]f64 {
+fn minModule(inputs: []f64, aux_params: ?[]f64) [1]f64 {
     _ = aux_params;
     var min = std.math.floatMax(f64);
     for (inputs) |v| {

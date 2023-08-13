@@ -12,27 +12,27 @@ vtable: *const VTable,
 pub const VTable = struct {
     /// Invoked to notify that new trial run just started.
     /// Invoked before any epoch evaluation in that trial run.
-    trial_run_started: *const fn (ctx: *anyopaque, trial: *Trial) void,
+    trialRunStarted: *const fn (ctx: *anyopaque, trial: *Trial) void,
 
     /// Invoked to notify that the trial run just finished.
     /// Invoked after all epochs evaluated or successful solver found.
-    trial_run_finished: *const fn (ctx: *anyopaque, trial: *Trial) void,
+    trialRunFinished: *const fn (ctx: *anyopaque, trial: *Trial) void,
 
     /// Invoked to notify that evaluation of specific epoch completed.
-    epoch_evaluated: *const fn (ctx: *anyopaque, trial: *Trial, epoch: *Generation) void,
+    epochEvaluated: *const fn (ctx: *anyopaque, trial: *Trial, epoch: *Generation) void,
 };
 
 // define interface methods wrapping vtable calls
-pub fn trial_run_started(self: TrialRunObserver, trial: *Trial) void {
-    self.vtable.trial_run_started(self.ptr, trial);
+pub fn trialRunStarted(self: TrialRunObserver, trial: *Trial) void {
+    self.vtable.trialRunStarted(self.ptr, trial);
 }
 
-pub fn trial_run_finished(self: TrialRunObserver, trial: *Trial) void {
-    self.vtable.trial_run_finished(self.ptr, trial);
+pub fn trialRunFinished(self: TrialRunObserver, trial: *Trial) void {
+    self.vtable.trialRunFinished(self.ptr, trial);
 }
 
-pub fn epoch_evaluated(self: TrialRunObserver, trial: *Trial, epoch: *Generation) void {
-    self.vtable.epoch_evaluated(self.ptr, trial, epoch);
+pub fn epochEvaluated(self: TrialRunObserver, trial: *Trial, epoch: *Generation) void {
+    self.vtable.epochEvaluated(self.ptr, trial, epoch);
 }
 
 pub fn init(observer: anytype) TrialRunObserver {
@@ -42,27 +42,27 @@ pub fn init(observer: anytype) TrialRunObserver {
     assert(PtrInfo.Pointer.size == .One); // Must be a single-item pointer
     assert(@typeInfo(PtrInfo.Pointer.child) == .Struct); // Must point to a struct
     const impl = struct {
-        fn trial_run_started(ctx: *anyopaque, trial: *Trial) void {
+        fn trialRunStarted(ctx: *anyopaque, trial: *Trial) void {
             const self: Ptr = @ptrCast(@alignCast(ctx));
-            self.trial_run_started(trial);
+            self.trialRunStarted(trial);
         }
 
-        fn trial_run_finished(ctx: *anyopaque, trial: *Trial) void {
+        fn trialRunFinished(ctx: *anyopaque, trial: *Trial) void {
             const self: Ptr = @ptrCast(@alignCast(ctx));
-            self.trial_run_finished(trial);
+            self.trialRunFinished(trial);
         }
 
-        fn epoch_evaluated(ctx: *anyopaque, trial: *Trial, epoch: *Generation) void {
+        fn epochEvaluated(ctx: *anyopaque, trial: *Trial, epoch: *Generation) void {
             const self: Ptr = @ptrCast(@alignCast(ctx));
-            self.epoch_evaluated(trial, epoch);
+            self.epochEvaluated(trial, epoch);
         }
     };
     return .{
         .ptr = observer,
         .vtable = &.{
-            .trial_run_started = impl.trial_run_started,
-            .trial_run_finished = impl.trial_run_finished,
-            .epoch_evaluated = impl.epoch_evaluated,
+            .trialRunStarted = impl.trialRunStarted,
+            .trialRunFinished = impl.trialRunFinished,
+            .epochEvaluated = impl.epochEvaluated,
         },
     };
 }

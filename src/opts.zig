@@ -4,8 +4,8 @@ const m = @import("math/math.zig");
 const NeatLogger = @import("log.zig").NeatLogger;
 const json = @import("json");
 const utils = @import("utils/utils.zig");
-const read_file = utils.read_file;
-const get_writable_file = utils.get_writable_file;
+const readFile = utils.readFile;
+const getWritableFile = utils.getWritableFile;
 
 pub const EpochExecutorType = enum {
     EpochExecutorTypeSequential,
@@ -31,7 +31,7 @@ const OptionsJSON = struct {
     excess_coeff: f64 = 0,
     mut_diff_coeff: f64 = 0,
 
-    // globabl val representing compatability threshold
+    // global val representing compatability threshold
     // under which 2 Genomes are considered same species
     compat_threshold: f64 = 0,
 
@@ -72,7 +72,7 @@ const OptionsJSON = struct {
     pop_size: usize = 0,
     // age when species starts to be penalized
     dropoff_age: i64 = 0,
-    // number of times mutate_add_link will attempt to open new link
+    // number of times mutateAddLink will attempt to open new link
     new_link_tries: usize = 0,
 
     // write population to file every n generations
@@ -158,7 +158,7 @@ pub const Options = struct {
     pop_size: usize = 0,
     // age when species starts to be penalized
     dropoff_age: i64 = 0,
-    // number of times mutate_add_link will attempt to open new link
+    // number of times mutateAddLink will attempt to open new link
     new_link_tries: usize = 0,
 
     // write population to file every n generations
@@ -240,19 +240,19 @@ pub const Options = struct {
         };
     }
 
-    pub fn write_to_json(self: *Options, path: []const u8) !void {
-        var output_file = try get_writable_file(path);
+    pub fn writeToJSON(self: *Options, path: []const u8) !void {
+        var output_file = try getWritableFile(path);
         defer output_file.close();
         try json.toPrettyWriter(null, self.jsonify(), output_file.writer());
     }
 
-    pub fn random_node_activation_type(self: *Options, rand: std.rand.Random) !math.NodeActivationType {
+    pub fn randomNodeActivationType(self: *Options, rand: std.rand.Random) !math.NodeActivationType {
         // quick check for the most cases
         if (self.node_activators.len == 1) {
             return self.node_activators[0];
         }
         // find next random
-        var idx = @as(usize, @intCast(m.single_roulette_throw(rand, self.node_activators_prob)));
+        var idx = @as(usize, @intCast(m.singleRouletteThrow(rand, self.node_activators_prob)));
         if (idx < 0 or idx == self.node_activators.len) {
             std.debug.print("unexpected error when trying to find random node activator, activator index: {d}\n", .{idx});
             return error.NodeActivationTypeInvalid;
@@ -260,7 +260,7 @@ pub const Options = struct {
         return self.node_activators[idx];
     }
 
-    pub fn init_node_activators(self: *Options, allocator: std.mem.Allocator) !void {
+    pub fn initNodeActivators(self: *Options, allocator: std.mem.Allocator) !void {
         self.node_activators = try allocator.alloc(math.NodeActivationType, 1);
         self.node_activators[0] = math.NodeActivationType.SigmoidSteepenedActivation;
         self.node_activators_prob = try allocator.alloc(f64, 1);
@@ -275,8 +275,8 @@ pub const Options = struct {
         self.allocator.destroy(self);
     }
 
-    pub fn read_options(allocator: std.mem.Allocator, path: []const u8) !*Options {
-        const buf = try read_file(allocator, path);
+    pub fn readOptions(allocator: std.mem.Allocator, path: []const u8) !*Options {
+        const buf = try readFile(allocator, path);
         defer allocator.free(buf);
 
         var self: *Options = try allocator.create(Options);
@@ -378,11 +378,11 @@ pub const Options = struct {
         }
 
         // init node activators
-        try self.init_node_activators(allocator);
+        try self.initNodeActivators(allocator);
         return self;
     }
 
-    pub fn init_from_json_enc(allocator: std.mem.Allocator, enc: OptionsJSON) !*Options {
+    pub fn initFromJSONEnc(allocator: std.mem.Allocator, enc: OptionsJSON) !*Options {
         var self = try allocator.create(Options);
         self.* = .{
             .trait_param_mut_prob = enc.trait_param_mut_prob,
@@ -422,8 +422,8 @@ pub const Options = struct {
             .log_level = enc.log_level,
             .node_activators = enc.node_activators,
             .node_activators_prob = enc.node_activators_prob,
-            .hyperneat_ctx = if (enc.hyperneat_ctx != null) try HyperNEATContext.init_from_json_enc(allocator, enc.hyperneat_ctx.?) else null,
-            .es_hyperneat_ctx = if (enc.es_hyperneat_ctx != null) try ESHyperNEATContext.init_from_json_enc(allocator, enc.es_hyperneat_ctx.?) else null,
+            .hyperneat_ctx = if (enc.hyperneat_ctx != null) try HyperNEATContext.initFromJSONEnc(allocator, enc.hyperneat_ctx.?) else null,
+            .es_hyperneat_ctx = if (enc.es_hyperneat_ctx != null) try ESHyperNEATContext.initFromJSONEnc(allocator, enc.es_hyperneat_ctx.?) else null,
             .allocator = allocator,
         };
 
@@ -431,11 +431,11 @@ pub const Options = struct {
     }
 
     // TODO: maybe??? pub fn validate(self: *Options) !void {}
-    pub fn read_from_json(allocator: std.mem.Allocator, path: []const u8) !*Options {
-        const buf = try read_file(allocator, path);
+    pub fn readFromJSON(allocator: std.mem.Allocator, path: []const u8) !*Options {
+        const buf = try readFile(allocator, path);
         defer allocator.free(buf);
         var enc: OptionsJSON = try json.fromSlice(allocator, OptionsJSON, buf);
-        return Options.init_from_json_enc(allocator, enc);
+        return Options.initFromJSONEnc(allocator, enc);
     }
 };
 
@@ -470,13 +470,13 @@ pub const HyperNEATContext = struct {
         };
     }
 
-    pub fn write_to_json(self: *HyperNEATContext, path: []const u8) !void {
-        var output_file = try get_writable_file(path);
+    pub fn writeToJSON(self: *HyperNEATContext, path: []const u8) !void {
+        var output_file = try getWritableFile(path);
         defer output_file.close();
         try json.toPrettyWriter(null, self.jsonify(), output_file.writer());
     }
 
-    pub fn init_from_json_enc(allocator: std.mem.Allocator, enc: HyperNEATContextJSON) !*HyperNEATContext {
+    pub fn initFromJSONEnc(allocator: std.mem.Allocator, enc: HyperNEATContextJSON) !*HyperNEATContext {
         var self = try allocator.create(HyperNEATContext);
         self.* = .{
             .link_threshold = enc.link_threshold,
@@ -488,11 +488,11 @@ pub const HyperNEATContext = struct {
         return self;
     }
 
-    pub fn read_from_json(allocator: std.mem.Allocator, path: []const u8) !*HyperNEATContext {
-        const buf = try read_file(allocator, path);
+    pub fn readFromJSON(allocator: std.mem.Allocator, path: []const u8) !*HyperNEATContext {
+        const buf = try readFile(allocator, path);
         defer allocator.free(buf);
         var enc: HyperNEATContextJSON = try json.fromSlice(allocator, HyperNEATContextJSON, buf);
-        return HyperNEATContext.init_from_json_enc(allocator, enc);
+        return HyperNEATContext.initFromJSONEnc(allocator, enc);
     }
 
     pub fn deinit(self: *HyperNEATContext) void {
@@ -557,13 +557,13 @@ pub const ESHyperNEATContext = struct {
         };
     }
 
-    pub fn write_to_json(self: *ESHyperNEATContext, path: []const u8) !void {
-        var output_file = try get_writable_file(path);
+    pub fn writeToJSON(self: *ESHyperNEATContext, path: []const u8) !void {
+        var output_file = try getWritableFile(path);
         defer output_file.close();
         try json.toPrettyWriter(null, self.jsonify(), output_file.writer());
     }
 
-    pub fn init_from_json_enc(allocator: std.mem.Allocator, enc: ESHyperNEATContextJSON) !*ESHyperNEATContext {
+    pub fn initFromJSONEnc(allocator: std.mem.Allocator, enc: ESHyperNEATContextJSON) !*ESHyperNEATContext {
         var self = try allocator.create(ESHyperNEATContext);
         self.* = .{
             .allocator = allocator,
@@ -577,11 +577,11 @@ pub const ESHyperNEATContext = struct {
         return self;
     }
 
-    pub fn read_from_json(allocator: std.mem.Allocator, path: []const u8) !*ESHyperNEATContext {
-        const buf = try read_file(allocator, path);
+    pub fn readFromJSON(allocator: std.mem.Allocator, path: []const u8) !*ESHyperNEATContext {
+        const buf = try readFile(allocator, path);
         defer allocator.free(buf);
         var enc: ESHyperNEATContextJSON = try json.fromSlice(allocator, ESHyperNEATContextJSON, buf);
-        return ESHyperNEATContext.init_from_json_enc(allocator, enc);
+        return ESHyperNEATContext.initFromJSONEnc(allocator, enc);
     }
 
     pub fn deinit(self: *ESHyperNEATContext) void {
@@ -630,7 +630,7 @@ fn check_neat_options(o: *Options) !void {
 
 test "load NEAT Options" {
     var allocator = std.testing.allocator;
-    var opts = try Options.read_options(allocator, "examples/xor/data/basic_xor.neat");
+    var opts = try Options.readOptions(allocator, "examples/xor/data/basic_xor.neat");
     defer opts.deinit();
 
     try check_neat_options(opts);
@@ -638,7 +638,7 @@ test "load NEAT Options" {
 
 test "load NEAT Options from JSON" {
     var allocator = std.testing.allocator;
-    var opts = try Options.read_from_json(allocator, "data/basic_opts.json");
+    var opts = try Options.readFromJSON(allocator, "data/basic_opts.json");
     defer opts.deinit();
 
     try check_neat_options(opts);
@@ -646,7 +646,7 @@ test "load NEAT Options from JSON" {
 
 test "load HyperNEATContext from JSON" {
     const allocator = std.testing.allocator;
-    var opts = try Options.read_from_json(allocator, "data/basic_hyperneat_opts.json");
+    var opts = try Options.readFromJSON(allocator, "data/basic_hyperneat_opts.json");
     defer opts.deinit();
     try check_neat_options(opts);
     try std.testing.expect(opts.hyperneat_ctx.?.link_threshold == 0.2);
@@ -656,7 +656,7 @@ test "load HyperNEATContext from JSON" {
 
 test "load ESHyperNEATContext from JSON" {
     const allocator = std.testing.allocator;
-    var opts = try Options.read_from_json(allocator, "data/basic_eshyperneat_opts.json");
+    var opts = try Options.readFromJSON(allocator, "data/basic_eshyperneat_opts.json");
     defer opts.deinit();
     try check_neat_options(opts);
     try std.testing.expect(opts.hyperneat_ctx.?.link_threshold == 0.2);

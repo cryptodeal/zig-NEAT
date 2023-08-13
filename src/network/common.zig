@@ -18,7 +18,7 @@ pub const NodeType = enum(u8) {
     SensorNode,
 };
 
-pub fn node_type_name(node_type: NodeType) []const u8 {
+pub fn nodeTypeName(node_type: NodeType) []const u8 {
     return switch (node_type) {
         NodeType.NeuronNode => "NEURON",
         NodeType.SensorNode => "SENSOR",
@@ -36,7 +36,7 @@ pub const NodeNeuronType = enum(u8) {
     BiasNeuron,
 };
 
-pub fn neuron_type_name(neuron_type: NodeNeuronType) []const u8 {
+pub fn neuronTypeName(neuron_type: NodeNeuronType) []const u8 {
     return switch (neuron_type) {
         NodeNeuronType.HiddenNeuron => "HIDN",
         NodeNeuronType.InputNeuron => "INPT",
@@ -45,7 +45,7 @@ pub fn neuron_type_name(neuron_type: NodeNeuronType) []const u8 {
     };
 }
 
-pub fn neuron_type_by_name(name: []const u8) NodeNeuronType {
+pub fn neuronTypeByName(name: []const u8) NodeNeuronType {
     if (std.mem.eql(u8, name, "HIDN")) {
         return NodeNeuronType.HiddenNeuron;
     }
@@ -64,20 +64,20 @@ pub fn neuron_type_by_name(name: []const u8) NodeNeuronType {
     unreachable;
 }
 
-pub fn activate_node(node: *NNode) !void {
-    var res = try neat_math.NodeActivationType.activate_by_type(node.activation_sum, if (node.has_params) node.params else null, node.activation_type);
-    node.set_activation(res);
+pub fn activateNode(node: *NNode) !void {
+    var res = try neat_math.NodeActivationType.activateByType(node.activation_sum, if (node.has_params) node.params else null, node.activation_type);
+    node.setActivation(res);
 }
 
-pub fn activate_module(module: *NNode) !void {
+pub fn activateModule(module: *NNode) !void {
     var inputs = try module.allocator.alloc(f64, module.incoming.items.len);
     defer module.allocator.free(inputs);
 
     for (module.incoming.items, 0..) |v, i| {
-        inputs[i] = v.in_node.?.get_active_out();
+        inputs[i] = v.in_node.?.getActiveOut();
     }
 
-    var outputs = try neat_math.NodeActivationType.activate_module_by_type(inputs, if (module.has_params) module.params else null, module.activation_type);
+    var outputs = try neat_math.NodeActivationType.activateModuleByType(inputs, if (module.has_params) module.params else null, module.activation_type);
     if (outputs.len != module.outgoing.items.len) {
         std.debug.print("number of output parameters {d} returned by module activator doesn't match the number of output neurons of the module {d}", .{ outputs.len, module.outgoing.items.len });
         return error.ModuleOutputLenMismatch;
@@ -85,7 +85,7 @@ pub fn activate_module(module: *NNode) !void {
 
     // set outputs
     for (outputs, 0..) |out, i| {
-        module.outgoing.items[i].out_node.?.set_activation(out);
+        module.outgoing.items[i].out_node.?.setActivation(out);
         module.outgoing.items[i].out_node.?.is_active = true;
     }
 }

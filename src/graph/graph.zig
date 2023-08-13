@@ -120,7 +120,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             self.N = 0;
         }
 
-        pub fn add_vertex(self: *Self, n: IdType, d: DType) !void {
+        pub fn addVertex(self: *Self, n: IdType, d: DType) !void {
             if (self.N == 0) {
                 var rt = try self.allocator.create(Node);
                 errdefer self.allocator.destroy(rt);
@@ -148,7 +148,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             }
         }
 
-        pub fn remove_vertex(self: *Self, n: IdType) ?DType {
+        pub fn removeVertex(self: *Self, n: IdType) ?DType {
             var node_data: ?DType = null;
             if (self.vertices.?.contains(n)) {
                 var node: *Node = self.vertices.?.get(n).?;
@@ -165,13 +165,13 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             return node_data;
         }
 
-        pub fn add_edge(self: *Self, n1: IdType, d1: DType, n2: IdType, d2: DType, w: WeightType) !void {
+        pub fn addEdge(self: *Self, n1: IdType, d1: DType, n2: IdType, d2: DType, w: WeightType) !void {
             if (self.N == 0 or self.vertices.?.contains(n1) == false) {
-                try self.add_vertex(n1, d1);
+                try self.addVertex(n1, d1);
             }
 
             if (self.vertices.?.contains(n2) == false) {
-                try self.add_vertex(n2, d2);
+                try self.addVertex(n2, d2);
             }
 
             var node1: *Node = self.vertices.?.get(n1).?;
@@ -212,7 +212,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             std.debug.print("\r\n", .{});
         }
 
-        fn topo_driver(self: *Self, node: IdType, comptime T: type, visited: T, stack: *std.ArrayList(*Node)) !bool {
+        fn topoDriver(self: *Self, node: IdType, comptime T: type, visited: T, stack: *std.ArrayList(*Node)) !bool {
             // In the process of visiting this vertex, we reach the same vertex again.
             // Return to stop the process. (#cond1)
             if (visited.get(node).? == 1) {
@@ -232,7 +232,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             var neighbors: std.ArrayList(*Edge) = self.graph.?.get(nodePtr).?;
             for (neighbors.items) |n| {
                 if (visited.get(n.node.id).? == 0) {
-                    var check: bool = self.topo_driver(n.node.id, T, visited, stack) catch unreachable;
+                    var check: bool = self.topoDriver(n.node.id, T, visited, stack) catch unreachable;
                     if (check == false) {
                         return false;
                     }
@@ -247,7 +247,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             return true;
         }
 
-        pub fn topo_sort(self: *Self) !std.ArrayList(*Node) {
+        pub fn topoSort(self: *Self) !std.ArrayList(*Node) {
             comptime var T: type = if (IdType == []const u8) *std.StringHashMap(i32) else *std.AutoHashMap(IdType, i32);
             var visited = if (IdType == []const u8) std.StringHashMap(i32).init(self.allocator) else std.AutoHashMap(IdType, i32).init(self.allocator);
             defer visited.deinit();
@@ -265,7 +265,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             vertices_it = self.vertices.?.iterator();
             while (vertices_it.next()) |entry| {
                 if (visited.get(entry.key_ptr.*).? == 0) {
-                    var check: bool = self.topo_driver(entry.key_ptr.*, T, &visited, &stack) catch unreachable;
+                    var check: bool = self.topoDriver(entry.key_ptr.*, T, &visited, &stack) catch unreachable;
                     if (check == false) {
                         for (stack.items) |n| {
                             try result.append(n);
@@ -352,19 +352,19 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
 
         pub const Element = struct { id: IdType, distance: WeightType };
 
-        pub fn min_compare(context: void, a: Element, b: Element) std.math.Order {
+        pub fn minCompare(context: void, a: Element, b: Element) std.math.Order {
             _ = context;
             return std.math.order(a.distance, b.distance);
         }
 
-        pub fn dijikstra_shortest_path(self: *Self, src: IdType) !*ShortestPaths {
+        pub fn dijikstraShortestPath(self: *Self, src: IdType) !*ShortestPaths {
             if ((self.vertices.?.contains(src) == false)) {
                 return error.VertexNotFound;
             }
 
             var source: *Node = self.vertices.?.get(src).?;
 
-            var pq = std.PriorityQueue(Element, void, min_compare).init(self.allocator, {});
+            var pq = std.PriorityQueue(Element, void, minCompare).init(self.allocator, {});
             defer pq.deinit();
 
             var visited = if (IdType == []const u8) std.StringHashMap(i32).init(self.allocator) else std.AutoHashMap(IdType, i32).init(self.allocator);
@@ -443,7 +443,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             return b;
         }
 
-        fn tarjan_driver(self: *Self, current: *Node, globalIndexCounter: *i32, comptime T: type, index: T, low: T, stack: *std.ArrayList(*Node), result: *std.ArrayList(std.ArrayList(*Node))) !void {
+        fn tarjanDriver(self: *Self, current: *Node, globalIndexCounter: *i32, comptime T: type, index: T, low: T, stack: *std.ArrayList(*Node), result: *std.ArrayList(std.ArrayList(*Node))) !void {
             // Set the indices for the current recursion, increment the global index, mark the index
             // for the node, mark low, and append the node to the recursion stack.
             _ = try index.put(current.id, globalIndexCounter.*);
@@ -456,7 +456,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
 
             for (neighbors.items) |n| {
                 if (index.contains(n.node.id) == false) {
-                    self.tarjan_driver(n.node, globalIndexCounter, T, index, low, stack, result) catch unreachable;
+                    self.tarjanDriver(n.node, globalIndexCounter, T, index, low, stack, result) catch unreachable;
 
                     // Update the low index after the recursion, set low index to the min of
                     // prev and current recursive calls.
@@ -518,15 +518,15 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             var vertices_it = self.vertices.?.iterator();
             while (vertices_it.next()) |entry| {
                 if (index.contains(entry.value_ptr.*.id) == false) {
-                    self.tarjan_driver(entry.value_ptr.*, &globalIndexCounter, T, &index, &low, &stack, &result) catch unreachable;
+                    self.tarjanDriver(entry.value_ptr.*, &globalIndexCounter, T, &index, &low, &stack, &result) catch unreachable;
                 }
             }
 
             return result;
         }
 
-        pub fn dijikstra_all_paths(self: *Self, paths: *AllShortestPaths, adjust_by: *ShortestPaths) !void {
-            var pq = std.PriorityQueue(Element, void, min_compare).init(self.allocator, {});
+        pub fn dijikstraAllPaths(self: *Self, paths: *AllShortestPaths, adjust_by: *ShortestPaths) !void {
+            var pq = std.PriorityQueue(Element, void, minCompare).init(self.allocator, {});
             defer pq.deinit();
 
             for (paths.nodes, 0..) |u, i| {
@@ -543,7 +543,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
                         var v = e.node;
                         var vid = v.id;
                         var j = paths.index_of.get(vid).?;
-                        var w = e.weight + adjust_by.weight_to(mnid) - adjust_by.weight_to(vid);
+                        var w = e.weight + adjust_by.weightTo(mnid) - adjust_by.weightTo(vid);
                         if (w < 0) {
                             std.debug.print("dijkstra: negative edge weight", .{});
                             return error.NegativePathWeight;
@@ -564,7 +564,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             }
         }
 
-        pub fn johnson_all_paths(self: *Self) !*AllShortestPaths {
+        pub fn johnsonAllPaths(self: *Self) !*AllShortestPaths {
             var paths = try AllShortestPaths.init(self.allocator, self.N, false);
 
             var prng = std.rand.DefaultPrng.init(blk: {
@@ -600,22 +600,22 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             }
             var data: DType = undefined;
             for (paths.nodes) |n| {
-                try self.add_edge(q, data, n.id, n.data, 0);
+                try self.addEdge(q, data, n.id, n.data, 0);
             }
 
-            var adjust_by = try self.moore_bellman_ford(q);
+            var adjust_by = try self.mooreBellmanFord(q);
             defer adjust_by.deinit();
-            _ = self.remove_vertex(q);
+            _ = self.removeVertex(q);
 
-            try self.dijikstra_all_paths(paths, adjust_by);
+            try self.dijikstraAllPaths(paths, adjust_by);
 
             for (paths.nodes, 0..) |u, i| {
-                var hu = adjust_by.weight_to(u.id);
+                var hu = adjust_by.weightTo(u.id);
                 for (paths.nodes, 0..) |v, j| {
                     if (i == j) {
                         continue;
                     }
-                    var hv = adjust_by.weight_to(v.id);
+                    var hv = adjust_by.weightTo(v.id);
                     paths.dist[i][j] = paths.dist[i][j] - hu + hv;
                 }
             }
@@ -623,7 +623,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             return paths;
         }
 
-        pub fn floyd_warshall(self: *Self) !*AllShortestPaths {
+        pub fn floydWarshall(self: *Self) !*AllShortestPaths {
             var paths = try AllShortestPaths.init(self.allocator, self.N, true);
 
             var vertices_it = self.vertices.?.valueIterator();
@@ -686,7 +686,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             return paths;
         }
 
-        pub fn moore_bellman_ford(self: *Self, src: IdType) !*ShortestPaths {
+        pub fn mooreBellmanFord(self: *Self, src: IdType) !*ShortestPaths {
             if ((self.vertices.?.contains(src) == false)) {
                 return error.VertexNotFound;
             }
@@ -742,7 +742,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
         }
 
         // bellman ford algorithm
-        pub fn bellman_ford(self: *Self, src: IdType) !*ShortestPaths {
+        pub fn bellmanFord(self: *Self, src: IdType) !*ShortestPaths {
             if ((self.vertices.?.contains(src) == false)) {
                 return error.VertexNotFound;
             }
@@ -806,11 +806,11 @@ test "basic graph insertion" {
     var graph = Graph(i64, i32, f64).init(allocator);
     defer graph.deinit();
 
-    try graph.add_edge(1, 10, 2, 20, 1);
-    try graph.add_edge(2, 20, 3, 40, 2);
-    try graph.add_edge(3, 110, 1, 10, 3);
-    try graph.add_edge(1, 10, 1, 10, 0);
-    try graph.add_edge(4, 1, 5, 1, 1);
+    try graph.addEdge(1, 10, 2, 20, 1);
+    try graph.addEdge(2, 20, 3, 40, 2);
+    try graph.addEdge(3, 110, 1, 10, 3);
+    try graph.addEdge(1, 10, 1, 10, 0);
+    try graph.addEdge(4, 1, 5, 1, 1);
 }
 
 test "basic graph toposort" {
@@ -818,13 +818,13 @@ test "basic graph toposort" {
     var graph = Graph(i64, i32, f64).init(allocator);
     defer graph.deinit();
 
-    try graph.add_edge(1, 10, 2, 20, 1);
-    try graph.add_edge(2, 20, 3, 40, 2);
-    try graph.add_edge(3, 110, 1, 10, 3);
-    try graph.add_edge(1, 10, 1, 10, 0);
-    try graph.add_edge(4, 1, 5, 1, 1);
+    try graph.addEdge(1, 10, 2, 20, 1);
+    try graph.addEdge(2, 20, 3, 40, 2);
+    try graph.addEdge(3, 110, 1, 10, 3);
+    try graph.addEdge(1, 10, 1, 10, 0);
+    try graph.addEdge(4, 1, 5, 1, 1);
 
-    var res = try graph.topo_sort();
+    var res = try graph.topoSort();
     defer res.deinit();
 }
 
@@ -833,11 +833,11 @@ test "basic graph bfs" {
     var graph = Graph(i64, i32, f64).init(allocator);
     defer graph.deinit();
 
-    try graph.add_edge(1, 10, 2, 20, 1);
-    try graph.add_edge(2, 20, 3, 40, 2);
-    try graph.add_edge(3, 110, 1, 10, 3);
-    try graph.add_edge(1, 10, 1, 10, 0);
-    try graph.add_edge(4, 1, 5, 1, 1);
+    try graph.addEdge(1, 10, 2, 20, 1);
+    try graph.addEdge(2, 20, 3, 40, 2);
+    try graph.addEdge(3, 110, 1, 10, 3);
+    try graph.addEdge(1, 10, 1, 10, 0);
+    try graph.addEdge(4, 1, 5, 1, 1);
 
     var res1 = try graph.bfs();
     defer res1.deinit();
@@ -848,36 +848,36 @@ test "basic graph dfs" {
     var graph = Graph(i64, i32, f64).init(allocator);
     defer graph.deinit();
 
-    try graph.add_edge(1, 10, 2, 20, 1);
-    try graph.add_edge(2, 20, 3, 40, 2);
-    try graph.add_edge(3, 110, 1, 10, 3);
-    try graph.add_edge(1, 10, 1, 10, 0);
-    try graph.add_edge(4, 1, 5, 1, 1);
+    try graph.addEdge(1, 10, 2, 20, 1);
+    try graph.addEdge(2, 20, 3, 40, 2);
+    try graph.addEdge(3, 110, 1, 10, 3);
+    try graph.addEdge(1, 10, 1, 10, 0);
+    try graph.addEdge(4, 1, 5, 1, 1);
 
     var res1 = try graph.dfs();
     defer res1.deinit();
 }
 
-test "basic graph dijikstra_shortest_path" {
+test "basic graph dijikstraShortestPath" {
     // Graph with no self loops for dijiksta.
     const allocator = std.testing.allocator;
     var graph2 = Graph(i64, void, f64).init(allocator);
     defer graph2.deinit();
 
-    try graph2.add_edge(1, {}, 2, {}, 1);
-    try graph2.add_edge(1, {}, 3, {}, -10);
-    try graph2.add_edge(3, {}, 5, {}, -2);
-    try graph2.add_edge(2, {}, 3, {}, 2);
-    try graph2.add_edge(3, {}, 4, {}, 5);
-    try graph2.add_edge(4, {}, 5, {}, 4);
+    try graph2.addEdge(1, {}, 2, {}, 1);
+    try graph2.addEdge(1, {}, 3, {}, -10);
+    try graph2.addEdge(3, {}, 5, {}, -2);
+    try graph2.addEdge(2, {}, 3, {}, 2);
+    try graph2.addEdge(3, {}, 4, {}, 5);
+    try graph2.addEdge(4, {}, 5, {}, 4);
 
-    var res = try graph2.topo_sort();
+    var res = try graph2.topoSort();
     defer res.deinit();
 
-    var res3 = try graph2.dijikstra_shortest_path(1);
+    var res3 = try graph2.dijikstraShortestPath(1);
     defer res3.deinit();
 
-    var res4 = try res3.path_to(5);
+    var res4 = try res3.pathTo(5);
     defer res4.deinit();
 }
 
@@ -887,17 +887,17 @@ test "basic graph tarjan" {
     var graph4 = Graph([]const u8, i32, f64).init(allocator);
     defer graph4.deinit();
 
-    try graph4.add_edge("A", 1, "B", 1, 1);
-    try graph4.add_edge("B", 1, "A", 1, 1);
-    try graph4.add_edge("B", 1, "C", 1, 2);
-    try graph4.add_edge("C", 1, "B", 1, 1);
-    try graph4.add_edge("C", 1, "D", 1, 5);
-    try graph4.add_edge("D", 1, "E", 1, 4);
-    try graph4.add_edge("B", 1, "E", 1, 1);
-    try graph4.add_edge("J", 1, "K", 1, 1);
-    try graph4.add_edge("M", 1, "N", 1, 1);
+    try graph4.addEdge("A", 1, "B", 1, 1);
+    try graph4.addEdge("B", 1, "A", 1, 1);
+    try graph4.addEdge("B", 1, "C", 1, 2);
+    try graph4.addEdge("C", 1, "B", 1, 1);
+    try graph4.addEdge("C", 1, "D", 1, 5);
+    try graph4.addEdge("D", 1, "E", 1, 4);
+    try graph4.addEdge("B", 1, "E", 1, 1);
+    try graph4.addEdge("J", 1, "K", 1, 1);
+    try graph4.addEdge("M", 1, "N", 1, 1);
 
-    var res = try graph4.topo_sort();
+    var res = try graph4.topoSort();
     defer res.deinit();
 
     var res5 = try graph4.tarjan();
@@ -913,23 +913,23 @@ test "basic bellman ford" {
     var graph = Graph(i64, void, f64).init(allocator);
     defer graph.deinit();
 
-    try graph.add_edge(1, {}, 2, {}, 6);
-    try graph.add_edge(1, {}, 3, {}, 4);
-    try graph.add_edge(1, {}, 4, {}, 5);
-    try graph.add_edge(2, {}, 5, {}, -1);
-    try graph.add_edge(3, {}, 2, {}, -2);
-    try graph.add_edge(3, {}, 5, {}, 3);
-    try graph.add_edge(4, {}, 3, {}, -2);
-    try graph.add_edge(4, {}, 6, {}, -1);
-    try graph.add_edge(5, {}, 6, {}, 3);
+    try graph.addEdge(1, {}, 2, {}, 6);
+    try graph.addEdge(1, {}, 3, {}, 4);
+    try graph.addEdge(1, {}, 4, {}, 5);
+    try graph.addEdge(2, {}, 5, {}, -1);
+    try graph.addEdge(3, {}, 2, {}, -2);
+    try graph.addEdge(3, {}, 5, {}, 3);
+    try graph.addEdge(4, {}, 3, {}, -2);
+    try graph.addEdge(4, {}, 6, {}, -1);
+    try graph.addEdge(5, {}, 6, {}, 3);
 
-    var res = try graph.topo_sort();
+    var res = try graph.topoSort();
     defer res.deinit();
 
-    var res5 = try graph.bellman_ford(1);
+    var res5 = try graph.bellmanFord(1);
     defer res5.deinit();
 
-    var path = try res5.path_to(2);
+    var path = try res5.pathTo(2);
     defer path.deinit();
 }
 
@@ -938,23 +938,23 @@ test "basic moore bellman ford" {
     var graph = Graph(i64, void, f64).init(allocator);
     defer graph.deinit();
 
-    try graph.add_edge(1, {}, 2, {}, 6);
-    try graph.add_edge(1, {}, 3, {}, 4);
-    try graph.add_edge(1, {}, 4, {}, 5);
-    try graph.add_edge(2, {}, 5, {}, -1);
-    try graph.add_edge(3, {}, 2, {}, -2);
-    try graph.add_edge(3, {}, 5, {}, 3);
-    try graph.add_edge(4, {}, 3, {}, -2);
-    try graph.add_edge(4, {}, 6, {}, -1);
-    try graph.add_edge(5, {}, 6, {}, 3);
+    try graph.addEdge(1, {}, 2, {}, 6);
+    try graph.addEdge(1, {}, 3, {}, 4);
+    try graph.addEdge(1, {}, 4, {}, 5);
+    try graph.addEdge(2, {}, 5, {}, -1);
+    try graph.addEdge(3, {}, 2, {}, -2);
+    try graph.addEdge(3, {}, 5, {}, 3);
+    try graph.addEdge(4, {}, 3, {}, -2);
+    try graph.addEdge(4, {}, 6, {}, -1);
+    try graph.addEdge(5, {}, 6, {}, 3);
 
-    var res = try graph.topo_sort();
+    var res = try graph.topoSort();
     defer res.deinit();
 
-    var res5 = try graph.moore_bellman_ford(1);
+    var res5 = try graph.mooreBellmanFord(1);
     defer res5.deinit();
 
-    var path = try res5.path_to(2);
+    var path = try res5.pathTo(2);
     defer path.deinit();
 }
 
@@ -963,15 +963,15 @@ test "basic floyd warshall" {
     var graph = Graph(i64, void, f64).init(allocator);
     defer graph.deinit();
 
-    try graph.add_edge(1, {}, 4, {}, 10);
-    try graph.add_edge(1, {}, 2, {}, 5);
-    try graph.add_edge(2, {}, 3, {}, 3);
-    try graph.add_edge(3, {}, 4, {}, 1);
+    try graph.addEdge(1, {}, 4, {}, 10);
+    try graph.addEdge(1, {}, 2, {}, 5);
+    try graph.addEdge(2, {}, 3, {}, 3);
+    try graph.addEdge(3, {}, 4, {}, 1);
 
-    var res = try graph.topo_sort();
+    var res = try graph.topoSort();
     defer res.deinit();
 
-    var paths = try graph.floyd_warshall();
+    var paths = try graph.floydWarshall();
     defer paths.deinit();
 
     var path = try paths.between(1, 3);
@@ -983,26 +983,26 @@ test "basic johnson" {
     var graph = Graph(i64, void, f64).init(allocator);
     defer graph.deinit();
 
-    try graph.add_edge(1, {}, 2, {}, 6);
-    try graph.add_edge(1, {}, 3, {}, 4);
-    try graph.add_edge(1, {}, 4, {}, 5);
-    try graph.add_edge(2, {}, 5, {}, -1);
-    try graph.add_edge(3, {}, 2, {}, -2);
-    try graph.add_edge(3, {}, 5, {}, 3);
-    try graph.add_edge(4, {}, 3, {}, -2);
-    try graph.add_edge(4, {}, 6, {}, -1);
-    try graph.add_edge(5, {}, 6, {}, 3);
+    try graph.addEdge(1, {}, 2, {}, 6);
+    try graph.addEdge(1, {}, 3, {}, 4);
+    try graph.addEdge(1, {}, 4, {}, 5);
+    try graph.addEdge(2, {}, 5, {}, -1);
+    try graph.addEdge(3, {}, 2, {}, -2);
+    try graph.addEdge(3, {}, 5, {}, 3);
+    try graph.addEdge(4, {}, 3, {}, -2);
+    try graph.addEdge(4, {}, 6, {}, -1);
+    try graph.addEdge(5, {}, 6, {}, 3);
 
-    var res = try graph.topo_sort();
+    var res = try graph.topoSort();
     defer res.deinit();
 
-    var paths = try graph.johnson_all_paths();
+    var paths = try graph.johnsonAllPaths();
     defer paths.deinit();
 
     var path = try paths.between(3, 6);
     defer path.deinit();
 
-    var all_paths = try paths.all_between(1, 6);
+    var all_paths = try paths.allBetween(1, 6);
     defer all_paths.deinit();
 }
 

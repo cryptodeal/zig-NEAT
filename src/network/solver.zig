@@ -11,11 +11,11 @@ pub const VTable = struct {
     /// Propagates activation wave through all network nodes provided number of steps in forward direction.
     /// Normally the number of steps should be equal to the activation depth of the network.
     /// Returns true if activation wave passed from all inputs to the output nodes.
-    forward_steps: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, steps: usize) anyerror!bool,
+    forwardSteps: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, steps: usize) anyerror!bool,
 
     /// Propagates activation wave through all network nodes provided number of steps by recursion from output nodes
     /// Returns true if activation wave passed from all inputs to the output nodes.
-    recursive_steps: *const fn (ctx: *anyopaque) anyerror!bool,
+    recursiveSteps: *const fn (ctx: *anyopaque) anyerror!bool,
 
     /// Attempts to relax network given amount of steps until giving up. The network considered relaxed when absolute
     /// value of the change at any given point is less than maxAllowedSignalDelta during activation waves propagation.
@@ -27,28 +27,28 @@ pub const VTable = struct {
     flush: *const fn (ctx: *anyopaque) anyerror!bool,
 
     /// Set sensors values to the input nodes of the network
-    load_sensors: *const fn (ctx: *anyopaque, inputs: []f64) anyerror!void,
+    loadSensors: *const fn (ctx: *anyopaque, inputs: []f64) anyerror!void,
 
     /// Read output values from the output nodes of the network
-    read_outputs: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror![]f64,
+    readOutputs: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror![]f64,
 
     /// Returns the total number of neural units in the network
-    node_count: *const fn (ctx: *anyopaque) usize,
+    nodeCount: *const fn (ctx: *anyopaque) usize,
 
     /// Returns the total number of links between nodes in the network
-    link_count: *const fn (ctx: *anyopaque) usize,
+    linkCount: *const fn (ctx: *anyopaque) usize,
 
     /// Frees all memory from Solver implementation
     deinit: *const fn (ctx: *anyopaque) void,
 };
 
 // define interface methods wrapping vtable calls
-pub fn forward_steps(self: Solver, allocator: std.mem.Allocator, steps: usize) !bool {
-    return self.vtable.forward_steps(self.ptr, allocator, steps);
+pub fn forwardSteps(self: Solver, allocator: std.mem.Allocator, steps: usize) !bool {
+    return self.vtable.forwardSteps(self.ptr, allocator, steps);
 }
 
-pub fn recursive_steps(self: Solver) !bool {
-    return self.vtable.recursive_steps(self.ptr);
+pub fn recursiveSteps(self: Solver) !bool {
+    return self.vtable.recursiveSteps(self.ptr);
 }
 
 pub fn relax(self: Solver, allocator: std.mem.Allocator, max_steps: usize, max_allowed_signal_delta: f64) !bool {
@@ -59,20 +59,20 @@ pub fn flush(self: Solver) !bool {
     return self.vtable.flush(self.ptr);
 }
 
-pub fn load_sensors(self: Solver, inputs: []f64) !void {
-    return self.vtable.load_sensors(self.ptr, inputs);
+pub fn loadSensors(self: Solver, inputs: []f64) !void {
+    return self.vtable.loadSensors(self.ptr, inputs);
 }
 
-pub fn read_outputs(self: Solver, allocator: std.mem.Allocator) ![]f64 {
-    return self.vtable.read_outputs(self.ptr, allocator);
+pub fn readOutputs(self: Solver, allocator: std.mem.Allocator) ![]f64 {
+    return self.vtable.readOutputs(self.ptr, allocator);
 }
 
-pub fn node_count(self: Solver) usize {
-    return self.vtable.node_count(self.ptr);
+pub fn nodeCount(self: Solver) usize {
+    return self.vtable.nodeCount(self.ptr);
 }
 
-pub fn link_count(self: Solver) usize {
-    return self.vtable.link_count(self.ptr);
+pub fn linkCount(self: Solver) usize {
+    return self.vtable.linkCount(self.ptr);
 }
 
 pub fn deinit(self: Solver) void {
@@ -86,14 +86,14 @@ pub fn init(network_solver: anytype) Solver {
     assert(PtrInfo.Pointer.size == .One); // Must be a single-item pointer
     assert(@typeInfo(PtrInfo.Pointer.child) == .Struct); // Must point to a struct
     const impl = struct {
-        fn forward_steps(ctx: *anyopaque, allocator: std.mem.Allocator, steps: usize) !bool {
+        fn forwardSteps(ctx: *anyopaque, allocator: std.mem.Allocator, steps: usize) !bool {
             const self: Ptr = @ptrCast(@alignCast(ctx));
-            return self.forward_steps(allocator, steps);
+            return self.forwardSteps(allocator, steps);
         }
 
-        fn recursive_steps(ctx: *anyopaque) !bool {
+        fn recursiveSteps(ctx: *anyopaque) !bool {
             const self: Ptr = @ptrCast(@alignCast(ctx));
-            return self.recursive_steps();
+            return self.recursiveSteps();
         }
 
         fn relax(ctx: *anyopaque, allocator: std.mem.Allocator, max_steps: usize, max_allowed_signal_delta: f64) !bool {
@@ -106,24 +106,24 @@ pub fn init(network_solver: anytype) Solver {
             return self.flush();
         }
 
-        fn load_sensors(ctx: *anyopaque, inputs: []f64) !void {
+        fn loadSensors(ctx: *anyopaque, inputs: []f64) !void {
             const self: Ptr = @ptrCast(@alignCast(ctx));
-            try self.load_sensors(inputs);
+            try self.loadSensors(inputs);
         }
 
-        fn read_outputs(ctx: *anyopaque, allocator: std.mem.Allocator) ![]f64 {
+        fn readOutputs(ctx: *anyopaque, allocator: std.mem.Allocator) ![]f64 {
             const self: Ptr = @ptrCast(@alignCast(ctx));
-            return self.read_outputs(allocator);
+            return self.readOutputs(allocator);
         }
 
-        fn node_count(ctx: *anyopaque) usize {
+        fn nodeCount(ctx: *anyopaque) usize {
             const self: Ptr = @ptrCast(@alignCast(ctx));
-            return self.node_count();
+            return self.nodeCount();
         }
 
-        fn link_count(ctx: *anyopaque) usize {
+        fn linkCount(ctx: *anyopaque) usize {
             const self: Ptr = @ptrCast(@alignCast(ctx));
-            return self.link_count();
+            return self.linkCount();
         }
 
         fn deinit(ctx: *anyopaque) void {
@@ -135,14 +135,14 @@ pub fn init(network_solver: anytype) Solver {
     return .{
         .ptr = network_solver,
         .vtable = &.{
-            .forward_steps = impl.forward_steps,
-            .recursive_steps = impl.recursive_steps,
+            .forwardSteps = impl.forwardSteps,
+            .recursiveSteps = impl.recursiveSteps,
             .relax = impl.relax,
             .flush = impl.flush,
-            .load_sensors = impl.load_sensors,
-            .read_outputs = impl.read_outputs,
-            .node_count = impl.node_count,
-            .link_count = impl.link_count,
+            .loadSensors = impl.loadSensors,
+            .readOutputs = impl.readOutputs,
+            .nodeCount = impl.nodeCount,
+            .linkCount = impl.linkCount,
             .deinit = impl.deinit,
         },
     };

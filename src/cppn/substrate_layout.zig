@@ -14,17 +14,17 @@ pub const SubstrateLayout = struct {
     vtable: *const VTable,
 
     pub const VTable = struct {
-        node_position: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, index: usize, n_type: NodeNeuronType) anyerror!*PointF,
+        nodePosition: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, index: usize, n_type: NodeNeuronType) anyerror!*PointF,
         bias_count: *const fn (ctx: *anyopaque) usize,
-        input_count: *const fn (ctx: *anyopaque) usize,
-        hidden_count: *const fn (ctx: *anyopaque) usize,
-        output_count: *const fn (ctx: *anyopaque) usize,
+        inputCount: *const fn (ctx: *anyopaque) usize,
+        hiddenCount: *const fn (ctx: *anyopaque) usize,
+        outputCount: *const fn (ctx: *anyopaque) usize,
         deinit: *const fn (ctx: *anyopaque) void,
     };
 
     /// Returns coordinates of the neuron with specified index [0; count) and type
-    pub fn node_position(self: Self, allocator: std.mem.Allocator, index: usize, n_type: NodeNeuronType) anyerror!*PointF {
-        return try self.vtable.node_position(self.ptr, allocator, index, n_type);
+    pub fn nodePosition(self: Self, allocator: std.mem.Allocator, index: usize, n_type: NodeNeuronType) anyerror!*PointF {
+        return try self.vtable.nodePosition(self.ptr, allocator, index, n_type);
     }
 
     /// Return number of BIAS neurons in the layout
@@ -33,18 +33,18 @@ pub const SubstrateLayout = struct {
     }
 
     /// Returns number of INPUT neurons in the layout
-    pub fn input_count(self: Self) usize {
-        return self.vtable.input_count(self.ptr);
+    pub fn inputCount(self: Self) usize {
+        return self.vtable.inputCount(self.ptr);
     }
 
     /// Returns number of HIDDEN neurons in the layout
-    pub fn hidden_count(self: Self) usize {
-        return self.vtable.hidden_count(self.ptr);
+    pub fn hiddenCount(self: Self) usize {
+        return self.vtable.hiddenCount(self.ptr);
     }
 
     /// Returns number of OUTPUT neurons in the layout
-    pub fn output_count(self: Self) usize {
-        return self.vtable.output_count(self.ptr);
+    pub fn outputCount(self: Self) usize {
+        return self.vtable.outputCount(self.ptr);
     }
 
     /// Frees any memory allocated by the layout implementation
@@ -59,9 +59,9 @@ pub const SubstrateLayout = struct {
         assert(PtrInfo.Pointer.size == .One); // Must be a single-item pointer
         assert(@typeInfo(PtrInfo.Pointer.child) == .Struct); // Must point to a struct
         const impl = struct {
-            fn node_position(ctx: *anyopaque, allocator: std.mem.Allocator, index: usize, n_type: NodeNeuronType) !*PointF {
+            fn nodePosition(ctx: *anyopaque, allocator: std.mem.Allocator, index: usize, n_type: NodeNeuronType) !*PointF {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
-                return self.node_position(allocator, index, n_type);
+                return self.nodePosition(allocator, index, n_type);
             }
 
             fn bias_count(ctx: *anyopaque) usize {
@@ -69,19 +69,19 @@ pub const SubstrateLayout = struct {
                 return self.bias_count();
             }
 
-            fn input_count(ctx: *anyopaque) usize {
+            fn inputCount(ctx: *anyopaque) usize {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
-                return self.input_count();
+                return self.inputCount();
             }
 
-            fn hidden_count(ctx: *anyopaque) usize {
+            fn hiddenCount(ctx: *anyopaque) usize {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
-                return self.hidden_count();
+                return self.hiddenCount();
             }
 
-            fn output_count(ctx: *anyopaque) usize {
+            fn outputCount(ctx: *anyopaque) usize {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
-                return self.output_count();
+                return self.outputCount();
             }
 
             fn deinit(ctx: *anyopaque) void {
@@ -92,11 +92,11 @@ pub const SubstrateLayout = struct {
         return .{
             .ptr = es_layout,
             .vtable = &.{
-                .node_position = impl.node_position,
+                .nodePosition = impl.nodePosition,
                 .bias_count = impl.bias_count,
-                .input_count = impl.input_count,
-                .hidden_count = impl.hidden_count,
-                .output_count = impl.output_count,
+                .inputCount = impl.inputCount,
+                .hiddenCount = impl.hiddenCount,
+                .outputCount = impl.outputCount,
                 .deinit = impl.deinit,
             },
         };
@@ -148,7 +148,7 @@ pub const GridSubstrateLayout = struct {
         self.allocator.destroy(self);
     }
 
-    pub fn node_position(self: *GridSubstrateLayout, allocator: std.mem.Allocator, index: usize, n_type: NodeNeuronType) !*PointF {
+    pub fn nodePosition(self: *GridSubstrateLayout, allocator: std.mem.Allocator, index: usize, n_type: NodeNeuronType) !*PointF {
         var point = try PointF.init(allocator, 0, 0);
         errdefer point.deinit();
         var delta: f64 = undefined;
@@ -192,26 +192,26 @@ pub const GridSubstrateLayout = struct {
         return self.num_bias;
     }
 
-    pub fn input_count(self: *GridSubstrateLayout) usize {
+    pub fn inputCount(self: *GridSubstrateLayout) usize {
         return self.num_input;
     }
 
-    pub fn hidden_count(self: *GridSubstrateLayout) usize {
+    pub fn hiddenCount(self: *GridSubstrateLayout) usize {
         return self.num_hidden;
     }
 
-    pub fn output_count(self: *GridSubstrateLayout) usize {
+    pub fn outputCount(self: *GridSubstrateLayout) usize {
         return self.num_output;
     }
 };
 
 // test utils/unit tests
 
-fn check_neuron_layout_positions(allocator: std.mem.Allocator, positions: []f64, n_type: NodeNeuronType, layout: SubstrateLayout) !void {
+fn checkNeuronLayoutPositions(allocator: std.mem.Allocator, positions: []f64, n_type: NodeNeuronType, layout: SubstrateLayout) !void {
     const count = positions.len / 2;
     var i: usize = 0;
     while (i < count) : (i += 1) {
-        var pos = try layout.node_position(allocator, i, n_type);
+        var pos = try layout.nodePosition(allocator, i, n_type);
         defer pos.deinit();
         try std.testing.expect(pos.x == positions[i * 2] and pos.y == positions[i * 2 + 1]);
     }
@@ -229,21 +229,21 @@ test "SubstrateLayout node position" {
 
     // check BIAS
     var d1 = [_]f64{ 0, 0 };
-    try check_neuron_layout_positions(allocator, &d1, .BiasNeuron, layout);
-    try std.testing.expectError(error.BiasIndexOutOfRange, layout.node_position(allocator, 1, .BiasNeuron));
+    try checkNeuronLayoutPositions(allocator, &d1, .BiasNeuron, layout);
+    try std.testing.expectError(error.BiasIndexOutOfRange, layout.nodePosition(allocator, 1, .BiasNeuron));
 
     // check INPUT
     var d2 = [_]f64{ -0.75, -1, -0.25, -1, 0.25, -1, 0.75, -1 };
-    try check_neuron_layout_positions(allocator, &d2, .InputNeuron, layout);
-    try std.testing.expectError(error.NeuronIndexOutOfRange, layout.node_position(allocator, input_count, .InputNeuron));
+    try checkNeuronLayoutPositions(allocator, &d2, .InputNeuron, layout);
+    try std.testing.expectError(error.NeuronIndexOutOfRange, layout.nodePosition(allocator, input_count, .InputNeuron));
 
     // check HIDDEN
     var d3 = [_]f64{ -0.5, 0, 0.5, 0 };
-    try check_neuron_layout_positions(allocator, &d3, .HiddenNeuron, layout);
-    try std.testing.expectError(error.NeuronIndexOutOfRange, layout.node_position(allocator, hidden_count, .HiddenNeuron));
+    try checkNeuronLayoutPositions(allocator, &d3, .HiddenNeuron, layout);
+    try std.testing.expectError(error.NeuronIndexOutOfRange, layout.nodePosition(allocator, hidden_count, .HiddenNeuron));
 
     // check OUTPUT
     var d4 = [_]f64{ -0.5, 1, 0.5, 1 };
-    try check_neuron_layout_positions(allocator, &d4, .OutputNeuron, layout);
-    try std.testing.expectError(error.NeuronIndexOutOfRange, layout.node_position(allocator, output_count, .OutputNeuron));
+    try checkNeuronLayoutPositions(allocator, &d4, .OutputNeuron, layout);
+    try std.testing.expectError(error.NeuronIndexOutOfRange, layout.nodePosition(allocator, output_count, .OutputNeuron));
 }

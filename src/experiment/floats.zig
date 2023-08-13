@@ -33,7 +33,7 @@ pub fn mean(comptime T: type, x: []T) T {
     return total / @as(T, @floatFromInt(x.len));
 }
 
-fn has_nan(comptime T: type, x: []T) bool {
+fn hasNan(comptime T: type, x: []T) bool {
     var contains_nan = false;
     for (x) |v| {
         if (std.math.isNan(v)) {
@@ -44,7 +44,7 @@ fn has_nan(comptime T: type, x: []T) bool {
     return contains_nan;
 }
 
-pub fn mean_variance(allocator: std.mem.Allocator, comptime T: type, x: []T) ![]T {
+pub fn meanVariance(allocator: std.mem.Allocator, comptime T: type, x: []T) ![]T {
     var res = try allocator.alloc(T, 2);
     if (x.len == 0) {
         for (res) |*v| v.* = std.math.nan(T);
@@ -88,23 +88,23 @@ pub fn variance(allocator: std.mem.Allocator, comptime T: type, x: []T) !T {
     if (x.len == 0) {
         return std.math.nan(T);
     }
-    var res = try mean_variance(allocator, T, x);
+    var res = try meanVariance(allocator, T, x);
     defer allocator.free(res);
     return res[1];
 }
 
-pub fn std_dev(allocator: std.mem.Allocator, comptime T: type, x: []T) !T {
+pub fn stdDev(allocator: std.mem.Allocator, comptime T: type, x: []T) !T {
     if (x.len == 0) {
         return std.math.nan(T);
     }
-    var res = try mean_variance(allocator, T, x);
+    var res = try meanVariance(allocator, T, x);
     defer allocator.free(res);
     return @sqrt(res[1]);
 }
 
 // util functions used internally
 
-fn is_sorted(comptime T: type, x: []T) bool {
+fn isSorted(comptime T: type, x: []T) bool {
     var n = x.len;
     var i = n - 1;
     while (i > 0) : (i -= 1) {
@@ -138,11 +138,11 @@ fn quantile(comptime T: type, p: T, c: CumulantKind, x: []T, weights: ?[]T) !T {
         std.debug.print("zero length slice", .{});
         return error.ZeroLengthSlice;
     }
-    if (has_nan(T, x)) {
+    if (hasNan(T, x)) {
         // This is needed because the algorithm breaks otherwise.
         return std.math.nan(T);
     }
-    if (!is_sorted(T, x)) {
+    if (!isSorted(T, x)) {
         std.debug.print("x data are not sorted", .{});
         return error.DataNotSorted;
     }
@@ -153,12 +153,12 @@ fn quantile(comptime T: type, p: T, c: CumulantKind, x: []T, weights: ?[]T) !T {
         sum_weights = sum(T, weights.?);
     }
     return switch (c) {
-        CumulantKind.Empirical => empirical_quantile(T, p, x, weights, sum_weights),
-        CumulantKind.LinInterp => lin_interp_quantile(T, p, x, weights, sum_weights),
+        CumulantKind.Empirical => empiricalQuantile(T, p, x, weights, sum_weights),
+        CumulantKind.LinInterp => linInterpQuantile(T, p, x, weights, sum_weights),
     };
 }
 
-fn empirical_quantile(comptime T: type, p: T, x: []T, weights: ?[]T, sum_weights: T) T {
+fn empiricalQuantile(comptime T: type, p: T, x: []T, weights: ?[]T, sum_weights: T) T {
     var cumsum: T = undefined;
     var fidx = p * sum_weights;
     for (x, 0..) |_, i| {
@@ -174,7 +174,7 @@ fn empirical_quantile(comptime T: type, p: T, x: []T, weights: ?[]T, sum_weights
     unreachable;
 }
 
-fn lin_interp_quantile(comptime T: type, p: T, x: []T, weights: ?[]T, sum_weights: T) T {
+fn linInterpQuantile(comptime T: type, p: T, x: []T, weights: ?[]T, sum_weights: T) T {
     var cumsum: T = undefined;
     var fidx = p * sum_weights;
     for (x, 0..) |_, i| {

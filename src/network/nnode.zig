@@ -6,7 +6,7 @@ const neat_trait = @import("../trait.zig");
 
 const testing = std.testing;
 
-const trait_with_id = @import("../genetics/common.zig").trait_with_id;
+const traitWithId = @import("../genetics/common.zig").traitWithId;
 const NodeNeuronType = net_common.NodeNeuronType;
 const NodeActivationType = neat_math.NodeActivationType;
 const NodeType = net_common.NodeType;
@@ -68,7 +68,7 @@ pub const NNode = struct {
         };
     }
 
-    pub fn raw_init(allocator: std.mem.Allocator) !*NNode {
+    pub fn rawInit(allocator: std.mem.Allocator) !*NNode {
         var node = try allocator.create(NNode);
         node.* = .{
             .allocator = allocator,
@@ -80,25 +80,25 @@ pub const NNode = struct {
         return node;
     }
 
-    pub fn init_from_json(allocator: std.mem.Allocator, value: NNodeJSON, traits: []*Trait) !*NNode {
-        var node = try NNode.raw_init(allocator);
+    pub fn initFromJSON(allocator: std.mem.Allocator, value: NNodeJSON, traits: []*Trait) !*NNode {
+        var node = try NNode.rawInit(allocator);
         node.id = value.id;
         node.neuron_type = value.neuron_type;
         node.activation_type = value.activation;
-        var trait = trait_with_id(if (value.trait_id == null) 0 else value.trait_id.?, traits);
+        var trait = traitWithId(if (value.trait_id == null) 0 else value.trait_id.?, traits);
         if (trait != null) node.trait = trait.?;
         return node;
     }
 
     pub fn init(allocator: std.mem.Allocator, node_id: i64, neuron_type: NodeNeuronType) !*NNode {
-        var node = try NNode.raw_init(allocator);
+        var node = try NNode.rawInit(allocator);
         node.id = node_id;
         node.neuron_type = neuron_type;
         return node;
     }
 
-    pub fn init_copy(allocator: std.mem.Allocator, n: *NNode, t: ?*Trait) !*NNode {
-        var node = try NNode.raw_init(allocator);
+    pub fn initCopy(allocator: std.mem.Allocator, n: *NNode, t: ?*Trait) !*NNode {
+        var node = try NNode.rawInit(allocator);
         node.id = n.id;
         node.neuron_type = n.neuron_type;
         node.activation_type = n.activation_type;
@@ -106,8 +106,8 @@ pub const NNode = struct {
         return node;
     }
 
-    pub fn read_from_file(allocator: std.mem.Allocator, data: []const u8, traits: []*Trait) !*NNode {
-        var node = try NNode.raw_init(allocator);
+    pub fn readFromFile(allocator: std.mem.Allocator, data: []const u8, traits: []*Trait) !*NNode {
+        var node = try NNode.rawInit(allocator);
         errdefer node.deinit();
         var split = std.mem.split(u8, data, " ");
         // parse node id
@@ -118,14 +118,14 @@ pub const NNode = struct {
                 0 => node.id = try std.fmt.parseInt(i64, d, 10),
                 1 => {
                     var trait_id = try std.fmt.parseInt(i64, d, 10);
-                    node.trait = trait_with_id(trait_id, traits);
+                    node.trait = traitWithId(trait_id, traits);
                 },
                 3 => {
                     var neuron_type_u8 = try std.fmt.parseInt(u8, d, 10);
                     node.neuron_type = @as(NodeNeuronType, @enumFromInt(neuron_type_u8));
                 },
                 4 => {
-                    node.activation_type = neat_math.NodeActivationType.activation_type_by_name(d);
+                    node.activation_type = neat_math.NodeActivationType.activationTypeByName(d);
                 },
                 else => continue,
             }
@@ -140,18 +140,18 @@ pub const NNode = struct {
         self.allocator.destroy(self);
     }
 
-    pub fn set_activation(self: *NNode, input: f64) void {
-        self.save_activations();
+    pub fn setActivation(self: *NNode, input: f64) void {
+        self.saveActivations();
         self.activation = input;
         self.activations_count += 1;
     }
 
-    pub fn save_activations(self: *NNode) void {
+    pub fn saveActivations(self: *NNode) void {
         self.last_activation_2 = self.last_activation;
         self.last_activation = self.activation;
     }
 
-    pub fn get_active_out(self: *NNode) f64 {
+    pub fn getActiveOut(self: *NNode) f64 {
         if (self.activations_count > 0) {
             return self.activation;
         } else {
@@ -159,7 +159,7 @@ pub const NNode = struct {
         }
     }
 
-    pub fn get_active_out_td(self: *NNode) f64 {
+    pub fn getActiveOutTd(self: *NNode) f64 {
         if (self.activations_count > 1) {
             return self.last_activation;
         } else {
@@ -167,7 +167,7 @@ pub const NNode = struct {
         }
     }
 
-    pub fn is_equal(self: *NNode, n: *NNode) bool {
+    pub fn isEql(self: *NNode, n: *NNode) bool {
         // check for equality of primitive types
         if (self.id != n.id or self.activation_type != n.activation_type or self.neuron_type != n.neuron_type or self.activation != n.activation or self.activation_sum != n.activation_sum or self.activations_count != n.activations_count or self.visited != n.visited or self.has_params != n.has_params or self.last_activation != n.last_activation or self.last_activation_2 != n.last_activation_2 or self.is_active != n.is_active) {
             return false;
@@ -177,7 +177,7 @@ pub const NNode = struct {
         if ((self.trait != null and n.trait == null) or (self.trait == null and n.trait != null)) {
             return false;
         } else if (self.trait != null and n.trait != null) {
-            if (!self.trait.?.is_equal(n.trait.?)) {
+            if (!self.trait.?.isEql(n.trait.?)) {
                 return false;
             }
         }
@@ -192,7 +192,7 @@ pub const NNode = struct {
             return false;
         }
         for (self.incoming.items, 0..) |l, i| {
-            if (!l.is_equal(n.incoming.items[i])) {
+            if (!l.isEql(n.incoming.items[i])) {
                 return false;
             }
         }
@@ -202,7 +202,7 @@ pub const NNode = struct {
         }
         for (self.outgoing.items, 0..) |l, i| {
             // TODO: validate more than just the link id???
-            if (!l.is_equal(n.outgoing.items[i])) {
+            if (!l.isEql(n.outgoing.items[i])) {
                 return false;
             }
         }
@@ -210,17 +210,17 @@ pub const NNode = struct {
         return true;
     }
 
-    pub fn is_sensor(self: *const NNode) bool {
+    pub fn isSensor(self: *const NNode) bool {
         return self.neuron_type == NodeNeuronType.InputNeuron or self.neuron_type == NodeNeuronType.BiasNeuron;
     }
 
-    pub fn is_neuron(self: *NNode) bool {
+    pub fn isNeuron(self: *NNode) bool {
         return self.neuron_type == NodeNeuronType.HiddenNeuron or self.neuron_type == NodeNeuronType.OutputNeuron;
     }
 
-    pub fn sensor_load(self: *NNode, load: f64) bool {
-        if (self.is_sensor()) {
-            self.save_activations();
+    pub fn sensorLoad(self: *NNode, load: f64) bool {
+        if (self.isSensor()) {
+            self.saveActivations();
             self.activations_count += 1;
             self.activation = load;
             return true;
@@ -229,19 +229,19 @@ pub const NNode = struct {
         }
     }
 
-    pub fn add_outgoing(self: *NNode, allocator: std.mem.Allocator, out: *NNode, weight: f64) !*Link {
+    pub fn addOutgoing(self: *NNode, allocator: std.mem.Allocator, out: *NNode, weight: f64) !*Link {
         var new_link = try Link.init(allocator, weight, self, out, false);
         try self.outgoing.append(new_link);
         return new_link;
     }
 
-    pub fn add_incoming(self: *NNode, allocator: std.mem.Allocator, in: *NNode, weight: f64) !*Link {
+    pub fn addIncoming(self: *NNode, allocator: std.mem.Allocator, in: *NNode, weight: f64) !*Link {
         var new_link = try Link.init(allocator, weight, in, self, false);
         try self.incoming.append(new_link);
         return new_link;
     }
 
-    pub fn connect_from(self: *NNode, allocator: std.mem.Allocator, in: *NNode, weight: f64) !*Link {
+    pub fn connectFrom(self: *NNode, allocator: std.mem.Allocator, in: *NNode, weight: f64) !*Link {
         var new_link = try Link.init(allocator, weight, in, self, false);
         try self.incoming.append(new_link);
         try in.outgoing.append(new_link);
@@ -257,7 +257,7 @@ pub const NNode = struct {
         self.visited = false;
     }
 
-    pub fn flushback_check(self: *NNode) !void {
+    pub fn flushbackCheck(self: *NNode) !void {
         if (self.activations_count > 0) {
             std.debug.print("NNODE: {s} has activation count {d}", .{ self, self.activations_count });
             return error.NNodeFlushbackError;
@@ -281,7 +281,7 @@ pub const NNode = struct {
             return error.MaximalNetDepthExceeded;
         }
         self.visited = true;
-        if (self.is_sensor()) {
+        if (self.isSensor()) {
             return d;
         } else {
             var max: i64 = d;
@@ -298,15 +298,15 @@ pub const NNode = struct {
         }
     }
 
-    pub fn node_type(self: *const NNode) NodeType {
-        if (self.is_sensor()) {
+    pub fn nodeType(self: *const NNode) NodeType {
+        if (self.isSensor()) {
             return NodeType.SensorNode;
         }
         return NodeType.NeuronNode;
     }
 
     pub fn format(value: NNode, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
-        const activation = neat_math.NodeActivationType.activation_name_by_type(value.activation_type);
+        const activation = neat_math.NodeActivationType.activationNameByType(value.activation_type);
         var active: []const u8 = "active";
         if (!value.is_active) {
             active = "inactive";
@@ -316,13 +316,13 @@ pub const NNode = struct {
         if (value.has_params) {
             used_params = value.params;
         }
-        return writer.print("({s} id:{d}, {s}, {s},\t{s} -> step: {d} = {d:.3} {any})", .{ net_common.node_type_name(value.node_type()), value.id, net_common.neuron_type_name(value.neuron_type), activation, active, value.activations_count, value.activation, used_params });
+        return writer.print("({s} id:{d}, {s}, {s},\t{s} -> step: {d} = {d:.3} {any})", .{ net_common.nodeTypeName(value.nodeType()), value.id, net_common.neuronTypeName(value.neuron_type), activation, active, value.activations_count, value.activation, used_params });
     }
 };
 
 test "NNode `init`" {
     const allocator = testing.allocator;
-    var node = try NNode.raw_init(allocator);
+    var node = try NNode.rawInit(allocator);
     defer node.deinit();
     try testing.expectEqual(node.activation_type, NodeActivationType.SigmoidSteepenedActivation);
     try testing.expectEqual(node.neuron_type, NodeNeuronType.HiddenNeuron);
@@ -353,7 +353,7 @@ test "NNode `new_NNode_copy`" {
     trait.params[4] = 5.5;
     trait.params[5] = 6.7;
 
-    var node_copy = try NNode.init_copy(allocator, node, trait);
+    var node_copy = try NNode.initCopy(allocator, node, trait);
     defer node_copy.deinit();
 
     try testing.expectEqual(node.id, node_copy.id);
@@ -362,35 +362,35 @@ test "NNode `new_NNode_copy`" {
     try testing.expectEqual(trait, node_copy.trait.?);
 }
 
-test "NNode `sensor_load`" {
+test "NNode `sensorLoad`" {
     const allocator = testing.allocator;
     var node = try NNode.init(allocator, 1, NodeNeuronType.InputNeuron);
     defer node.deinit();
 
     var load: f64 = 21.0;
-    var res = node.sensor_load(load);
+    var res = node.sensorLoad(load);
     try testing.expect(res);
     try testing.expectEqual(node.activations_count, 1);
     try testing.expectEqual(load, node.activation);
-    try testing.expectEqual(load, node.get_active_out());
+    try testing.expectEqual(load, node.getActiveOut());
 
     var load_2: f64 = 36.0;
-    res = node.sensor_load(load_2);
+    res = node.sensorLoad(load_2);
     try testing.expect(res);
     try testing.expectEqual(node.activations_count, 2);
     try testing.expectEqual(load_2, node.activation);
     // validate activation & time delayed activation
-    try testing.expectEqual(load_2, node.get_active_out());
-    try testing.expectEqual(load, node.get_active_out_td());
+    try testing.expectEqual(load_2, node.getActiveOut());
+    try testing.expectEqual(load, node.getActiveOutTd());
 
     // validate attempting to load incorrect node type returns false
     var hidden_node = try NNode.init(allocator, 1, NodeNeuronType.HiddenNeuron);
     defer hidden_node.deinit();
-    res = hidden_node.sensor_load(load);
+    res = hidden_node.sensorLoad(load);
     try testing.expect(!res);
 }
 
-test "NNode `add_incoming`" {
+test "NNode `addIncoming`" {
     const allocator = testing.allocator;
     var node = try NNode.init(allocator, 1, NodeNeuronType.InputNeuron);
     defer node.deinit();
@@ -398,7 +398,7 @@ test "NNode `add_incoming`" {
     defer node_2.deinit();
     var weight: f64 = 1.5;
 
-    _ = try node_2.add_incoming(allocator, node, weight);
+    _ = try node_2.addIncoming(allocator, node, weight);
 
     try testing.expectEqual(node_2.incoming.items.len, 1);
     try testing.expectEqual(node.outgoing.items.len, 0);
@@ -411,7 +411,7 @@ test "NNode `add_incoming`" {
     try testing.expectEqual(node_2, link.out_node.?);
 }
 
-test "NNode `add_outgoing`" {
+test "NNode `addOutgoing`" {
     const allocator = testing.allocator;
     var node = try NNode.init(allocator, 1, NodeNeuronType.InputNeuron);
     defer node.deinit();
@@ -419,7 +419,7 @@ test "NNode `add_outgoing`" {
     defer node_2.deinit();
     var weight: f64 = 1.5;
 
-    _ = try node.add_outgoing(allocator, node_2, weight);
+    _ = try node.addOutgoing(allocator, node_2, weight);
 
     try testing.expectEqual(node.outgoing.items.len, 1);
     try testing.expectEqual(node_2.incoming.items.len, 0);
@@ -432,7 +432,7 @@ test "NNode `add_outgoing`" {
     try testing.expectEqual(node_2, link.out_node.?);
 }
 
-test "NNode `connect_from`" {
+test "NNode `connectFrom`" {
     const allocator = testing.allocator;
     var node = try NNode.init(allocator, 1, NodeNeuronType.InputNeuron);
     defer node.deinit();
@@ -441,7 +441,7 @@ test "NNode `connect_from`" {
 
     var weight: f64 = 1.5;
 
-    _ = try node_2.connect_from(allocator, node, weight);
+    _ = try node_2.connectFrom(allocator, node, weight);
 
     try testing.expectEqual(node_2.incoming.items.len, 1);
     try testing.expectEqual(node.outgoing.items.len, 1);
@@ -464,9 +464,9 @@ test "NNode `depth`" {
     var node_3 = try NNode.init(allocator, 3, NodeNeuronType.OutputNeuron);
     defer node_3.deinit();
 
-    var link_1 = try node_2.add_incoming(allocator, node, 15.0);
+    var link_1 = try node_2.addIncoming(allocator, node, 15.0);
     defer link_1.deinit();
-    var link_2 = try node_3.add_incoming(allocator, node_2, 20.0);
+    var link_2 = try node_3.addIncoming(allocator, node_2, 20.0);
     defer link_2.deinit();
 
     var depth = try node_3.depth(0, 0);
@@ -482,11 +482,11 @@ test "NNode `depth` with loop" {
     var node_3 = try NNode.init(allocator, 3, NodeNeuronType.OutputNeuron);
     defer node_3.deinit();
 
-    var link_1 = try node_2.add_incoming(allocator, node, 15.0);
+    var link_1 = try node_2.addIncoming(allocator, node, 15.0);
     defer link_1.deinit();
-    var link_2 = try node_3.add_incoming(allocator, node_2, 20.0);
+    var link_2 = try node_3.addIncoming(allocator, node_2, 20.0);
     defer link_2.deinit();
-    var link_3 = try node_3.add_incoming(allocator, node_3, 10.0);
+    var link_3 = try node_3.addIncoming(allocator, node_3, 10.0);
     defer link_3.deinit();
 
     var depth = try node_3.depth(0, 0);
@@ -502,9 +502,9 @@ test "NNode `depth` with max depth" {
     var node_3 = try NNode.init(allocator, 3, NodeNeuronType.OutputNeuron);
     defer node_3.deinit();
 
-    var link_1 = try node_2.add_incoming(allocator, node, 15.0);
+    var link_1 = try node_2.addIncoming(allocator, node, 15.0);
     defer link_1.deinit();
-    var link_2 = try node_3.add_incoming(allocator, node_2, 20.0);
+    var link_2 = try node_3.addIncoming(allocator, node_2, 20.0);
     defer link_2.deinit();
 
     var max_depth: i64 = 1;
@@ -520,16 +520,16 @@ test "NNode `flushback`" {
     var load: f64 = 34.0;
     var load_2: f64 = 14.0;
 
-    _ = node.sensor_load(load);
-    _ = node.sensor_load(load_2);
+    _ = node.sensorLoad(load);
+    _ = node.sensorLoad(load_2);
 
     // validate node state is updated
     try testing.expectEqual(node.activations_count, 2);
     try testing.expectEqual(node.activation, 14.0);
 
     // validate activation and time delayed activation
-    try testing.expectEqual(load_2, node.get_active_out());
-    try testing.expectEqual(load, node.get_active_out_td());
+    try testing.expectEqual(load_2, node.getActiveOut());
+    try testing.expectEqual(load, node.getActiveOutTd());
 
     node.flushback();
 
@@ -538,26 +538,26 @@ test "NNode `flushback`" {
     try testing.expectEqual(node.activation, 0.0);
 
     // validate activation and time delayed activation
-    try testing.expectEqual(node.get_active_out(), 0.0);
-    try testing.expectEqual(node.get_active_out_td(), 0.0);
+    try testing.expectEqual(node.getActiveOut(), 0.0);
+    try testing.expectEqual(node.getActiveOutTd(), 0.0);
 }
 
-test "NNode `get_active_out`" {
+test "NNode `getActiveOut`" {
     const allocator = testing.allocator;
     var activation: f64 = 1293.98;
     var node = try NNode.init(allocator, 1, NodeNeuronType.InputNeuron);
     defer node.deinit();
     node.activation = activation;
 
-    var out = node.get_active_out();
+    var out = node.getActiveOut();
     try testing.expectEqual(out, 0.0);
 
     node.activations_count = 1;
-    out = node.get_active_out();
+    out = node.getActiveOut();
     try testing.expectEqual(out, activation);
 }
 
-test "NNode `get_active_out_td`" {
+test "NNode `getActiveOutTd`" {
     const allocator = testing.allocator;
     var activation: f64 = 1293.98;
     var node = try NNode.init(allocator, 1, NodeNeuronType.InputNeuron);
@@ -565,15 +565,15 @@ test "NNode `get_active_out_td`" {
     node.activation = activation;
     node.activations_count = 1;
 
-    var out = node.get_active_out_td();
+    var out = node.getActiveOutTd();
     try testing.expectEqual(out, 0.0);
 
     node.activations_count = 2;
-    out = node.get_active_out();
+    out = node.getActiveOut();
     try testing.expectEqual(out, activation);
 }
 
-test "NNode `is_sensor`" {
+test "NNode `isSensor`" {
     const allocator = testing.allocator;
     var test_cases = [_]struct { n_type: NodeNeuronType, is_sensor: bool }{
         .{
@@ -597,11 +597,11 @@ test "NNode `is_sensor`" {
     for (test_cases) |case| {
         var node = try NNode.init(allocator, 1, case.n_type);
         defer node.deinit();
-        try testing.expectEqual(case.is_sensor, node.is_sensor());
+        try testing.expectEqual(case.is_sensor, node.isSensor());
     }
 }
 
-test "NNode `is_neuron`" {
+test "NNode `isNeuron`" {
     const allocator = testing.allocator;
     var test_cases = [_]struct { n_type: NodeNeuronType, is_neuron: bool }{
         .{
@@ -625,11 +625,11 @@ test "NNode `is_neuron`" {
     for (test_cases) |case| {
         var node = try NNode.init(allocator, 1, case.n_type);
         defer node.deinit();
-        try testing.expectEqual(case.is_neuron, node.is_neuron());
+        try testing.expectEqual(case.is_neuron, node.isNeuron());
     }
 }
 
-// TODO: test "NNode `flushback_check`" {}
+// TODO: test "NNode `flushbackCheck`" {}
 
 test "NNode node type" {
     const allocator = testing.allocator;
@@ -655,7 +655,7 @@ test "NNode node type" {
     for (test_cases) |case| {
         var node = try NNode.init(allocator, 1, case.neuron_type);
         defer node.deinit();
-        try testing.expectEqual(case.node_type, node.node_type());
+        try testing.expectEqual(case.node_type, node.nodeType());
     }
 }
 

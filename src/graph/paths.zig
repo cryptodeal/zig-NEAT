@@ -61,7 +61,7 @@ pub fn AllBetween(comptime WeightType: type, comptime NodeType: type) type {
             self.allocator.destroy(self);
         }
 
-        pub fn add_path(self: *Self, path: *std.ArrayList(*NodeType)) !void {
+        pub fn addPath(self: *Self, path: *std.ArrayList(*NodeType)) !void {
             if (self.paths == null) {
                 self.paths = std.ArrayList(std.ArrayList(*NodeType)).init(self.allocator);
             }
@@ -132,11 +132,11 @@ pub fn Shortest(comptime WeightType: type, comptime IdType: type, comptime NodeT
             return self.src;
         }
 
-        pub fn weight_to(self: *Self, dst: IdType) WeightType {
+        pub fn weightTo(self: *Self, dst: IdType) WeightType {
             return self.dist.get(dst).?;
         }
 
-        pub fn path_to(self: *Self, dst: IdType) !*PathTo(WeightType, NodeType) {
+        pub fn pathTo(self: *Self, dst: IdType) !*PathTo(WeightType, NodeType) {
             var path = std.ArrayList(*NodeType).init(self.allocator);
             if (!self.nodes.?.contains(dst)) {
                 std.debug.print("Vertice not found in graph", .{});
@@ -376,10 +376,10 @@ pub fn AllShortest(comptime IdType: type, comptime WeightType: type, comptime No
         }
 
         fn allBetweenCb(res: *AllBetween(WeightType, NodeType), path: *std.ArrayList(*NodeType)) !void {
-            try res.add_path(path);
+            try res.addPath(path);
         }
 
-        pub fn all_between(self: *Self, src: IdType, dst: IdType) !*AllBetween(WeightType, NodeType) {
+        pub fn allBetween(self: *Self, src: IdType, dst: IdType) !*AllBetween(WeightType, NodeType) {
             var res = try AllBetween(WeightType, NodeType).init(self.allocator);
             var from = self.index_of.get(src);
             var to = self.index_of.get(dst);
@@ -389,7 +389,7 @@ pub fn AllShortest(comptime IdType: type, comptime WeightType: type, comptime No
                 if (src == dst) {
                     var path = std.ArrayList(*NodeType).init(self.allocator);
                     try path.append(self.nodes[from.?]);
-                    try res.add_path(&path);
+                    try res.addPath(&path);
                     res.weight = 0;
                     return res;
                 }
@@ -408,12 +408,12 @@ pub fn AllShortest(comptime IdType: type, comptime WeightType: type, comptime No
             var path: std.ArrayList(*NodeType) = std.ArrayList(*NodeType).init(self.allocator);
             try path.append(n);
 
-            try self.allBetween(from.?, to.?, seen, &path, res, allBetweenCb);
+            try self.all_between(from.?, to.?, seen, &path, res, allBetweenCb);
 
             return res;
         }
 
-        fn allBetween(self: *Self, from: usize, to: usize, seen: []bool, path: ?*std.ArrayList(*NodeType), res: *AllBetween(WeightType, NodeType), comptime func: fn (*AllBetween(WeightType, NodeType), *std.ArrayList(*NodeType)) std.mem.Allocator.Error!void) !void {
+        fn all_between(self: *Self, from: usize, to: usize, seen: []bool, path: ?*std.ArrayList(*NodeType), res: *AllBetween(WeightType, NodeType), comptime func: fn (*AllBetween(WeightType, NodeType), *std.ArrayList(*NodeType)) std.mem.Allocator.Error!void) !void {
             if (self.forward) {
                 seen[from] = true;
             } else {
@@ -455,7 +455,7 @@ pub fn AllShortest(comptime IdType: type, comptime WeightType: type, comptime No
                 }
                 @memcpy(seen_work.?, seen);
                 try used_path.append(self.nodes[n]);
-                try self.allBetween(src, dst, seen_work.?, &used_path, res, func);
+                try self.all_between(src, dst, seen_work.?, &used_path, res, func);
             }
             path.?.*.deinit();
             if (seen_work != null) {

@@ -1,5 +1,5 @@
 const std = @import("std");
-const normalized_float_hash = @import("cppn.zig").normalized_float_hash;
+const normalizedFloatHash = @import("cppn.zig").normalizedFloatHash;
 
 pub const PointFHash = packed struct {
     x_hash: u64,
@@ -23,12 +23,12 @@ pub const PointF = struct {
     }
 
     pub fn key(self: *PointF) PointFHash {
-        return .{ .x_hash = self.hash_float(self.x), .y_hash = self.hash_float(self.y) };
+        return .{ .x_hash = self.hashFloat(self.x), .y_hash = self.hashFloat(self.y) };
     }
 
-    fn hash_float(_: *PointF, v: f64) u64 {
+    fn hashFloat(_: *PointF, v: f64) u64 {
         var hasher = std.hash.Wyhash.init(0);
-        normalized_float_hash(&hasher, v);
+        normalizedFloatHash(&hasher, v);
         return hasher.final();
     }
 
