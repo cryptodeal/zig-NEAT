@@ -55,8 +55,8 @@
     "substrate_activator": "SigmoidBipolarActivation"
   },
   "es_hyperneat_ctx": {
-    "initial_depth": 2,
-    "maximal_depth": 3,
+    "initial_depth": 4,
+    "maximal_depth": 6,
     "division_threshold": 0.5,
     "variance_threshold": 0.03,
     "banding_threshold": 0.3,

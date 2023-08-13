@@ -1,5 +1,7 @@
 const std = @import("std");
 
+const package_path = "src/zigNEAT.zig";
+
 // Although this function looks imperative, note that its job is to
 // declaratively construct a build graph that will be executed by an external
 // runner.
@@ -20,7 +22,7 @@ pub fn build(b: *std.Build) void {
 
     // we name the module duck which will be used later
     _ = b.addModule("zigNEAT", .{
-        .source_file = .{ .path = "src/main.zig" },
+        .source_file = .{ .path = package_path },
         .dependencies = &.{
             .{ .name = "json", .module = json_module },
         },
@@ -29,7 +31,7 @@ pub fn build(b: *std.Build) void {
     // Creates a step for unit testing. This only builds the test executable
     // but does not run it.
     const main_tests = b.addTest(.{
-        .root_source_file = .{ .path = "src/main.zig" },
+        .root_source_file = .{ .path = package_path },
         .target = target,
         .optimize = optimize,
     });
@@ -43,4 +45,14 @@ pub fn build(b: *std.Build) void {
     // This will evaluate the `test` step rather than the default, which is "install".
     const test_step = b.step("test", "Run library tests");
     test_step.dependOn(&run_main_tests.step);
+
+    // Docs
+    const zigNEAT_docs = main_tests;
+    const build_docs = b.addInstallDirectory(.{
+        .source_dir = zigNEAT_docs.getEmittedDocs(),
+        .install_dir = .prefix,
+        .install_subdir = "../docs",
+    });
+    const build_docs_step = b.step("docs", "Build the zigNEAT library docs");
+    build_docs_step.dependOn(&build_docs.step);
 }

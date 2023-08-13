@@ -105,86 +105,125 @@ const OptionsJSON = struct {
     es_hyperneat_ctx: ?ESHyperNEATContextJSON = null,
 };
 
+/// The NEAT algorithm options.
 pub const Options = struct {
-    // probability of mutating single trait param
+    /// Probability of mutating single trait param.
     trait_param_mut_prob: f64 = 0,
-    // power of mutation on single trait param
+    /// Power of mutation on single trait param.
     trait_mut_power: f64 = 0,
-    // power of link weight mutation
+    /// Power of link weight mutation.
     weight_mut_power: f64 = 0,
 
+    /// First of three global coefficients, which are used to determine the formula
+    /// for computing the compatibility between 2 genomes.  The formula is:
+    /// disjoint_coeff * pdg + excess_coeff * peg + mutdiff_coeff * mdmg.
+    /// See the compatibility method in the Genome class for more info
+    /// They can be thought of as the importance of disjoint Genes,
+    /// excess Genes, and parametric difference between Genes of the
+    /// same function, respectively.
     disjoint_coeff: f64 = 0,
+    /// Second of three global coefficients, which are used to determine the formula
+    /// for computing the compatibility between 2 genomes.  The formula is:
+    /// disjoint_coeff * pdg + excess_coeff * peg + mutdiff_coeff * mdmg.
+    /// See the compatibility method in the Genome class for more info
+    /// They can be thought of as the importance of disjoint Genes,
+    /// excess Genes, and parametric difference between Genes of the
+    /// same function, respectively.
     excess_coeff: f64 = 0,
+    /// Third of three global coefficients, which are used to determine the formula
+    /// for computing the compatibility between 2 genomes.  The formula is:
+    /// disjoint_coeff * pdg + excess_coeff * peg + mutdiff_coeff * mdmg.
+    /// See the compatibility method in the Genome class for more info
+    /// They can be thought of as the importance of disjoint Genes,
+    /// excess Genes, and parametric difference between Genes of the
+    /// same function, respectively.
     mut_diff_coeff: f64 = 0,
 
-    // globabl val representing compatability threshold
-    // under which 2 Genomes are considered same species
+    /// Globabl value representing compatability threshold under
+    /// which 2 Genomes are considered to be the same species.
     compat_threshold: f64 = 0,
 
-    // globals used in the epoch cycle; mating, reproduction, etc...
-
-    // how much should age matter? gives fitness boost
-    // young age (niching). 1.0 = no age discrimination
+    /// Globals used in the epoch cycle; mating, reproduction, etc...
+    /// How much should age matter? gives fitness boost
+    /// young age (niching). 1.0 = no age discrimination
     age_significance: f64 = 0,
-    // pct of avg fitness for survival, how many get to
-    // reproduce based on survival_thres * pop_size
+    /// Percent of avg fitness for survival, how many get to
+    /// reproduce based on survival_thres * pop_size.
     survival_thresh: f64 = 0,
 
-    // probability of non-mating reproduction
+    /// Probabilities of non-mating reproduction.
     mut_only_prob: f64 = 0,
+    /// Probability of genome trait mutation.
     mut_random_trait_prob: f64 = 0,
+    /// Probability  of link trait mutation.
     mut_link_trait_prob: f64 = 0,
+    /// Probability of node trait mutation
     mut_node_trait_prob: f64 = 0,
+    /// Probability of link weight value mutation
     mut_link_weights_prob: f64 = 0,
+    /// Probability of enabling/disabling of specific link/gene.
     mut_toggle_enable_prob: f64 = 0,
+    /// Probability of finding the first disabled gene and re-enabling it.
     mut_gene_reenable_prob: f64 = 0,
+    /// Probability of adding new node.
     mut_add_node_prob: f64 = 0,
+    /// Probability of adding new link between nodes.
     mut_add_link_prob: f64 = 0,
-    // probability of mutation involving disconnected inputs cxn
+    /// Probability of mutation involving disconnected inputs connection.
     mut_connect_sensors: f64 = 0,
 
-    // probabilities of a mate being outside species
+    /// Probabilities of a mate being outside species.
     interspecies_mate_rate: f64 = 0,
+    /// Probability of mating this Genome with another Genome g. For every point in each Genome, where
+    /// each Genome shares the innovation number, the Gene is chosen randomly from either parent.
+    /// If one parent has an innovation absent in the other, the baby may inherit the innovation
+    /// if it is from the more fit parent.
     mate_multipoint_prob: f64 = 0,
+    /// Probability of mating like in multipoint, but instead of selecting one or
+    /// the other when the innovation numbers match, it averages their weights.
     mate_multipoint_avg_prob: f64 = 0,
+    /// Probability of mating similar to a standard single point CROSSOVER operator. Traits
+    /// are averaged as in the previous two mating methods. A Gene is chosen in the smaller Genome
+    /// for splitting. When the Gene is reached, it is averaged with the matching Gene from the
+    /// larger Genome, if one exists. Then every other Gene is taken from the larger Genome.
     mate_singlepoint_prob: f64 = 0,
 
-    // probability of mating without mutation
+    /// Probability of mating without mutation.
     mate_only_prob: f64 = 0,
-    // probability of forcing selection of ONLY links that are naturally recurrent
+    /// Probability of forcing selection of ONLY links that are naturally recurrent.
     recur_only_prob: f64 = 0,
 
-    // size of population
+    /// Size of the population.
     pop_size: usize = 0,
-    // age when species starts to be penalized
+    /// Age when species starts to be penalized
     dropoff_age: i64 = 0,
-    // number of times mutateAddLink will attempt to open new link
+    /// Number of times mutating to add a link will attempt to open new link.
     new_link_tries: usize = 0,
 
-    // write population to file every n generations
+    /// Write population to file every n generations
     print_every: usize = 0,
 
-    // number of "babies" stolen off to champions
+    /// Number of "babies" stolen off to champions.
     babies_stolen: usize = 0,
 
-    // number of runs to avg over in an experiment
+    /// Number of runs to avg over in an experiment.
     num_runs: usize = 0,
 
-    // number of epochs (generations) to execute training
+    /// Number of epochs (generations) to execute training.
     num_generations: usize = 0,
 
-    // specifies the epoch's exectuor type to apply
+    /// Specifies the epoch's exectuor type to apply.
     epoch_executor_type: EpochExecutorType = undefined,
-    // specifies the method used for genome compatability
-    // test (linear, fast - better for large genomes)
+    /// Specifies the method used for genome compatability
+    /// test (linear, fast - better for large genomes).
     gen_compat_method: GenomeCompatibilityMethod = undefined,
 
-    // neuron nodes activation function list to choose from
+    /// Neuron nodes activation function list to choose from.
     node_activators: []math.NodeActivationType = undefined,
-    // probabilities of selection of the specific node activator fn
+    /// Probabilities of selection of the specific node activator function.
     node_activators_prob: []f64 = undefined,
 
-    // the log output details level
+    // The log output details level.
     log_level: std.log.Level = .info,
 
     /// The included HyperNEAT context
@@ -193,88 +232,19 @@ pub const Options = struct {
     /// The included ES-HyperNEAT context
     es_hyperneat_ctx: ?*ESHyperNEATContext = null,
 
-    // allocator used internally
+    /// allocator used internally
     allocator: std.mem.Allocator = undefined,
 
-    pub fn jsonify(self: *Options) OptionsJSON {
-        return .{
-            .trait_param_mut_prob = self.trait_param_mut_prob,
-            .trait_mut_power = self.trait_mut_power,
-            .weight_mut_power = self.weight_mut_power,
-            .disjoint_coeff = self.disjoint_coeff,
-            .excess_coeff = self.excess_coeff,
-            .mut_diff_coeff = self.mut_diff_coeff,
-            .compat_threshold = self.compat_threshold,
-            .age_significance = self.age_significance,
-            .survival_thresh = self.survival_thresh,
-            .mut_only_prob = self.mut_only_prob,
-            .mut_random_trait_prob = self.mut_random_trait_prob,
-            .mut_link_trait_prob = self.mut_link_trait_prob,
-            .mut_node_trait_prob = self.mut_node_trait_prob,
-            .mut_link_weights_prob = self.mut_link_weights_prob,
-            .mut_toggle_enable_prob = self.mut_toggle_enable_prob,
-            .mut_gene_reenable_prob = self.mut_gene_reenable_prob,
-            .mut_add_node_prob = self.mut_add_node_prob,
-            .mut_add_link_prob = self.mut_add_link_prob,
-            .mut_connect_sensors = self.mut_connect_sensors,
-            .interspecies_mate_rate = self.interspecies_mate_rate,
-            .mate_multipoint_prob = self.mate_multipoint_prob,
-            .mate_multipoint_avg_prob = self.mate_multipoint_avg_prob,
-            .mate_singlepoint_prob = self.mate_singlepoint_prob,
-            .mate_only_prob = self.mate_only_prob,
-            .recur_only_prob = self.recur_only_prob,
-            .pop_size = self.pop_size,
-            .dropoff_age = self.dropoff_age,
-            .new_link_tries = self.new_link_tries,
-            .print_every = self.print_every,
-            .babies_stolen = self.babies_stolen,
-            .num_runs = self.num_runs,
-            .num_generations = self.num_generations,
-            .epoch_executor_type = self.epoch_executor_type,
-            .gen_compat_method = self.gen_compat_method,
-            .log_level = self.log_level,
-            .node_activators = self.node_activators,
-            .node_activators_prob = self.node_activators_prob,
-            .hyperneat_ctx = if (self.hyperneat_ctx != null) self.hyperneat_ctx.?.jsonify() else null,
-            .es_hyperneat_ctx = if (self.es_hyperneat_ctx) self.es_hyperneat_ctx.?.jsonify() else null,
-        };
+    /// Initializes Options by reading from JSON file (path relative to CWD).
+    /// This is the recommended method for initializing Options.
+    pub fn readFromJSON(allocator: std.mem.Allocator, path: []const u8) !*Options {
+        const buf = try readFile(allocator, path);
+        defer allocator.free(buf);
+        var enc: OptionsJSON = try json.fromSlice(allocator, OptionsJSON, buf);
+        return Options.initFromJSONEnc(allocator, enc);
     }
 
-    pub fn writeToJSON(self: *Options, path: []const u8) !void {
-        var output_file = try getWritableFile(path);
-        defer output_file.close();
-        try json.toPrettyWriter(null, self.jsonify(), output_file.writer());
-    }
-
-    pub fn randomNodeActivationType(self: *Options, rand: std.rand.Random) !math.NodeActivationType {
-        // quick check for the most cases
-        if (self.node_activators.len == 1) {
-            return self.node_activators[0];
-        }
-        // find next random
-        var idx = @as(usize, @intCast(m.singleRouletteThrow(rand, self.node_activators_prob)));
-        if (idx < 0 or idx == self.node_activators.len) {
-            std.debug.print("unexpected error when trying to find random node activator, activator index: {d}\n", .{idx});
-            return error.NodeActivationTypeInvalid;
-        }
-        return self.node_activators[idx];
-    }
-
-    pub fn initNodeActivators(self: *Options, allocator: std.mem.Allocator) !void {
-        self.node_activators = try allocator.alloc(math.NodeActivationType, 1);
-        self.node_activators[0] = math.NodeActivationType.SigmoidSteepenedActivation;
-        self.node_activators_prob = try allocator.alloc(f64, 1);
-        self.node_activators_prob[0] = 1.0;
-    }
-
-    pub fn deinit(self: *Options) void {
-        if (self.es_hyperneat_ctx != null) self.es_hyperneat_ctx.?.deinit();
-        if (self.hyperneat_ctx != null) self.hyperneat_ctx.?.deinit();
-        self.allocator.free(self.node_activators);
-        self.allocator.free(self.node_activators_prob);
-        self.allocator.destroy(self);
-    }
-
+    /// Initializes Options by reading from `.neat` file format.
     pub fn readOptions(allocator: std.mem.Allocator, path: []const u8) !*Options {
         const buf = try readFile(allocator, path);
         defer allocator.free(buf);
@@ -382,7 +352,91 @@ pub const Options = struct {
         return self;
     }
 
-    pub fn initFromJSONEnc(allocator: std.mem.Allocator, enc: OptionsJSON) !*Options {
+    /// Frees all associated memory.
+    pub fn deinit(self: *Options) void {
+        if (self.es_hyperneat_ctx != null) self.es_hyperneat_ctx.?.deinit();
+        if (self.hyperneat_ctx != null) self.hyperneat_ctx.?.deinit();
+        self.allocator.free(self.node_activators);
+        self.allocator.free(self.node_activators_prob);
+        self.allocator.destroy(self);
+    }
+
+    /// Writes the Options to a JSON file (path relative to CWD).
+    pub fn writeToJSON(self: *Options, path: []const u8) !void {
+        var output_file = try getWritableFile(path);
+        defer output_file.close();
+        try json.toPrettyWriter(null, self.jsonify(), output_file.writer());
+    }
+
+    /// Returns the JSON representation of the Options. Called by `writeToJSON`; for internal use only.
+    pub fn jsonify(self: *Options) OptionsJSON {
+        return .{
+            .trait_param_mut_prob = self.trait_param_mut_prob,
+            .trait_mut_power = self.trait_mut_power,
+            .weight_mut_power = self.weight_mut_power,
+            .disjoint_coeff = self.disjoint_coeff,
+            .excess_coeff = self.excess_coeff,
+            .mut_diff_coeff = self.mut_diff_coeff,
+            .compat_threshold = self.compat_threshold,
+            .age_significance = self.age_significance,
+            .survival_thresh = self.survival_thresh,
+            .mut_only_prob = self.mut_only_prob,
+            .mut_random_trait_prob = self.mut_random_trait_prob,
+            .mut_link_trait_prob = self.mut_link_trait_prob,
+            .mut_node_trait_prob = self.mut_node_trait_prob,
+            .mut_link_weights_prob = self.mut_link_weights_prob,
+            .mut_toggle_enable_prob = self.mut_toggle_enable_prob,
+            .mut_gene_reenable_prob = self.mut_gene_reenable_prob,
+            .mut_add_node_prob = self.mut_add_node_prob,
+            .mut_add_link_prob = self.mut_add_link_prob,
+            .mut_connect_sensors = self.mut_connect_sensors,
+            .interspecies_mate_rate = self.interspecies_mate_rate,
+            .mate_multipoint_prob = self.mate_multipoint_prob,
+            .mate_multipoint_avg_prob = self.mate_multipoint_avg_prob,
+            .mate_singlepoint_prob = self.mate_singlepoint_prob,
+            .mate_only_prob = self.mate_only_prob,
+            .recur_only_prob = self.recur_only_prob,
+            .pop_size = self.pop_size,
+            .dropoff_age = self.dropoff_age,
+            .new_link_tries = self.new_link_tries,
+            .print_every = self.print_every,
+            .babies_stolen = self.babies_stolen,
+            .num_runs = self.num_runs,
+            .num_generations = self.num_generations,
+            .epoch_executor_type = self.epoch_executor_type,
+            .gen_compat_method = self.gen_compat_method,
+            .log_level = self.log_level,
+            .node_activators = self.node_activators,
+            .node_activators_prob = self.node_activators_prob,
+            .hyperneat_ctx = if (self.hyperneat_ctx != null) self.hyperneat_ctx.?.jsonify() else null,
+            .es_hyperneat_ctx = if (self.es_hyperneat_ctx) self.es_hyperneat_ctx.?.jsonify() else null,
+        };
+    }
+
+    /// Returns next random node activation type among registered with Options.
+    pub fn randomNodeActivationType(self: *Options, rand: std.rand.Random) !math.NodeActivationType {
+        // quick check for the most cases
+        if (self.node_activators.len == 1) {
+            return self.node_activators[0];
+        }
+        // find next random
+        var idx = @as(usize, @intCast(m.singleRouletteThrow(rand, self.node_activators_prob)));
+        if (idx < 0 or idx == self.node_activators.len) {
+            std.debug.print("unexpected error when trying to find random node activator, activator index: {d}\n", .{idx});
+            return error.NodeActivationTypeInvalid;
+        }
+        return self.node_activators[idx];
+    }
+
+    /// Set default values for activator type and its probability of selection (used if reading from non-JSON).
+    pub fn initNodeActivators(self: *Options, allocator: std.mem.Allocator) !void {
+        self.node_activators = try allocator.alloc(math.NodeActivationType, 1);
+        self.node_activators[0] = math.NodeActivationType.SigmoidSteepenedActivation;
+        self.node_activators_prob = try allocator.alloc(f64, 1);
+        self.node_activators_prob[0] = 1.0;
+    }
+
+    fn initFromJSONEnc(allocator: std.mem.Allocator, enc: OptionsJSON) !*Options {
         var self = try allocator.create(Options);
         self.* = .{
             .trait_param_mut_prob = enc.trait_param_mut_prob,
@@ -428,14 +482,6 @@ pub const Options = struct {
         };
 
         return self;
-    }
-
-    // TODO: maybe??? pub fn validate(self: *Options) !void {}
-    pub fn readFromJSON(allocator: std.mem.Allocator, path: []const u8) !*Options {
-        const buf = try readFile(allocator, path);
-        defer allocator.free(buf);
-        var enc: OptionsJSON = try json.fromSlice(allocator, OptionsJSON, buf);
-        return Options.initFromJSONEnc(allocator, enc);
     }
 };
 
