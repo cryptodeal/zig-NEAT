@@ -17,6 +17,9 @@ jobs:
       - uses: goto-bus-stop/setup-zig@v2
       - run: zig fmt --check src/*.zig
   deploy:
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
