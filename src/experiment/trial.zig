@@ -5,19 +5,22 @@ const neat_organism = @import("../genetics/organism.zig");
 const Organism = neat_organism.Organism;
 const fitnessComparison = neat_organism.fitnessComparison;
 
+// Trial holds statistics about one experiment run.
 pub const Trial = struct {
-    // The trial number
+    /// The trial number.
     id: u64,
-    // The results per generation in this trial
+    /// The results per generation in this trial.
     generations: std.ArrayList(*Generation),
-    // The winner generation
+    /// The winner generation.
     winner_generation: ?*Generation = null,
 
-    // The elapsed time between trial start and finish
+    /// The elapsed time between trial start and finish.
     duration: u64 = undefined,
-
+    /// Holds reference to underlying allocator, which is used to
+    /// free memory when `deinit` is called.
     allocator: std.mem.Allocator,
 
+    /// Initializes a new Trial.
     pub fn init(allocator: std.mem.Allocator, id: u64) !*Trial {
         var self = try allocator.create(Trial);
         self.* = .{
@@ -28,6 +31,7 @@ pub const Trial = struct {
         return self;
     }
 
+    /// Frees all associated memory.
     pub fn deinit(self: *Trial) void {
         for (self.generations.items) |gen| {
             gen.deinit();
@@ -36,6 +40,8 @@ pub const Trial = struct {
         self.allocator.destroy(self);
     }
 
+    /// Calculates average duration of evaluations among all
+    /// generations of organism populations in this trial.
     pub fn avgEpochDuration(self: *Trial) i64 {
         var total: u64 = 0;
         for (self.generations.items) |generation| {
@@ -48,6 +54,7 @@ pub const Trial = struct {
         }
     }
 
+    /// Used to get time of the epoch executed most recently within this trial.
     pub fn recentEpochEvalTime(self: *Trial) std.time.Instant {
         var u: std.time.Instant = undefined;
         for (self.generations.items, 0..) |i, idx| {
@@ -62,6 +69,8 @@ pub const Trial = struct {
         return u;
     }
 
+    /// Finds the most fit organism among all epochs in this trial. It's also possible to
+    /// get the best organism only among successful solvers of the experiment's problem.
     pub fn bestOrganism(self: *Trial, allocator: std.mem.Allocator, only_solvers: bool) !?*Organism {
         var orgs = std.ArrayList(*Organism).init(allocator);
         defer orgs.deinit();
@@ -81,6 +90,7 @@ pub const Trial = struct {
         }
     }
 
+    /// Check whether any of the generations in this trial has solved the problem.
     pub fn solved(self: *Trial) bool {
         for (self.generations.items) |e| {
             if (e.solved) {
@@ -90,6 +100,7 @@ pub const Trial = struct {
         return false;
     }
 
+    /// Returns the fitness values of the champion organisms per generation in this trial.
     pub fn championsFitness(self: *Trial, allocator: std.mem.Allocator) ![]f64 {
         var x = try allocator.alloc(f64, self.generations.items.len);
         for (self.generations.items, 0..) |e, i| {
@@ -98,6 +109,7 @@ pub const Trial = struct {
         return x;
     }
 
+    /// Returns the age of the species of the champion per generation in this trial.
     pub fn championSpeciesAges(self: *Trial, allocator: std.mem.Allocator) ![]f64 {
         var x = try allocator.alloc(f64, self.generations.items.len);
         for (self.generations.items, 0..) |e, i| {
@@ -106,6 +118,7 @@ pub const Trial = struct {
         return x;
     }
 
+    /// Returns the complexities of the champion organisms per generation in this trial.
     pub fn championsComplexities(self: *Trial, allocator: std.mem.Allocator) ![]f64 {
         var x = try allocator.alloc(f64, self.generations.items.len);
         for (self.generations.items, 0..) |e, i| {
@@ -114,6 +127,7 @@ pub const Trial = struct {
         return x;
     }
 
+    /// Returns number of species for each epoch.
     pub fn diversity(self: *Trial, allocator: std.mem.Allocator) ![]f64 {
         var x = try allocator.alloc(f64, self.generations.items.len);
         for (self.generations.items, 0..) |e, i| {
@@ -122,6 +136,7 @@ pub const Trial = struct {
         return x;
     }
 
+    /// Average the average fitness, age, and complexity of the best organisms per species for each epoch in this trial.
     pub fn average(self: *Trial, allocator: std.mem.Allocator) *TrialAvg {
         var self_avg = try TrialAvg.init(allocator, self.generations.items.len);
         for (self.generations.items, 0..) |e, i| {
@@ -133,6 +148,8 @@ pub const Trial = struct {
         return self_avg;
     }
 
+    /// Finds the number of nodes, genes of the winner genome as well as number of winner
+    /// organism evaluations and species diversity in the population with successful solver.
     pub fn winnerStats(self: *Trial) WinnerStats {
         var stats = WinnerStats{};
         if (self.winner_generation != null) {
@@ -157,6 +174,7 @@ pub const Trial = struct {
     }
 };
 
+/// Holds statistics about the winner genome of a trial.
 pub const WinnerStats = struct {
     nodes: i64 = -1,
     genes: i64 = -1,
@@ -164,6 +182,7 @@ pub const WinnerStats = struct {
     diversity: i64 = -1,
 };
 
+/// Holds the average fitness, age, and complexity of the best organisms per species for each epoch in a given.
 pub const TrialAvg = struct {
     fitness: []f64,
     complexity: []f64,

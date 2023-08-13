@@ -7,25 +7,32 @@ const NodeNeuronType = net_common.NodeNeuronType;
 const Trait = neat_trait.Trait;
 const NNode = net_node.NNode;
 
+/// Link is a connection from one node to another with an associated weight.
+/// It can be marked as recurrent.
 pub const Link = struct {
-    // weight of cxn
+    /// The weight of the connection.
     cxn_weight: f64,
-    // NNode input for link
+    /// NNode inputting into the connection.
     in_node: ?*NNode,
-    // NNode output for link
+    // NNode that the link affects.
     out_node: ?*NNode,
-    // if true, link is recurrent
+    // If true, the link is recurrent.
     is_recurrent: bool = false,
-    // if true, link is time delayed
+    // If true, link is time delayed.
     is_time_delayed: bool = false,
-    // points to trait of params for genetic creation
-    trait: ?*Trait,
-
-    params: []f64,
+    // Points to Trait of params for genetic creation.
+    trait: ?*Trait = null,
+    /// Learning Parameters; the following parameters are for use in neurons that
+    /// learn through habituation, sensitization, or Hebbian-type processes.
+    params: []f64 = undefined,
+    /// Denotes whether params is allocated (used internally when calling deinit).
     has_params: bool = false,
 
+    /// Holds reference to underlying allocator, which is used to
+    /// free memory when `deinit` is called.
     allocator: std.mem.Allocator,
 
+    /// Initializes a new Link with the specified weight, input and output neurons connected recurrently or not.
     pub fn init(allocator: std.mem.Allocator, weight: f64, input_node: ?*NNode, output_node: ?*NNode, recurrent: bool) !*Link {
         var link: *Link = try allocator.create(Link);
         link.* = .{
@@ -34,12 +41,11 @@ pub const Link = struct {
             .in_node = input_node,
             .out_node = output_node,
             .is_recurrent = recurrent,
-            .params = undefined,
-            .trait = null,
         };
         return link;
     }
 
+    /// Initializes a new Link with the specified Trait.
     pub fn initWithTrait(allocator: std.mem.Allocator, trait: ?*Trait, weight: f64, input_node: ?*NNode, output_node: ?*NNode, recurrent: bool) !*Link {
         var link: *Link = try Link.init(allocator, weight, input_node, output_node, recurrent);
         link.trait = trait;
@@ -47,6 +53,7 @@ pub const Link = struct {
         return link;
     }
 
+    /// Initializes a new Link with parameters taken from provided ones and connecting specified nodes.
     pub fn initCopy(allocator: std.mem.Allocator, l: *Link, in_node: *NNode, out_node: *NNode) !*Link {
         var link: *Link = try Link.init(allocator, l.cxn_weight, in_node, out_node, l.is_recurrent);
         link.trait = l.trait;
@@ -54,6 +61,7 @@ pub const Link = struct {
         return link;
     }
 
+    /// Frees all associated memory.
     pub fn deinit(self: *Link) void {
         if (self.has_params) {
             self.allocator.free(self.params);
@@ -61,6 +69,7 @@ pub const Link = struct {
         self.allocator.destroy(self);
     }
 
+    /// Tests for equality between two Links.
     pub fn isEql(self: *Link, l: *Link) bool {
         // check equality of fields w primitive types
         if (self.cxn_weight != l.cxn_weight or self.is_recurrent != l.is_recurrent or self.is_time_delayed != l.is_time_delayed or self.has_params != l.has_params) {
@@ -91,6 +100,7 @@ pub const Link = struct {
         return true;
     }
 
+    /// Copy Trait parameters into this link's parameters.
     pub fn deriveTrait(self: *Link, t: ?*Trait) !void {
         if (t != null) {
             // modifies Link params; use Link's allocator
@@ -102,6 +112,8 @@ pub const Link = struct {
         }
     }
 
+    /// Checks if this link is genetically equal to provided one, i.e. connects nodes with the
+    /// same IDs and has equal recurrent flag. I.e. if both links represent the same Gene.
     pub fn isGeneticallyEql(self: *Link, other: *Link) bool {
         const same_in_node: bool = self.in_node.?.id == other.in_node.?.id;
         // std.debug.print("\nsame_in_node: {any}; self.in_node.id: {d} - other.in_node.id: {d}\n", .{ same_in_node, self.in_node.?.id, other.in_node.?.id });
@@ -112,6 +124,7 @@ pub const Link = struct {
         return same_in_node and same_out_node and same_recurrent;
     }
 
+    // TODO: remove and use `format`
     pub fn string(self: *Link, allocator: std.mem.Allocator) ![]const u8 {
         var buffer = std.ArrayList(u8).init(allocator);
         try buffer.writer().print("[Link: ({any} <-> {any}), weight: {d:.3}, recurrent: {any}, time delayed: {any}]", .{ self.in_node, self.out_node, self.cxn_weight, self.is_recurrent, self.is_time_delayed });

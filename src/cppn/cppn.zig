@@ -20,15 +20,15 @@ pub const SubstrateLayout = layout.SubstrateLayout;
 pub const GridSubstrateLayout = layout.GridSubstrateLayout;
 pub const Substrate = @import("substrate.zig").Substrate;
 
-/// Reads CPPN from specified genome and creates network solver
+/// Reads CPPN from specified Genome and initializes Solver.
 pub fn fastSolverGenomeFromFile(allocator: std.mem.Allocator, path: []const u8) !Solver {
     const genome = try Genome.readFromJSON(allocator, path);
     defer genome.deinit();
     _ = try genome.genesis(allocator, genome.id);
-    return genome.phenotype.?.fastNetworkSolve(allocator);
+    return genome.phenotype.?.fastNetworkSolver(allocator);
 }
 
-/// Creates normalized by threshold value link between source and target nodes, given calculated CPPN output for their coordinates
+/// Creates normalized by threshold value link between source and target nodes, given calculated CPPN output for their coordinates.
 pub fn createThresholdNormalizedLink(allocator: std.mem.Allocator, cppn_output: f64, src_idx: usize, dst_idx: usize, link_threshold: f64, weight_range: f64) !*FastNetworkLink {
     var weight = (@fabs(cppn_output) - link_threshold) / (1 - link_threshold); // normalize [0, 1]
     weight *= weight_range; // scale to fit given weight range
@@ -38,14 +38,14 @@ pub fn createThresholdNormalizedLink(allocator: std.mem.Allocator, cppn_output: 
     return FastNetworkLink.init(allocator, src_idx, dst_idx, weight);
 }
 
-/// Creates link between source and target nodes, given calculated CPPN output for their coordinates
+/// Creates link between source and target nodes, given calculated CPPN output for their coordinates.
 pub fn createLink(allocator: std.mem.Allocator, cppn_output: f64, src_idx: usize, dst_idx: usize, weight_range: f64) !*FastNetworkLink {
     var weight = cppn_output;
     weight *= weight_range; // scale to fit given weight range
     return FastNetworkLink.init(allocator, src_idx, dst_idx, weight);
 }
 
-/// Calculates outputs of provided CPPN network solver with given hypercube coordinates.
+/// Calculates outputs of provided CPPN network Solver with given hypercube coordinates.
 pub fn queryCPPN(allocator: std.mem.Allocator, coordinates: []f64, cppn: Solver) ![]f64 {
     // flush networks activation from previous run
     var res = try cppn.flush();
@@ -91,8 +91,8 @@ pub fn nodeVariance(allocator: std.mem.Allocator, node: *QuadNode) !f64 {
     return variance;
 }
 
-/// Collects the CPPN values stored in a given quadtree node
-/// Used to estimate the variance in a certain region of space around node
+/// Collects the CPPN values stored in a given quadtree node. Used to
+/// estimate the variance in a certain region of space around node
 pub fn nodeCPPNValues(allocator: std.mem.Allocator, n: *QuadNode) ![]f64 {
     if (n.nodes.items.len > 0) {
         var accumulator = std.ArrayList(f64).init(allocator);
@@ -110,6 +110,7 @@ pub fn nodeCPPNValues(allocator: std.mem.Allocator, n: *QuadNode) ![]f64 {
     }
 }
 
+/// Used to hash float values (asserts non NaN)
 pub fn normalizedFloatHash(hasher: anytype, key: anytype) void {
     const info = @typeInfo(@TypeOf(key));
     if (info != .Float) @compileError("only float types are allowed");
@@ -120,28 +121,28 @@ pub fn normalizedFloatHash(hasher: anytype, key: anytype) void {
 
 // test utils/tests
 
-fn build_tree(allocator: std.mem.Allocator) !*QuadNode {
+fn buildTree(allocator: std.mem.Allocator) !*QuadNode {
     var root = try QuadNode.init(allocator, 0, 0, 1, 1);
     try root.nodes.append(try QuadNode.init(allocator, -1, 1, 0.5, 2));
     try root.nodes.append(try QuadNode.init(allocator, -1, -1, 0.5, 2));
     try root.nodes.append(try QuadNode.init(allocator, 1, 1, 0.5, 2));
     try root.nodes.append(try QuadNode.init(allocator, 1, -1, 0.5, 2));
-    fill_w(root.nodes.items, 2);
+    fillW(root.nodes.items, 2);
     try root.nodes.items[0].nodes.append(try QuadNode.init(allocator, -1, 1, 0.5, 3));
     try root.nodes.items[0].nodes.append(try QuadNode.init(allocator, -1, -1, 0.5, 3));
     try root.nodes.items[0].nodes.append(try QuadNode.init(allocator, 1, 1, 0.5, 3));
     try root.nodes.items[0].nodes.append(try QuadNode.init(allocator, 1, -1, 0.5, 3));
-    fill_w(root.nodes.items[0].nodes.items, 1);
+    fillW(root.nodes.items[0].nodes.items, 1);
     return root;
 }
 
-fn fill_w(nodes: []*QuadNode, factor: f64) void {
+fn fillW(nodes: []*QuadNode, factor: f64) void {
     for (nodes, 0..) |n, i| {
         n.cppn_out[0] = @as(f64, @floatFromInt(i)) * factor;
     }
 }
 
-pub fn check_network_solver_outputs(allocator: std.mem.Allocator, solver: Solver, out_expected: []f64, delta: f64) !void {
+pub fn checkNetworkSolverOutputs(allocator: std.mem.Allocator, solver: Solver, out_expected: []f64, delta: f64) !void {
     var signals = [_]f64{ 0.9, 5.2, 1.2, 0.6 };
     try solver.loadSensors(&signals);
     var res = try solver.recursiveSteps();
@@ -155,7 +156,7 @@ pub fn check_network_solver_outputs(allocator: std.mem.Allocator, solver: Solver
 
 test "QuadNode node variance" {
     const allocator = std.testing.allocator;
-    var root = try build_tree(allocator);
+    var root = try buildTree(allocator);
     defer root.deinit();
 
     // get variance and check results
@@ -165,7 +166,7 @@ test "QuadNode node variance" {
 
 test "QuadNode node CPPN values" {
     const allocator = std.testing.allocator;
-    var root = try build_tree(allocator);
+    var root = try buildTree(allocator);
     defer root.deinit();
 
     // get CPPN values and test results

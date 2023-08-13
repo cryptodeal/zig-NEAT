@@ -22,6 +22,9 @@ pub const network = @import("network/common.zig");
 // export all zig-NEAT Novelty Search Structs/Types/Fns
 pub const ns = @import("ns/common.zig");
 
+// export read/write utils
+pub const utils = @import("utils/utils.zig");
+
 // export other zig-NEAT Structs/Types/Fns
 pub const EpochExecutorType = options.EpochExecutorType;
 pub const GenomeCompatibilityMethod = options.GenomeCompatibilityMethod;

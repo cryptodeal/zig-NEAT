@@ -20,45 +20,54 @@ pub const NNodeJSON = struct {
     activation: neat_math.NodeActivationType,
 };
 
+/// NNode is either a NEURON or a SENSOR. If it's a sensor, it can be loaded with a value for output.
+/// If it's a neuron, it has a list of its incoming input signals ([]*Link is used).
+/// Use an activation count to avoid flushing.
 pub const NNode = struct {
-    // id of the node
+    /// The node id.
     id: i64 = 0,
-    // type of node activation fn
+    /// The type of node activation function.
     activation_type: neat_math.NodeActivationType,
-    // node neuron type
+    /// The neuron type for this node.
     neuron_type: NodeNeuronType,
-    // node activation value
+    /// The node's activation value.
     activation: f64 = 0,
-    // number of activations for node
+    /// The number of activations for this node.
     activations_count: i32 = 0,
-    // sum of activations
+    /// The activation sum.
     activation_sum: f64 = 0,
 
-    // list of all incoming cxns
+    /// List of all incoming connections.
     incoming: std.ArrayList(*Link),
-    // list of all outgoing cxns
+    /// List of all outgoing connections.
     outgoing: std.ArrayList(*Link),
-    // trait linked to node
+    /// The trait linked to node.
     trait: ?*Trait = null,
-    // Used for Gene decoding by referencing analogue to this node in organism phenotype
+    /// Used for Gene decoding by referencing analogue to this node in Organism phenotype.
     phenotype_analogue: *NNode = undefined,
-    // flag used for loop detection
+    /// The flag used for loop detection.
     visited: bool = false,
 
-    // learning parameters
+    /// Learning Parameters; the following parameters are for use in neurons that
+    /// learn through habituation, sensitization, or Hebbian-type processes.
     params: []f64 = undefined,
+    /// Denotes whether params is allocated (used internally when calling deinit).
     has_params: bool = false,
 
-    // activation value at time t-1
-    // holds prev step activation val for recurrency
+    /// The activation value at time t-1; holds the previous step's
+    /// activation value for recurrency.
     last_activation: f64 = 0,
-    // activation value at time t-2
+    /// Activation value of node at time t-2; holds the activation before the previous step's.
+    /// This is necessary for a special recurrent case when the in_node of a recurrent link is
+    /// one time step ahead of the outnode. The in_node then needs to send from TWO time steps ago.
     last_activation_2: f64 = 0,
-    // if true, node is active; used during node activation
+    /// If true, node is active; used during node activation.
     is_active: bool = false,
-
+    /// Holds reference to underlying allocator, which is used to
+    /// free memory when `deinit` is called.
     allocator: std.mem.Allocator,
 
+    /// For internal use only; parses NNode into format that can be serialized to JSON.
     pub fn jsonify(self: *NNode) NNodeJSON {
         return .{
             .id = self.id,
@@ -68,6 +77,7 @@ pub const NNode = struct {
         };
     }
 
+    /// Initializes a new NNode with default values.
     pub fn rawInit(allocator: std.mem.Allocator) !*NNode {
         var node = try allocator.create(NNode);
         node.* = .{
@@ -80,6 +90,7 @@ pub const NNode = struct {
         return node;
     }
 
+    /// Initializes a new NNode from JSON (used when reading Genome from file).
     pub fn initFromJSON(allocator: std.mem.Allocator, value: NNodeJSON, traits: []*Trait) !*NNode {
         var node = try NNode.rawInit(allocator);
         node.id = value.id;
@@ -90,6 +101,7 @@ pub const NNode = struct {
         return node;
     }
 
+    /// Initializes a new NNode with specified Id and neuron type.
     pub fn init(allocator: std.mem.Allocator, node_id: i64, neuron_type: NodeNeuronType) !*NNode {
         var node = try NNode.rawInit(allocator);
         node.id = node_id;
@@ -97,6 +109,7 @@ pub const NNode = struct {
         return node;
     }
 
+    /// Initializes a new NNode from an existing NNode with given trait for Genome purposes.
     pub fn initCopy(allocator: std.mem.Allocator, n: *NNode, t: ?*Trait) !*NNode {
         var node = try NNode.rawInit(allocator);
         node.id = n.id;
@@ -106,6 +119,7 @@ pub const NNode = struct {
         return node;
     }
 
+    /// Initializes a new NNode from file (used when reading Genome from plain text file).
     pub fn readFromFile(allocator: std.mem.Allocator, data: []const u8, traits: []*Trait) !*NNode {
         var node = try NNode.rawInit(allocator);
         errdefer node.deinit();
@@ -134,23 +148,27 @@ pub const NNode = struct {
         return node;
     }
 
+    /// Frees all associated memory.
     pub fn deinit(self: *NNode) void {
         self.incoming.deinit();
         self.outgoing.deinit();
         self.allocator.destroy(self);
     }
 
+    /// Set new activation value for this NNode.
     pub fn setActivation(self: *NNode, input: f64) void {
         self.saveActivations();
         self.activation = input;
         self.activations_count += 1;
     }
 
+    /// Saves NNode's current activations for potential time delayed connections.
     pub fn saveActivations(self: *NNode) void {
         self.last_activation_2 = self.last_activation;
         self.last_activation = self.activation;
     }
 
+    /// Returns activation for a current step.
     pub fn getActiveOut(self: *NNode) f64 {
         if (self.activations_count > 0) {
             return self.activation;
@@ -159,6 +177,7 @@ pub const NNode = struct {
         }
     }
 
+    /// Returns activation from PREVIOUS time step.
     pub fn getActiveOutTd(self: *NNode) f64 {
         if (self.activations_count > 1) {
             return self.last_activation;
@@ -167,6 +186,7 @@ pub const NNode = struct {
         }
     }
 
+    /// Tests equality of NNode against another NNode.
     pub fn isEql(self: *NNode, n: *NNode) bool {
         // check for equality of primitive types
         if (self.id != n.id or self.activation_type != n.activation_type or self.neuron_type != n.neuron_type or self.activation != n.activation or self.activation_sum != n.activation_sum or self.activations_count != n.activations_count or self.visited != n.visited or self.has_params != n.has_params or self.last_activation != n.last_activation or self.last_activation_2 != n.last_activation_2 or self.is_active != n.is_active) {
@@ -210,14 +230,17 @@ pub const NNode = struct {
         return true;
     }
 
+    /// Returns true if this node is SENSOR.
     pub fn isSensor(self: *const NNode) bool {
         return self.neuron_type == NodeNeuronType.InputNeuron or self.neuron_type == NodeNeuronType.BiasNeuron;
     }
 
+    /// Returns true if this node is NEURON.
     pub fn isNeuron(self: *NNode) bool {
         return self.neuron_type == NodeNeuronType.HiddenNeuron or self.neuron_type == NodeNeuronType.OutputNeuron;
     }
 
+    /// If the node is a SENSOR, returns TRUE and loads the value.
     pub fn sensorLoad(self: *NNode, load: f64) bool {
         if (self.isSensor()) {
             self.saveActivations();
@@ -229,18 +252,26 @@ pub const NNode = struct {
         }
     }
 
+    /// Adds a non-recurrent outgoing link to this NNode. Should be used with caution because this doesn't
+    /// create full duplex link needed for proper network activation. This method is only intended for
+    /// linking the control nodes. For all other needs use `connectFrom` which properly creates all needed links.
     pub fn addOutgoing(self: *NNode, allocator: std.mem.Allocator, out: *NNode, weight: f64) !*Link {
         var new_link = try Link.init(allocator, weight, self, out, false);
         try self.outgoing.append(new_link);
         return new_link;
     }
 
+    /// Adds a non-recurrent incoming link to this NNode. Should be used with caution because this doesn't
+    /// create full duplex link needed for proper network activation. This method only intended for
+    /// linking the control nodes. For all other needs use `connectFrom` which properly creates all needed links.
     pub fn addIncoming(self: *NNode, allocator: std.mem.Allocator, in: *NNode, weight: f64) !*Link {
         var new_link = try Link.init(allocator, weight, in, self, false);
         try self.incoming.append(new_link);
         return new_link;
     }
 
+    /// Used to create a Link between two NNodes. The incoming links of current NNode and outgoing
+    /// links of `in` NNode would be updated to have reference to the new Link.
     pub fn connectFrom(self: *NNode, allocator: std.mem.Allocator, in: *NNode, weight: f64) !*Link {
         var new_link = try Link.init(allocator, weight, in, self, false);
         try self.incoming.append(new_link);
@@ -248,6 +279,7 @@ pub const NNode = struct {
         return new_link;
     }
 
+    /// Recursively deactivate backwards through the Network.
     pub fn flushback(self: *NNode) void {
         self.activations_count = 0;
         self.activation = 0;
@@ -257,6 +289,7 @@ pub const NNode = struct {
         self.visited = false;
     }
 
+    /// Used to verify flushing for debugging.
     pub fn flushbackCheck(self: *NNode) !void {
         if (self.activations_count > 0) {
             std.debug.print("NNODE: {s} has activation count {d}", .{ self, self.activations_count });
@@ -276,6 +309,8 @@ pub const NNode = struct {
         }
     }
 
+    /// Find the greatest depth starting from this neuron at depth d. If max_depth > 0 it
+    /// can be used to stop early in case if very deep network detected.
     pub fn depth(self: *NNode, d: i64, max_depth: i64) !i64 {
         if (max_depth > 0 and d > max_depth) {
             return error.MaximalNetDepthExceeded;
@@ -298,6 +333,7 @@ pub const NNode = struct {
         }
     }
 
+    /// Convenient method to check Network's node type (SENSOR, NEURON).
     pub fn nodeType(self: *const NNode) NodeType {
         if (self.isSensor()) {
             return NodeType.SensorNode;
@@ -305,6 +341,7 @@ pub const NNode = struct {
         return NodeType.NeuronNode;
     }
 
+    /// Formats NNode for printing to writer.
     pub fn format(value: NNode, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
         const activation = neat_math.NodeActivationType.activationNameByType(value.activation_type);
         var active: []const u8 = "active";

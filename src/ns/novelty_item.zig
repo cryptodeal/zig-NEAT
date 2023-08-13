@@ -3,23 +3,25 @@ const NoveltyArchiveOptions = @import("./common.zig").NoveltyArchiveOptions;
 
 /// NoveltyItem is the data holder for novel item's genome and phenotype
 pub const NoveltyItem = struct {
-    /// flag indicating whether item was added to archive
+    /// Flag indicating whether item was added to archive.
     added: bool = false,
-    /// Generation when item was added to the archive
+    /// Generation when item was added to the archive.
     generation: usize = undefined,
-    /// the id of the associated organism
+    /// The id of the associated Organism.
     individual_id: u64 = undefined,
-    /// fitness score of the associated organism
+    /// Fitness score of the associated Organism.
     fitness: f64 = undefined,
-    /// the novelty score of the item
+    /// The novelty score of the item.
     novelty: f64 = undefined,
-    /// the item's age
+    /// The item's age.
     age: usize = undefined,
-    /// the data associated with the item
+    /// The data associated with the item.
     data: std.ArrayList(f64),
-
+    /// Holds reference to underlying allocator, which is used to
+    /// free memory when `deinit` is called.
     allocator: std.mem.Allocator,
 
+    /// Initializes a new NoveltyItem.
     pub fn init(allocator: std.mem.Allocator) !*NoveltyItem {
         var self = try allocator.create(NoveltyItem);
         self.* = .{
@@ -29,11 +31,13 @@ pub const NoveltyItem = struct {
         return self;
     }
 
+    /// Frees all associated memory.
     pub fn deinit(self: *NoveltyItem) void {
         self.data.deinit();
         self.allocator.destroy(self);
     }
 
+    /// Formats NoveltyItem for printing to writer.
     pub fn format(value: NoveltyItem, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
         try writer.print("Novelty: {d:.2} Fitness: {d:.6} Generation: {d} Individual: {d}\n", .{ value.novelty, value.fitness, value.generation, value.individual_id });
         try writer.print("\tPoint: ", .{});
@@ -49,13 +53,19 @@ pub const NoveltyItem = struct {
     };
 };
 
-/// ItemsDistance holds the distance between two NoveltyItem's
+/// ItemsDistance holds distance between two items
 pub const ItemsDistance = struct {
+    /// Distance between two NoveltyItems.
     distance: f64,
+    /// The NoveltyItem from which distance was calculated.
     from: *NoveltyItem,
+    /// The NoveltyItem to which distance was calculated.
     to: *NoveltyItem,
+    /// Holds reference to underlying allocator, which is used to
+    /// free memory when `deinit` is called.
     allocator: std.mem.Allocator,
 
+    /// Initializes a new ItemsDistance.
     pub fn init(allocator: std.mem.Allocator, from: *NoveltyItem, to: *NoveltyItem, distance: f64) !*ItemsDistance {
         var self = try allocator.create(ItemsDistance);
         self.* = .{
@@ -67,16 +77,19 @@ pub const ItemsDistance = struct {
         return self;
     }
 
+    /// Frees all associated memory.
     pub fn deinit(self: *ItemsDistance) void {
         self.allocator.destroy(self);
     }
 };
 
+/// Used to sort []ItemsDistance by distance.
 pub fn itemsDistanceComparison(context: void, a: *ItemsDistance, b: *ItemsDistance) bool {
     _ = context;
     return a.distance < b.distance;
 }
 
+/// Used to sort []*NoveltyItem by fitness; if fitness between two items is equal, falls back to sort by novelty score.
 pub fn noveltyItemComparison(context: void, a: *NoveltyItem, b: *NoveltyItem) bool {
     _ = context;
     if (a.fitness < b.fitness) {

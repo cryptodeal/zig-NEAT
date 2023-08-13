@@ -2,6 +2,7 @@ const std = @import("std");
 
 pub const NodeActivationType = @import("activations.zig").NodeActivationType;
 
+/// Returns subsequent random positive or negative integer value (1 or -1) to randomize value sign.
 pub fn randSign(comptime T: type, rand: std.rand.Random) T {
     const v = rand.int(i64);
     if (@rem(v, 2) == 0) {
@@ -11,6 +12,9 @@ pub fn randSign(comptime T: type, rand: std.rand.Random) T {
     }
 }
 
+/// Performs a single thrown onto a roulette wheel where the wheel's space is unevenly divided.
+/// The probability that a segment will be selected is given by that segment's value in the probabilities array.
+/// Returns segment index or -1 if something goes awfully wrong
 pub fn singleRouletteThrow(rand: std.rand.Random, probabilities: []f64) i64 {
     var total: f64 = 0.0;
 

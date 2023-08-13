@@ -8,7 +8,7 @@ const cppn_impl = @import("cppn.zig");
 const Solver = @import("../network/solver.zig").Solver;
 const SubstrateLayout = sub_layout.SubstrateLayout;
 const fastSolverGenomeFromFile = cppn_impl.fastSolverGenomeFromFile;
-const check_network_solver_outputs = cppn_impl.check_network_solver_outputs;
+const checkNetworkSolverOutputs = cppn_impl.checkNetworkSolverOutputs;
 const GridSubstrateLayout = sub_layout.GridSubstrateLayout;
 const NodeActivationType = neat_activations.NodeActivationType;
 const Options = opts.Options;
@@ -18,16 +18,19 @@ const queryCPPN = cppn_impl.queryCPPN;
 const createLink = cppn_impl.createLink;
 const createThresholdNormalizedLink = cppn_impl.createThresholdNormalizedLink;
 
-/// Substrate represents substrate holding configuration of ANN with weights produced by CPPN. According to HyperNEAT method
-/// the ANN neurons are encoded as coordinates in hypercube presented by this substrate.
-/// By default, neurons will be placed into substrate within grid layout
+/// Substrate represents substrate holding configuration of ANN with weights produced by CPPN.
+/// According to HyperNEAT method, the ANN neurons are encoded as coordinates in hypercube presented
+/// by this substrate. By default, neurons will be placed into substrate within grid layout
 pub const Substrate = struct {
-    /// The layout of neuron nodes in this substrate
+    /// The layout of neuron nodes in this substrate.
     layout: SubstrateLayout,
-    /// The activation function's type for neurons encoded
+    /// The activation function's type for neurons encoded.
     nodes_activation: NodeActivationType,
+    /// Holds reference to underlying allocator, which is used to
+    /// free memory when `deinit` is called.
     allocator: std.mem.Allocator,
 
+    /// Initializes a new Substrate.
     pub fn init(allocator: std.mem.Allocator, layout: SubstrateLayout, nodes_activation: NodeActivationType) !*Substrate {
         var self = try allocator.create(Substrate);
         self.* = .{
@@ -38,17 +41,18 @@ pub const Substrate = struct {
         return self;
     }
 
+    /// Frees all associated memory.
     pub fn deinit(self: *Substrate) void {
         self.layout.deinit();
         self.allocator.destroy(self);
     }
 
-    /// Creates network solver based on current substrate layout and provided Compositional Pattern Producing Network which
-    /// used to define connections between network nodes. Optional graph_builder can be provided to collect graph nodes and edges
-    /// of created network solver. With graph builder it is possible to save/load network configuration as well as visualize it.
-    /// If use_leo is True than Link Expression Output extension to the HyperNEAT will be used instead of standard weight threshold
-    /// technique of HyperNEAT to determine whether to express link between two nodes or not. With LEO the link expressed based
-    /// on value of additional output of the CPPN (if > 0, then expressed)
+    /// Initializes a new network Solver based on current substrate layout and provided
+    /// Compositional Pattern Producing Network (CPPN), which is used to define connections
+    /// between network nodes. If use_leo is true, then Link Expression Output extension to
+    /// the HyperNEAT will be used, instead of standard weight threshold technique of HyperNEAT,
+    /// to determine whether to express link between two nodes or not. With LEO the link is
+    /// expressed based on value of additional output of the CPPN (if > 0, then expressed).
     pub fn createNetworkSolver(self: *Substrate, allocator: std.mem.Allocator, cppn: Solver, use_leo: bool, options: *Options) !Solver {
         // check conditions
         if (self.layout.bias_count() > 1) {
@@ -213,7 +217,7 @@ pub const Substrate = struct {
         // build activations
         var activations = try allocator.alloc(NodeActivationType, total_neuron_count);
         for (activations, 0..) |_, i| {
-            activations[i] = self.activation_for_neuron(i, first_output);
+            activations[i] = self.activationForNeuron(i, first_output);
         }
 
         if (total_neuron_count == 0 or links.items.len == 0 or activations.len != total_neuron_count) {
@@ -224,7 +228,7 @@ pub const Substrate = struct {
         return Solver.init(modular_solver);
     }
 
-    fn activation_for_neuron(self: *Substrate, node_index: usize, first_output: usize) NodeActivationType {
+    fn activationForNeuron(self: *Substrate, node_index: usize, first_output: usize) NodeActivationType {
         if (node_index < first_output) {
             // all bias and input neurons has null activation function associated because they actually have
             // no inputs to be activated upon
@@ -292,7 +296,7 @@ test "Substrate create network solver" {
     try std.testing.expect(solver.linkCount() == total_link_count);
 
     var out_expected = [_]f64{ 0.6427874813512032, 0.8685335941574246 };
-    try check_network_solver_outputs(allocator, solver, &out_expected, 0);
+    try checkNetworkSolverOutputs(allocator, solver, &out_expected, 0);
 }
 
 test "Substrate create network solver with LEO" {
@@ -324,5 +328,5 @@ test "Substrate create network solver with LEO" {
     try std.testing.expect(solver.linkCount() == total_link_count);
 
     var out_expected = [_]f64{ 0.5, 0.5 };
-    try check_network_solver_outputs(allocator, solver, &out_expected, 1e-5);
+    try checkNetworkSolverOutputs(allocator, solver, &out_expected, 1e-5);
 }

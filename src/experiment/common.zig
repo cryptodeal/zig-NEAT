@@ -26,6 +26,7 @@ const Options = neat_options.Options;
 const EpochExecutorType = neat_options.EpochExecutorType;
 const Population = neat_population.Population;
 
+/// Union of Epoch Executors (Generics).
 pub const EpochExecutor = union(enum) {
     sequential: *SequentialPopulationEpochExecutor,
     parallel: *ParallelPopulationEpochExecutor,
@@ -43,6 +44,7 @@ pub const EpochExecutor = union(enum) {
     }
 };
 
+/// Returns the appropriate executor type from given Options.
 pub fn epochExecutorForCtx(allocator: std.mem.Allocator, ctx: *Options) !EpochExecutor {
     return switch (ctx.epoch_executor_type) {
         EpochExecutorType.EpochExecutorTypeSequential => {

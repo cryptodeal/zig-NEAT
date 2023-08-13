@@ -1,3 +1,5 @@
+//! The statndard TrialRunObserver interface.
+
 const std = @import("std");
 const Trial = @import("trial.zig").Trial;
 const Generation = @import("generation.zig").Generation;
@@ -22,19 +24,24 @@ pub const VTable = struct {
     epochEvaluated: *const fn (ctx: *anyopaque, trial: *Trial, epoch: *Generation) void,
 };
 
-// define interface methods wrapping vtable calls
+/// Invoked to notify that new trial run just started.
+/// Invoked before any epoch evaluation in that trial run.
 pub fn trialRunStarted(self: TrialRunObserver, trial: *Trial) void {
     self.vtable.trialRunStarted(self.ptr, trial);
 }
 
+/// Invoked to notify that the trial run just finished.
+/// Invoked after all epochs evaluated or successful solver found.
 pub fn trialRunFinished(self: TrialRunObserver, trial: *Trial) void {
     self.vtable.trialRunFinished(self.ptr, trial);
 }
 
+/// Invoked to notify that evaluation of specific epoch completed.
 pub fn epochEvaluated(self: TrialRunObserver, trial: *Trial, epoch: *Generation) void {
     self.vtable.epochEvaluated(self.ptr, trial, epoch);
 }
 
+/// Initializes a new TrialRunObserver from the provided pointer to implementation.
 pub fn init(observer: anytype) TrialRunObserver {
     const Ptr = @TypeOf(observer);
     const PtrInfo = @typeInfo(Ptr);

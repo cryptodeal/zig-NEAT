@@ -13,36 +13,43 @@ const FastNetworkLink = fast_net.FastNetworkLink;
 const FastControlNode = fast_net.FastControlNode;
 const FastModularNetworkSolver = fast_net.FastModularNetworkSolver;
 
+/// Network is a collection of all nodes within an organism's phenotype, which
+/// effectively defines Neural Network topology. The point of the network is to
+/// define a single entity which can evolve or learn on its own, even though
+/// it may be part of a larger framework.
 pub const Network = struct {
-    // network id
+    /// The Networks's id
     id: i64,
-    // network name
+    /// The Networks's name
     name: []const u8 = undefined,
-    // NNodes that output from network
+    // Slice of NNodes that output from the Network.
     outputs: []*NNode,
 
-    // number of links in network (-1 means not yet counted)
+    /// The number of links in the Network (0 if not yet counted).
     num_links: usize = 0,
 
-    // list of all NNodes in network (excluding MIMO control nodes)
+    /// Slice of all NNodes in the Network (excluding MIMO control nodes).
     all_nodes: []*NNode,
 
-    // NNodes that input into network
+    /// Slice of NNodes that input into the Network.
     inputs: []*NNode,
 
-    // NNodes that connect network modules
+    /// Slice of NNodes that connect Network modules.
     control_nodes: []*NNode = undefined,
+    /// Flag indicating whether Network control_nodes have been allocated (used for deinit).
     has_control_nodes: bool = false,
 
-    // list of all nodes in the network including MIMO control ones
+    /// List of all NNodes in the Network including MIMOControlNodes.
     all_nodes_MIMO: std.ArrayList(*NNode),
 
-    // associated `Graph` struct
+    /// The Network's associated Graph.
     graph: Graph(i64, void, f64) = undefined,
 
-    // holds ref to allocator for use when freeing associated memory
+    /// Holds reference to underlying allocator, which is used to
+    /// free memory when `deinit` is called.
     allocator: std.mem.Allocator,
 
+    /// Initializes a new Network.
     pub fn init(allocator: std.mem.Allocator, in: []*NNode, out: []*NNode, all: []*NNode, net_id: i64) !*Network {
         var self: *Network = try allocator.create(Network);
         var graph = Graph(i64, void, f64).init(allocator);
@@ -65,6 +72,7 @@ pub const Network = struct {
         return self;
     }
 
+    /// Initializes a new modular Network with control nodes.
     pub fn initModular(allocator: std.mem.Allocator, in: []*NNode, out: []*NNode, all: []*NNode, control: []*NNode, net_id: i64) !*Network {
         var self: *Network = try Network.init(allocator, in, out, all, net_id);
         self.control_nodes = control;
@@ -81,6 +89,7 @@ pub const Network = struct {
         return self;
     }
 
+    /// Frees all associated memory.
     pub fn deinit(self: *Network) void {
         if (self.has_control_nodes) {
             for (self.control_nodes) |n| {
@@ -104,11 +113,14 @@ pub const Network = struct {
         self.allocator.destroy(self);
     }
 
+    /// Returns a new NetworkSolver (implements Solver), backed by this Network instance.
     pub fn getSolver(self: *Network, allocator: std.mem.Allocator) !*NetworkSolver {
-        return try NetworkSolver.init(allocator, self);
+        return NetworkSolver.init(allocator, self);
     }
 
-    pub fn fastNetworkSolve(self: *Network, allocator: std.mem.Allocator) !Solver {
+    /// Initializes a new FastNetworkSolver based on the architecture of this network.
+    /// It's primarily aimed for big networks to improve processing speed.
+    pub fn fastNetworkSolver(self: *Network, allocator: std.mem.Allocator) !Solver {
         // calculate neurons per layer
         const output_neuron_count = self.outputs.len;
 
@@ -199,6 +211,7 @@ pub const Network = struct {
         return Solver.init(modular_solver);
     }
 
+    /// Unique Id generator for Network's Nodes.
     pub fn nodeIdGenerator(self: *Network) i64 {
         return @as(i64, @intCast(self.all_nodes.len));
     }
@@ -213,7 +226,7 @@ pub const Network = struct {
         return idx;
     }
 
-    pub fn processIncomingConnections(_: *Network, allocator: std.mem.Allocator, n_list: []*NNode, biases: []f64, neuron_lookup: *std.AutoHashMap(i64, usize)) ![]*FastNetworkLink {
+    fn processIncomingConnections(_: *Network, allocator: std.mem.Allocator, n_list: []*NNode, biases: []f64, neuron_lookup: *std.AutoHashMap(i64, usize)) ![]*FastNetworkLink {
         var connections = std.ArrayList(*FastNetworkLink).init(allocator);
         for (n_list) |ne| {
             var target_i = neuron_lookup.get(ne.id);
@@ -244,16 +257,18 @@ pub const Network = struct {
         return connections.toOwnedSlice();
     }
 
+    /// Checks whether NNode with given Id is a control node.
     pub fn isControlNode(self: *Network, nid: i64) bool {
-        for (self.control_nodes) |cn| {
-            if (cn.id == nid) {
-                return true;
-            }
+        if (self.has_control_nodes) {
+            for (self.control_nodes) |cn| if (cn.id == nid) return true;
         }
         return false;
     }
 
+    /// Flushes Network state by removing all current activations. Returns true if network
+    /// flushed successfully; else returns error.
     pub fn flush(self: *Network) !bool {
+        // flush back recursively
         for (self.all_nodes) |node| {
             node.flushback();
             try node.flushbackCheck();
@@ -261,6 +276,7 @@ pub const Network = struct {
         return true;
     }
 
+    // TODO: rework so printActivation accepts a writer as a parameter and writes to it.
     pub fn printActivation(self: *Network, allocator: std.mem.Allocator) ![]const u8 {
         var buffer = std.ArrayList(u8).init(allocator);
         try buffer.writer().print("Network {s} with id {d} outputs: (", .{ self.name, self.id });
@@ -271,6 +287,7 @@ pub const Network = struct {
         return buffer.toOwnedSlice();
     }
 
+    // TODO: rework so printInput accepts a writer as a parameter and writes to it.
     pub fn printInput(self: *Network, allocator: std.mem.Allocator) ![]const u8 {
         var buffer = std.ArrayList(u8).init(allocator);
         try buffer.writer().print("Network {s} with id {d} inputs: (", .{ self.name, self.id });
@@ -281,6 +298,7 @@ pub const Network = struct {
         return buffer.toOwnedSlice();
     }
 
+    /// If at least one output is not active, then return true; else return false.
     pub fn outputIsOff(self: *Network) bool {
         for (self.outputs) |node| {
             if (node.activations_count == 0) {
@@ -290,6 +308,9 @@ pub const Network = struct {
         return false;
     }
 
+    /// Attempts to activate the Network given number of steps before returning error.
+    /// Normally the maxSteps should be equal to the maximal activation depth of the
+    /// Network as returned by `maxActivationDepth` or `maxActivationDepthCapped`.
     pub fn activateSteps(self: *Network, max_steps: i64) !bool {
         if (max_steps == 0) {
             return error.ErrZeroActivationStepsRequested;
@@ -357,10 +378,13 @@ pub const Network = struct {
         return true;
     }
 
+    /// Activate the network such that all outputs are active.
     pub fn activate(self: *Network) !bool {
         return self.activateSteps(20);
     }
 
+    /// Propagates activation wave through all Network nodes provided number of steps in forward direction.
+    /// Returns true if activation wave passed from all inputs to the outputs.
     pub fn forwardSteps(self: *Network, steps: i64) !bool {
         if (steps == 0) {
             return error.ErrZeroActivationStepsRequested;
@@ -372,17 +396,22 @@ pub const Network = struct {
         return true;
     }
 
+    /// Propagates activation wave through all network nodes provided number of steps by recursion from output nodes
+    /// Returns true if activation wave passed from all inputs to the outputs. This method is preferred method
+    /// of network activation when number of forward steps can not be easy calculated and no network modules are set.
     pub fn recursiveSteps(self: *Network) !bool {
         var net_depth = try self.maxActivationDepthCapped(0);
         return self.forwardSteps(net_depth);
     }
 
+    /// Not yet implemented.
     pub fn relax(self: *Network) !bool {
         _ = self;
         std.debug.print("relax not implemented\n", .{});
         return error.ErrNotImplemented;
     }
 
+    /// Set sensors values to the input (and bias) nodes of the Network.
     pub fn loadSensors(self: *Network, sensors: []f64) void {
         var counter: usize = 0;
         if (sensors.len == self.inputs.len) {
@@ -407,6 +436,7 @@ pub const Network = struct {
         }
     }
 
+    /// Read output values from the output nodes of the Network.
     pub fn readOutputs(self: *Network, allocator: std.mem.Allocator) ![]f64 {
         var outs = try allocator.alloc(f64, self.outputs.len);
         for (self.outputs, 0..) |o, i| {
@@ -415,6 +445,7 @@ pub const Network = struct {
         return outs;
     }
 
+    /// Returns the number of nodes in the Network.
     pub fn nodeCount(self: *Network) usize {
         if (!self.has_control_nodes or self.control_nodes.len == 0) {
             return self.all_nodes.len;
@@ -423,6 +454,7 @@ pub const Network = struct {
         }
     }
 
+    /// Returns the number of links in the Network.
     pub fn linkCount(self: *Network) usize {
         self.num_links = 0;
         for (self.all_nodes) |node| {
@@ -437,10 +469,14 @@ pub const Network = struct {
         return self.num_links;
     }
 
+    /// Returns complexity of this Network, which is sum of nodes count and links count.
     pub fn complexity(self: *Network) usize {
         return self.nodeCount() + self.linkCount();
     }
 
+    /// This checks a POTENTIAL link between a potential in_node
+    /// and potential out_node to see if it must be recurrent.
+    /// Use count and thresh to jump out in the case of an infinite loop.
     pub fn isRecurrent(self: *Network, in_node: *NNode, out_node: *NNode, count: *i64, thresh: i64) bool {
         // count node as visited
         count.* += 1;
@@ -465,6 +501,7 @@ pub const Network = struct {
         return false;
     }
 
+    /// Used to find the maximum number of neuron layers to be activated between an output and an input layers.
     pub fn maxActivationDepth(self: *Network) !i64 {
         if (!self.has_control_nodes or self.control_nodes.len == 0) {
             return self.maxActivationDepthCapped(0);
@@ -473,6 +510,10 @@ pub const Network = struct {
         }
     }
 
+    /// Used to find the maximum number of neuron layers to be activated between an output and an input layers.
+    /// It is possible to limit the maximal depth value by setting the `max_depth_cap` value greater than zero.
+    /// If Network depth exceeds provided `max_depth_cap` value, returns error indicating that calculation stopped.
+    /// If `max_depth_cap` is less or equal to zero no maximal depth limitation will be set. Unsupported for modular Networks.
     pub fn maxActivationDepthCapped(self: *Network, max_depth_cap: i64) !i64 {
         if (self.has_control_nodes and self.control_nodes.len > 0) {
             std.debug.print("unsupported for modular networks", .{});
@@ -494,18 +535,23 @@ pub const Network = struct {
         return max;
     }
 
+    /// Returns all Network nodes including MIMO control nodes (base nodes + control nodes).
     pub fn getAllNodes(self: *Network) []*NNode {
         return self.all_nodes_MIMO.items;
     }
 
+    /// Returns all control nodes of this Network.
     pub fn getControlNodes(self: *Network) []*NNode {
         return self.control_nodes;
     }
 
+    /// Returns all nodes in this Network (excluding MIMO control nodes).
     pub fn getBaseNodes(self: *Network) []*NNode {
         return self.all_nodes;
     }
 
+    /// Calculates maximal activation depth and optionally prints the examined activation paths
+    /// to the provided writer. It is intended only for modular Networks.
     pub fn maxActivationDepthModular(self: *Network) !i64 {
         var all_paths = self.graph.johnsonAllPaths() catch try self.graph.floydWarshall();
         defer all_paths.deinit();
@@ -529,11 +575,15 @@ pub const Network = struct {
     }
 };
 
+/// NetworkSolver implements Solver for a given Network.
 pub const NetworkSolver = struct {
+    /// The Network backing this NetworkSolver.
     network: *Network,
-
+    /// Holds reference to underlying allocator, which is used to
+    /// free memory when `deinit` is called.
     allocator: std.mem.Allocator,
 
+    /// Initializes a new NetworkSolver.
     pub fn init(allocator: std.mem.Allocator, network: *Network) !*NetworkSolver {
         var self = try allocator.create(NetworkSolver);
         self.* = .{
@@ -543,19 +593,24 @@ pub const NetworkSolver = struct {
         return self;
     }
 
+    /// Frees all associated memory.
     pub fn deinit(self: *NetworkSolver) void {
         self.allocator.destroy(self);
     }
 
+    /// Implements `forwardSteps` for Solver; calls into `Network.forwardSteps`.
     pub fn forwardSteps(self: *NetworkSolver, allocator: std.mem.Allocator, steps: usize) !bool {
         _ = allocator;
         return self.network.forwardSteps(@as(i64, @intCast(steps)));
     }
 
+    /// Implements `recursiveSteps` for Solver; calls into `Network.recursiveSteps`.
     pub fn recursiveSteps(self: *NetworkSolver) !bool {
         return self.network.recursiveSteps();
     }
 
+    /// Implements `relax` for Solver; calls into `Network.relax`, which is
+    /// not yet implemented and will always return an error.
     pub fn relax(self: *NetworkSolver, allocator: std.mem.Allocator, max_steps: usize, max_allowed_signal_delta: f64) !bool {
         _ = allocator;
         _ = max_steps;
@@ -563,22 +618,27 @@ pub const NetworkSolver = struct {
         return self.network.relax();
     }
 
+    /// Implements `flush` for Solver; calls into `Network.flush`.
     pub fn flush(self: *NetworkSolver) !bool {
         return self.network.flush();
     }
 
+    /// Implements `loadSensors` for Solver; calls into `Network.loadSensors`.
     pub fn loadSensors(self: *NetworkSolver, sensors: []f64) !void {
         return self.network.loadSensors(sensors);
     }
 
+    /// Implements `readOutputs` for Solver; calls into `Network.readOutputs`.
     pub fn readOutputs(self: *NetworkSolver, allocator: std.mem.Allocator) ![]f64 {
         return self.network.readOutputs(allocator);
     }
 
+    /// Implements `nodeCount` for Solver; calls into `Network.nodeCount`.
     pub fn nodeCount(self: *NetworkSolver) usize {
         return self.network.nodeCount();
     }
 
+    /// Implements `linkCount` for Solver; calls into `Network.linkCount`.
     pub fn linkCount(self: *NetworkSolver) usize {
         return self.network.linkCount();
     }
@@ -892,7 +952,7 @@ test "Network fast network solver" {
     var net = try buildNetwork(allocator);
     defer net.deinit();
 
-    var solver = try net.fastNetworkSolve(allocator);
+    var solver = try net.fastNetworkSolver(allocator);
     defer solver.deinit();
 
     // check solver structure

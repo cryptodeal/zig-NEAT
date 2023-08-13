@@ -1,3 +1,5 @@
+//! The standard GenerationEvaluator interface.
+
 const std = @import("std");
 const Trial = @import("trial.zig").Trial;
 const Generation = @import("generation.zig").Generation;
@@ -17,11 +19,12 @@ pub const VTable = struct {
     generationEvaluate: *const fn (ctx: *anyopaque, opts: *Options, pop: *Population, epoch: *Generation) anyerror!void,
 };
 
-// define interface methods wrapping vtable calls
+/// Invoked to evaluate one generation of population of organisms within given execution context.
 pub fn generationEvaluate(self: GenerationEvaluator, opts: *Options, pop: *Population, epoch: *Generation) !void {
     try self.vtable.generationEvaluate(self.ptr, opts, pop, epoch);
 }
 
+/// Initializes a new GenerationEvaluator from the provided pointer to implementation.
 pub fn init(generation_evaluator: anytype) GenerationEvaluator {
     const Ptr = @TypeOf(generation_evaluator);
     const PtrInfo = @typeInfo(Ptr);

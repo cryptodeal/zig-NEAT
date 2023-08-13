@@ -1,5 +1,7 @@
 const std = @import("std");
 
+/// Given relative path from CWD, returns a writable file handle.
+/// Caller is responsible for closing the file handle.
 pub fn getWritableFile(path: []const u8) !std.fs.File {
     const dir_path = std.fs.path.dirname(path);
     const file_name = std.fs.path.basename(path);
@@ -13,6 +15,8 @@ pub fn getWritableFile(path: []const u8) !std.fs.File {
     return file_dir.createFile(file_name, .{});
 }
 
+/// Given relative path from CWD, reads entire file into buffer. Caller is responsible for
+/// freeing allocated memory of returned buffer.
 pub fn readFile(allocator: std.mem.Allocator, path: []const u8) ![]u8 {
     const dir_path = std.fs.path.dirname(path);
     const file_name = std.fs.path.basename(path);

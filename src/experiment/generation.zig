@@ -8,40 +8,43 @@ const Population = neat_population.Population;
 const Organism = neat_organism.Organism;
 const mean = floats.mean;
 
+/// Generation represents execution results of one generation.
 pub const Generation = struct {
-    // The generation ID for this epoch
+    /// The generation Id for this epoch.
     id: usize,
-    // The time when epoch was evaluated
+    /// The time when epoch was evaluated.
     executed: std.time.Instant = undefined,
-    // The elapsed time between generation execution start and finish
+    /// The elapsed time between generation execution start and finish.
     duration: u64 = undefined,
-    // The best organism of the best species (probably successful solver if Solved flag set).
+    /// The best organism of the best species (probably successful solver if Solved flag set).
     champion: ?*Organism = null,
-    // The flag to indicate whether experiment was solved in this epoch
+    /// The flag to indicate whether experiment was solved in this epoch.
     solved: bool = false,
 
-    // The list of the best organisms' fitness values per species in population
+    /// The list of the best organisms' fitness values per species in population.
     fitness: []f64 = undefined,
-    // The age of the best organisms' per species in population
+    /// The age of the best organisms' per species in population.
     age: []f64 = undefined,
-    // The list of the best organisms' complexities per species in population
+    /// The list of the best organisms' complexities per species in population.
     complexity: []f64 = undefined,
 
-    // The number of species in population at the end of this epoch
+    /// The number of species in population at the end of this epoch.
     diversity: usize = undefined,
 
-    // The number of evaluations done before winner (champion solver) found
+    /// The number of evaluations done before winner (champion solver) found.
     winner_evals: usize = 0,
-    // The number of nodes in the genome of the winner (champion solver) or zero if not solved
+    /// The number of nodes in the genome of the winner (champion solver) or zero if not solved.
     winner_nodes: usize = 0,
-    // The numbers of genes (links) in the genome of the winner (champion solver) or zero if not solved
+    /// The numbers of genes (links) in the genome of the winner (champion solver) or zero if not solved.
     winner_genes: usize = 0,
 
-    // The ID of Trial this Generation was evaluated in
+    /// The Id of Trial this Generation was evaluated in.
     trial_id: usize,
-
+    /// Holds reference to underlying allocator, which is used to
+    /// free memory when `deinit` is called.
     allocator: std.mem.Allocator,
 
+    /// Initializes a new Generation.
     pub fn init(allocator: std.mem.Allocator, id: usize, trial_id: usize) !*Generation {
         var self: *Generation = try allocator.create(Generation);
         self.* = .{
@@ -52,6 +55,7 @@ pub const Generation = struct {
         return self;
     }
 
+    /// Frees all associated memory.
     pub fn deinit(self: *Generation) void {
         self.allocator.free(self.fitness);
         self.allocator.free(self.age);
@@ -59,11 +63,12 @@ pub const Generation = struct {
         self.allocator.destroy(self);
     }
 
+    /// Frees all associated memory if experiment fails with error.
     pub fn deinitEarly(self: *Generation) void {
         self.allocator.destroy(self);
     }
 
-    // FillPopulationStatistics Collects statistics about given population
+    /// Collects statistics about given population.
     pub fn fillPopulationStatistics(self: *Generation, pop: *Population) !void {
         var max_fitness: f64 = @as(f64, @floatFromInt(std.math.minInt(i64)));
         self.diversity = pop.species.items.len;
@@ -87,18 +92,18 @@ pub const Generation = struct {
         }
     }
 
-    // Average the average fitness, age, and complexity among the best organisms of each species in the population
-    // at the end of this epoch
+    /// Average the average fitness, age, and complexity among the best organisms
+    /// of each species in the population at the end of this epoch.
     pub fn average(self: *Generation) GenerationAvg {
-        var res = GenerationAvg{
+        return .{
             .fitness = mean(f64, self.fitness),
             .age = mean(f64, self.age),
             .complexity = mean(f64, self.complexity),
         };
-        return res;
     }
 };
 
+/// GenerationAvg represents average statistics of one generation.
 pub const GenerationAvg = struct {
     fitness: f64,
     age: f64,

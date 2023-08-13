@@ -11,13 +11,15 @@ pub const FastNetworkLink = fast_net.FastNetworkLink;
 pub const FastControlNode = fast_net.FastControlNode;
 pub const FastModularNetworkSolver = fast_net.FastModularNetworkSolver;
 
+/// NodeType defines the type of NNode to create.
 pub const NodeType = enum(u8) {
-    // neuron type
+    /// Neuron type.
     NeuronNode,
-    // sensor type
+    /// Sensor type.
     SensorNode,
 };
 
+/// Returns human-readable NNode type name for given constant value.
 pub fn nodeTypeName(node_type: NodeType) []const u8 {
     return switch (node_type) {
         NodeType.NeuronNode => "NEURON",
@@ -25,17 +27,19 @@ pub fn nodeTypeName(node_type: NodeType) []const u8 {
     };
 }
 
+/// NodeNeuronType defines the type of neuron to create.
 pub const NodeNeuronType = enum(u8) {
-    // HiddenNeuron The node is in hidden layer
+    /// HiddenNeuron - the node is in hidden layer.
     HiddenNeuron,
-    // InputNeuron The node is in input layer
+    /// InputNeuron - the node is in input layer.
     InputNeuron,
-    // OutputNeuron The node is in output layer
+    /// OutputNeuron - the node is in output layer.
     OutputNeuron,
-    // BiasNeuron The node is bias
+    /// BiasNeuron - the node is bias
     BiasNeuron,
 };
 
+/// Returns human-readable neuron type name for given constant.
 pub fn neuronTypeName(neuron_type: NodeNeuronType) []const u8 {
     return switch (neuron_type) {
         NodeNeuronType.HiddenNeuron => "HIDN",
@@ -45,6 +49,7 @@ pub fn neuronTypeName(neuron_type: NodeNeuronType) []const u8 {
     };
 }
 
+/// Returns neuron node type from its name.
 pub fn neuronTypeByName(name: []const u8) NodeNeuronType {
     if (std.mem.eql(u8, name, "HIDN")) {
         return NodeNeuronType.HiddenNeuron;
@@ -64,11 +69,17 @@ pub fn neuronTypeByName(name: []const u8) NodeNeuronType {
     unreachable;
 }
 
+/// Used to calculate activation for specified neuron node based on it's activation_type
+/// field value. Will return error if unsupported activation type requested.
 pub fn activateNode(node: *NNode) !void {
     var res = try neat_math.NodeActivationType.activateByType(node.activation_sum, if (node.has_params) node.params else null, node.activation_type);
     node.setActivation(res);
 }
 
+/// Used to activate neuron module presented by provided node. As a result of
+/// execution the activation values of all input nodes will be processed by
+/// corresponding activation function and corresponding activation values of output
+/// nodes will be set. Will panic if unsupported activation type requested.
 pub fn activateModule(module: *NNode) !void {
     var inputs = try module.allocator.alloc(f64, module.incoming.items.len);
     defer module.allocator.free(inputs);

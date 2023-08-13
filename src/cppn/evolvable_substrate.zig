@@ -11,7 +11,7 @@ const QuadNode = quad.QuadNode;
 const NodeActivationType = neat_activations.NodeActivationType;
 const QuadPoint = quad.QuadPoint;
 const PointF = quad.PointF;
-const check_network_solver_outputs = cppn_impl.check_network_solver_outputs;
+const checkNetworkSolverOutputs = cppn_impl.checkNetworkSolverOutputs;
 const fastSolverGenomeFromFile = cppn_impl.fastSolverGenomeFromFile;
 const createLink = cppn_impl.createLink;
 const createThresholdNormalizedLink = cppn_impl.createThresholdNormalizedLink;
@@ -23,25 +23,26 @@ const Options = opts.Options;
 const nodeVariance = cppn_impl.nodeVariance;
 const Genome = @import("../genetics/genome.zig").Genome;
 
-/// The evolvable substrate holds configuration of ANN produced by CPPN within hypecube where each 4-dimensional point
+/// The EvolvableSubstrate holds configuration of ANN produced by CPPN within hypecube where each 4-dimensional point
 /// mark connection weight between two ANN units. The topology of ANN is not rigid as in plain substrate and can be evolved
 /// by introducing novel nodes to the ANN. This provides extra benefits that the topology of ANN should not be handcrafted
 /// by human, but produced during substrate generation from controlling CPPN and nodes locations may be arbitrary that suits
 /// the best for the task at hand.
 pub const EvolvableSubstrate = struct {
-    /// The layout of neuron nodes in this substrate
+    /// The layout of neuron nodes in this substrate.
     layout: EvolvableSubstrateLayout,
-    /// The activation function's type for neurons encoded
+    /// The activation function's type for neurons encoded.
     nodes_activation: NodeActivationType,
 
-    /// The CPPN network solver to describe geometry of substrate
+    /// The CPPN network solver to describe geometry of substrate.
     cppn: Solver = undefined,
-    /// The reusable coordinates buffer
+    /// The reusable coordinates buffer.
     coords: []f64,
-
+    /// Holds reference to underlying allocator, which is used to
+    /// free memory when `deinit` is called.
     allocator: std.mem.Allocator,
 
-    /// Creates new instance of evolvable substrate
+    /// Initializes a new EvolvableSubstrate.
     pub fn init(allocator: std.mem.Allocator, layout: EvolvableSubstrateLayout, nodes_activation: NodeActivationType) !*EvolvableSubstrate {
         var self = try allocator.create(EvolvableSubstrate);
         var coords = try allocator.alloc(f64, 4);
@@ -55,6 +56,7 @@ pub const EvolvableSubstrate = struct {
         return self;
     }
 
+    /// Initializes a new EvolvableSubstrate with bias.
     pub fn initWithBias(allocator: std.mem.Allocator, layout: EvolvableSubstrateLayout, nodes_activation: NodeActivationType, cppn_bias: f64) !*EvolvableSubstrate {
         var self = try allocator.create(EvolvableSubstrate);
         var coords = try allocator.alloc(f64, 5);
@@ -68,7 +70,7 @@ pub const EvolvableSubstrate = struct {
         return self;
     }
 
-    /// frees memory associated with the evolvable substrate
+    /// Frees all associated memory.
     pub fn deinit(self: *EvolvableSubstrate) void {
         self.layout.deinit();
         self.cppn.deinit();
@@ -76,6 +78,9 @@ pub const EvolvableSubstrate = struct {
         self.allocator.destroy(self);
     }
 
+    /// Initializes a new network Solver based on current substrate layout and provided
+    /// Compositional Pattern Producing Network (CPPN), which is used to define connections
+    /// between network nodes.
     pub fn createNetworkSolver(self: *EvolvableSubstrate, allocator: std.mem.Allocator, cppn: Solver, use_leo: bool, context: *Options) !Solver {
         self.cppn = cppn;
 
@@ -271,7 +276,9 @@ pub const EvolvableSubstrate = struct {
             return null;
         }
     }
-
+    /// Divides and initialize the quadtree from provided coordinates of source (outgoing = true) or target node (outgoing = false) at (a, b).
+    /// Returns quadtree, in which each quadnode at (x,y) stores CPPN activation level for its position. The initialized
+    /// quadtree is used in the PruningAndExtraction phase to generate the actual ANN connections.
     fn divideAndInit(self: *EvolvableSubstrate, allocator: std.mem.Allocator, a: f64, b: f64, outgoing: bool, context: *Options) !*QuadNode {
         var root = try QuadNode.init(allocator, 0, 0, 1, 1);
         const queue_type = std.TailQueue(*QuadNode);
@@ -422,7 +429,7 @@ test "EvolvableSubstrate create network solver" {
     try std.testing.expect(solver.linkCount() == 8);
 
     var out_expected = [_]f64{ 0.5, 0.5 };
-    try check_network_solver_outputs(allocator, solver, &out_expected, 1e-8);
+    try checkNetworkSolverOutputs(allocator, solver, &out_expected, 1e-8);
 }
 
 test "EvolvableSubstrate create network solver LEO" {
@@ -449,5 +456,5 @@ test "EvolvableSubstrate create network solver LEO" {
     try std.testing.expect(solver.linkCount() == 19);
 
     var out_expected = [_]f64{ 0.5, 0.5 };
-    try check_network_solver_outputs(allocator, solver, &out_expected, 1e-8);
+    try checkNetworkSolverOutputs(allocator, solver, &out_expected, 1e-8);
 }

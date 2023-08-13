@@ -7,6 +7,7 @@ const PointFHash = quad_tree.PointFHash;
 const PointF = quad_tree.PointF;
 const assert = std.debug.assert;
 
+/// The standard EvolvableSubstrateLayout interface.
 pub const EvolvableSubstrateLayout = struct {
     const Self = @This();
     // The type erased pointer to the GenerationEvaluator implementation
@@ -23,42 +24,43 @@ pub const EvolvableSubstrateLayout = struct {
         deinit: *const fn (ctx: *anyopaque) void,
     };
 
-    /// Returns coordinates of the neuron with specified index [0; count) and type
+    /// Returns coordinates of the neuron with specified index [0; count) and type.
     pub fn nodePosition(self: Self, allocator: std.mem.Allocator, index: usize, n_type: NodeNeuronType) anyerror!*PointF {
         return try self.vtable.nodePosition(self.ptr, allocator, index, n_type);
     }
 
-    /// Adds new hidden node to the substrate
+    /// Adds new hidden node to the substrate.
     /// Returns the index of added hidden neuron or error if failed.
     pub fn addHiddenNode(self: Self, position: *PointF) anyerror!usize {
         return try self.vtable.addHiddenNode(self.ptr, position);
     }
 
-    /// Returns index of hidden node at specified position or error if not found
+    /// Returns index of hidden node at specified position or error if not found.
     pub fn indexOfHidden(self: Self, position: *PointF) !usize {
         return self.vtable.indexOfHidden(self.ptr, position);
     }
 
-    /// Returns number of INPUT neurons in the layout
+    /// Returns number of INPUT neurons in the layout.
     pub fn inputCount(self: Self) usize {
         return self.vtable.inputCount(self.ptr);
     }
 
-    /// Returns number of HIDDEN neurons in the layout
+    /// Returns number of HIDDEN neurons in the layout.
     pub fn hiddenCount(self: Self) usize {
         return self.vtable.hiddenCount(self.ptr);
     }
 
-    /// Returns number of OUTPUT neurons in the layout
+    /// Returns number of OUTPUT neurons in the layout.
     pub fn outputCount(self: Self) usize {
         return self.vtable.outputCount(self.ptr);
     }
 
-    /// Frees any memory allocated by the layout implementation
+    /// Frees all associated memory from the underlying implementation.
     pub fn deinit(self: Self) void {
         return self.vtable.deinit(self.ptr);
     }
 
+    /// Initializes a new EvolvableSubstrateLayout from the provided pointer to implementation.
     pub fn init(es_layout: anytype) Self {
         const Ptr = @TypeOf(es_layout);
         const PtrInfo = @typeInfo(Ptr);
@@ -116,23 +118,25 @@ pub const EvolvableSubstrateLayout = struct {
     }
 };
 
+/// MappedEvolvableSubstrateLayout implements the EvolvableSubstrateLayout interface.
 pub const MappedEvolvableSubstrateLayout = struct {
-    /// The map to hold binding between hidden node and its index for fast search
+    /// The map to hold binding between hidden node and its index for fast search.
     h_nodes_map: std.AutoHashMap(PointFHash, usize), // stores pointer as usize and index
-    /// The list of all known hidden nodes in specific order
+    /// The list of all known hidden nodes in specific order.
     h_nodes_list: std.ArrayList(*PointF),
-    /// The number of input nodes encoded in this substrate
+    /// The number of input nodes encoded in this substrate.
     in_count: usize,
-    /// The number of output nodes encoded in this substrate
+    /// The number of output nodes encoded in this substrate.
     out_count: usize,
-    /// The input coordinates increment
+    /// The input coordinates increment.
     input_delta: f64,
-    // The output coordinates increment
+    /// The output coordinates increment.
     output_delta: f64,
-
+    /// Holds reference to underlying allocator, which is used to
+    /// free memory when `deinit` is called.
     allocator: std.mem.Allocator,
 
-    /// Creates new instance with given input and output neurons count
+    /// Creates new instance with given input and output neurons count.
     pub fn init(allocator: std.mem.Allocator, in_count: usize, out_count: usize) !*MappedEvolvableSubstrateLayout {
         if (in_count == 0) {
             std.debug.print("the number of input neurons can not be ZERO\n", .{});
@@ -155,6 +159,7 @@ pub const MappedEvolvableSubstrateLayout = struct {
         return l;
     }
 
+    /// Frees all associated memory.
     pub fn deinit(self: *MappedEvolvableSubstrateLayout) void {
         self.h_nodes_map.deinit();
         for (self.h_nodes_list.items) |n| n.deinit();
@@ -162,6 +167,7 @@ pub const MappedEvolvableSubstrateLayout = struct {
         self.allocator.destroy(self);
     }
 
+    /// Returns coordinates of the neuron with specified index [0; count) and type.
     pub fn nodePosition(self: *MappedEvolvableSubstrateLayout, allocator: std.mem.Allocator, index: usize, n_type: NodeNeuronType) !*PointF {
         var y: f64 = 0;
         var delta: f64 = 0;
@@ -201,6 +207,8 @@ pub const MappedEvolvableSubstrateLayout = struct {
         return point;
     }
 
+    /// Adds new hidden node to the substrate.
+    /// Returns the index of added hidden neuron or error if failed.
     pub fn addHiddenNode(self: *MappedEvolvableSubstrateLayout, position: *PointF) !usize {
         _ = self.indexOfHidden(position) catch {
             // add to the list and map it
@@ -214,35 +222,41 @@ pub const MappedEvolvableSubstrateLayout = struct {
         return error.HiddenNodeAlreadyExists;
     }
 
+    /// Returns index of hidden node at specified position or error if not found.
     pub fn indexOfHidden(self: *MappedEvolvableSubstrateLayout, position: *PointF) !usize {
         var index: ?usize = self.h_nodes_map.get(position.key());
         if (index == null) return error.HiddenNodeNotFound;
         return index.?;
     }
 
+    /// Returns number of BIAS neurons in the layout.
     pub fn bias_count(_: *MappedEvolvableSubstrateLayout) usize {
         // No BIAS nodes
         return 0;
     }
 
+    /// Returns number of INPUT neurons in the layout.
     pub fn inputCount(self: *MappedEvolvableSubstrateLayout) usize {
         return self.in_count;
     }
 
+    /// Returns number of HIDDEN neurons in the layout.
     pub fn hiddenCount(self: *MappedEvolvableSubstrateLayout) usize {
         return self.h_nodes_list.items.len;
     }
 
+    /// Returns number of OUTPUT neurons in the layout.
     pub fn outputCount(self: *MappedEvolvableSubstrateLayout) usize {
         return self.out_count;
     }
 
+    /// Formats MappedEvolvableSubstrateLayout for printing to writer.
     pub fn format(value: MappedEvolvableSubstrateLayout, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
         try writer.print("MappedEvolvableSubstrateLayout:\n\tINPT: {d}\n\tHIDN: {d}\n\tOUTP: {d}", .{ value.inputCount(), value.hiddenCount(), value.outputCount() });
     }
 };
 
-pub fn check_neuron_layout_positions(allocator: std.mem.Allocator, positions: []f64, n_type: NodeNeuronType, layout: EvolvableSubstrateLayout) !void {
+pub fn checkNeuronLayoutPositions(allocator: std.mem.Allocator, positions: []f64, n_type: NodeNeuronType, layout: EvolvableSubstrateLayout) !void {
     var count = positions.len / 2;
     var i: usize = 0;
     while (i < count) : (i += 1) {
@@ -261,12 +275,12 @@ test "MappedEvolvableSubstrateLayout node position" {
 
     // check INPUT
     var d1 = [_]f64{ -0.75, -1, -0.25, -1, 0.25, -1, 0.75, -1 };
-    try check_neuron_layout_positions(allocator, &d1, .InputNeuron, layout);
+    try checkNeuronLayoutPositions(allocator, &d1, .InputNeuron, layout);
     try std.testing.expectError(error.NeuronIndexOutOfRange, layout.nodePosition(allocator, input_count, .InputNeuron));
 
     // check OUTPUT
     var d2 = [_]f64{ -0.5, 1, 0.5, 1 };
-    try check_neuron_layout_positions(allocator, &d2, .OutputNeuron, layout);
+    try checkNeuronLayoutPositions(allocator, &d2, .OutputNeuron, layout);
     try std.testing.expectError(error.NeuronIndexOutOfRange, layout.nodePosition(allocator, output_count, .OutputNeuron));
 }
 

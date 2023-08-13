@@ -5,19 +5,21 @@ const net = @import("network.zig");
 const buildNetwork = net.buildNetwork;
 const buildModularNetwork = net.buildModularNetwork;
 
-/// FastNetworkLink The connection descriptor for fast network
+/// FastNetworkLink The connection descriptor for fast network.
 pub const FastNetworkLink = struct {
-    // index of source neuron
+    /// The index of source neuron.
     source_idx: usize,
-    // index of target neuron
+    /// The index of target neuron.
     target_idx: usize,
-    // weight of link
+    /// The link's weight.
     weight: f64 = 0,
-    // signal relayed by link
+    /// The signal relayed by this link.
     signal: f64 = 0,
-
+    /// Holds reference to underlying allocator, which is used to
+    /// free memory when `deinit` is called.
     allocator: std.mem.Allocator,
 
+    /// Intializes a new FastNetworkLink.
     pub fn init(allocator: std.mem.Allocator, source: usize, target: usize, weight: f64) !*FastNetworkLink {
         var self = try allocator.create(FastNetworkLink);
         self.* = .{
@@ -29,22 +31,25 @@ pub const FastNetworkLink = struct {
         return self;
     }
 
+    /// Frees all associated memory.
     pub fn deinit(self: *FastNetworkLink) void {
         self.allocator.destroy(self);
     }
 };
 
-/// FastControlNode The module relay (control node) descriptor for fast network
+/// FastControlNode The module relay (control node) descriptor for fast network.
 pub const FastControlNode = struct {
-    // activation fn for control node
+    // The activation function for control node.
     activation_type: net_math.NodeActivationType,
-    // indexes of input nodes
+    // The indices of input nodes.
     input_idxs: []usize,
-    // indexes of output nodes
+    // The indices of output nodes.
     output_idxs: []usize,
-
+    /// Holds reference to underlying allocator, which is used to
+    /// free memory when `deinit` is called.
     allocator: std.mem.Allocator,
 
+    /// Initializes a new FastControlNode.
     pub fn init(allocator: std.mem.Allocator, inputs: []usize, outputs: []usize, activation: net_math.NodeActivationType) !*FastControlNode {
         var self = try allocator.create(FastControlNode);
         self.* = .{
@@ -56,6 +61,7 @@ pub const FastControlNode = struct {
         return self;
     }
 
+    /// Frees all associated memory.
     pub fn deinit(self: *FastControlNode) void {
         self.allocator.free(self.input_idxs);
         self.allocator.free(self.output_idxs);
@@ -65,54 +71,55 @@ pub const FastControlNode = struct {
 
 /// FastModularNetworkSolver is the network solver implementation to be used for large neural networks simulation.
 pub const FastModularNetworkSolver = struct {
-    // allocator for network mem
+    /// Holds reference to underlying allocator, which is used to
+    /// free memory when `deinit` is called.
     allocator: std.mem.Allocator,
 
-    // network id
+    /// The network's id.
     id: i64 = undefined,
-    // network name
+    /// The network's name.
     name: []const u8 = undefined,
-    // current activation values per neuron
+    /// The current activation values per each neuron.
     neuron_signals: []f64,
-    // slice parallels `neuron_signals`; used to test network relaxation
+    /// This parallels `neuron_signals` and is used to test network relaxation.
     neuron_signals_processing: []f64,
 
-    // activation functions per neuron, must be ordered same as `neuron_signals`
-    // has undefined entries for neurons that are inputs/outputs of module
+    /// The activation functions per neuron, must be ordered same as `neuron_signals`
+    /// has undefined entries for neurons that are inputs/outputs of module
     activation_functions: []net_math.NodeActivationType,
-    // current bias values per neuron
+    // The bias values associated with neurons.
     bias_list: ?[]f64,
-    // control nodes relaying between network modules
+    /// The control nodes relaying between network modules.
     modules: ?[]*FastControlNode,
-    // connections
+    /// The network's connections.
     cxns: []*FastNetworkLink,
 
-    // count of input neurons
+    /// Count of the network's input neurons.
     input_neuron_count: usize,
-    // total count of sensors in the network (input + bias); also index of first output neuron in neuron signals
+    /// The total count of sensors in the network (input + bias); also marks index of the first output neuron in neuron signals.
     sensor_neuron_count: usize,
-    // count of output neurons
+    /// Count of the network's output neurons.
     output_neuron_count: usize,
-    // count of bias neurons (usually 1); also index of first input neuron in neuron signals
+    /// Count of the network's bias neurons (usually 1); also marks index of the first input neuron in neuron signals.
     bias_neuron_count: usize,
-    // total count of neurons in network
+    /// The total count of neurons in the network.
     total_neuron_count: usize,
 
-    // for recursive activation, tracks whether node has been activated
+    /// For recursive activation, tracks whether node has been activated.
     activated: []bool,
-    // for recursive activation, tracks whether node is currently being calculated (recurrent cxns processing)
+    /// For recursive activation, tracks whether node is currently being calculated (recurrent cxns processing).
     in_activation: []bool,
-    // for recursive activation, tracks prev activation values of recurrent cxns (recurrent cxns processing)
+    /// For recursive activation, tracks previous activation values of recurrent cxns (recurrent cxns processing)
     last_activation: []f64,
 
-    // holds IDs of outgoing nodes for each network node
+    /// Holds IDs of outgoing nodes for each network node.
     adjacent_list: []std.ArrayList(usize),
-    // holds IDs of incoming nodes for each network node
+    /// Holds IDs of incoming nodes for each network node.
     reverse_adjacent_list: []std.ArrayList(usize),
-    // holds cxn weights from all connected nodes
+    /// Holds cxn weights from all connected nodes.
     adjacent_matrix: [][]f64,
 
-    /// initialize new FastModularNetworkSolver
+    /// Initializes a new FastModularNetworkSolver.
     pub fn init(allocator: std.mem.Allocator, bias_neuron_count: usize, input_neuron_count: usize, output_neuron_count: usize, total_neuron_count: usize, activation_fns: []net_math.NodeActivationType, cxns: []*FastNetworkLink, bias_list: ?[]f64, modules: ?[]*FastControlNode) !*FastModularNetworkSolver {
         // Allocate the arrays that store the states at different points in the neural network.
         // The neuron signals are initialised to 0 by default. Only bias nodes need setting to 1.
@@ -179,7 +186,7 @@ pub const FastModularNetworkSolver = struct {
         return self;
     }
 
-    /// deinitialize the FastModularNetworkSolver
+    /// Frees all associated memory.
     pub fn deinit(self: *FastModularNetworkSolver) void {
         self.allocator.free(self.neuron_signals);
         self.allocator.free(self.neuron_signals_processing);
@@ -212,6 +219,8 @@ pub const FastModularNetworkSolver = struct {
         self.allocator.destroy(self);
     }
 
+    /// Propagates activation wave through all network nodes provided number of steps in forward direction.
+    /// Returns true if activation wave passed from all inputs to the outputs.
     pub fn forwardSteps(self: *FastModularNetworkSolver, allocator: std.mem.Allocator, steps: usize) !bool {
         var res: bool = undefined;
         var i: usize = 0;
@@ -221,6 +230,9 @@ pub const FastModularNetworkSolver = struct {
         return res;
     }
 
+    /// Propagates activation wave through all network nodes provided number of steps by recursion from output nodes
+    /// Returns true if activation wave passed from all inputs to the outputs. This method is preferred method
+    /// of network activation when number of forward steps can not be easy calculated and no network modules are set.
     pub fn recursiveSteps(self: *FastModularNetworkSolver) !bool {
         if (self.modules != null and self.modules.?.len > 0) {
             std.debug.print("recursive activation can not be used for network with defined modules", .{});
@@ -254,6 +266,7 @@ pub const FastModularNetworkSolver = struct {
         return res;
     }
 
+    /// Propagate activation wave by recursively looking for input signals graph for a given output neuron.
     pub fn recursiveActivateNode(self: *FastModularNetworkSolver, current_node: usize) !bool {
         // return if we've reached an input node (signal already set)
         if (self.activated[current_node]) {
@@ -302,6 +315,9 @@ pub const FastModularNetworkSolver = struct {
         return true;
     }
 
+    /// Attempts to relax network given amount of steps until giving up. The network considered relaxed when absolute
+    /// value of the change at any given point is less than max_allowed_signal_delta during activation waves propagation.
+    /// If max_allowed_signal_delta value is less than or equal to 0, the method will return true without checking for relaxation.
     pub fn relax(self: *FastModularNetworkSolver, allocator: std.mem.Allocator, max_steps: usize, max_allowed_signal_delta: f64) !bool {
         var relaxed: bool = false;
         var i: usize = 0;
@@ -312,6 +328,8 @@ pub const FastModularNetworkSolver = struct {
         return relaxed;
     }
 
+    /// Performs single forward step through the network and tests if network become relaxed. The network considered relaxed
+    /// when absolute value of the change at any given point is less than maxAllowedSignalDelta during activation waves propagation.
     pub fn forwardStep(self: *FastModularNetworkSolver, allocator: std.mem.Allocator, max_allowed_signal_delta: f64) !bool {
         var is_relaxed = true;
 
@@ -366,6 +384,8 @@ pub const FastModularNetworkSolver = struct {
         return is_relaxed;
     }
 
+    /// Flushes network state by removing all current activations. Returns true if network
+    /// flushed successfully; else returns error.
     pub fn flush(self: *FastModularNetworkSolver) !bool {
         var i: usize = self.bias_neuron_count;
         while (i < self.total_neuron_count) : (i += 1) {
@@ -374,6 +394,7 @@ pub const FastModularNetworkSolver = struct {
         return true;
     }
 
+    /// Set sensors values to the input nodes of the network.
     pub fn loadSensors(self: *FastModularNetworkSolver, inputs: []f64) !void {
         if (inputs.len == self.input_neuron_count) {
             // only inputs should be provided
@@ -387,6 +408,7 @@ pub const FastModularNetworkSolver = struct {
         }
     }
 
+    /// Read output values from the output nodes of the network.
     pub fn readOutputs(self: *FastModularNetworkSolver, allocator: std.mem.Allocator) ![]f64 {
         // decouple & return
         var outs = try allocator.alloc(f64, self.output_neuron_count);
@@ -394,10 +416,12 @@ pub const FastModularNetworkSolver = struct {
         return outs;
     }
 
+    /// Returns the total number of neural units in the network.
     pub fn nodeCount(self: *FastModularNetworkSolver) usize {
         return self.total_neuron_count + if (self.modules != null) self.modules.?.len else 0;
     }
 
+    /// Returns the total number of links between nodes in the network.
     pub fn linkCount(self: *FastModularNetworkSolver) usize {
         // count all cxns
         var num_links: usize = self.cxns.len;
@@ -418,6 +442,7 @@ pub const FastModularNetworkSolver = struct {
         return num_links;
     }
 
+    /// Formats FastModularNetworkSolver for printing to writer.
     pub fn format(value: FastModularNetworkSolver, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
         try writer.print("FastModularNetwork, id: {d}, name: [{s}], neurons: {d},\n\tinputs: {d},\tbias: {d},\toutputs: {d},\t hidden: {d}", .{ value.id, value.name, value.total_neuron_count, value.input_neuron_count, value.bias_neuron_count, value.output_neuron_count, (value.total_neuron_count - value.sensor_neuron_count - value.output_neuron_count) });
     }
@@ -439,7 +464,7 @@ test "FastModularNetworkSolver load sensors" {
     var n = try buildNetwork(allocator);
     defer n.deinit();
 
-    var fmm = try n.fastNetworkSolve(allocator);
+    var fmm = try n.fastNetworkSolver(allocator);
     defer fmm.deinit();
 
     // test normal
@@ -461,7 +486,7 @@ test "FastModularNetworkSolver recursive steps" {
 
     // Create network solver
     var d1 = [_]f64{ 0.5, 1.1 };
-    var fmm = try n.fastNetworkSolve(allocator);
+    var fmm = try n.fastNetworkSolver(allocator);
     defer fmm.deinit();
     var erred = false;
     fmm.loadSensors(&d1) catch {
@@ -505,7 +530,7 @@ test "FastModularNetworkSolver forward steps" {
 
     // create network solver
     var d1 = [_]f64{ 1, 2 }; // bias inherent
-    var fmm = try n.fastNetworkSolve(allocator);
+    var fmm = try n.fastNetworkSolver(allocator);
     defer fmm.deinit();
     var erred = false;
     fmm.loadSensors(&d1) catch {
@@ -548,7 +573,7 @@ test "FastModularNetworkSolver relax" {
 
     // create network solver
     var d1 = [_]f64{ 1.5, 2 }; // bias inherent
-    var fmm = try n.fastNetworkSolve(allocator);
+    var fmm = try n.fastNetworkSolver(allocator);
     defer fmm.deinit();
     var erred = false;
     fmm.loadSensors(&d1) catch {
@@ -594,7 +619,7 @@ test "FastModularNetworkSolver flush" {
 
     // create network solver
     var d1 = [_]f64{ 1.5, 2 }; // bias inherent
-    var fmm = try n.fastNetworkSolve(allocator);
+    var fmm = try n.fastNetworkSolver(allocator);
     defer fmm.deinit();
     var erred = false;
     fmm.loadSensors(&d1) catch {
@@ -620,7 +645,7 @@ test "FastModularNetworkSolver node count" {
     var n = try buildModularNetwork(allocator);
     defer n.deinit();
 
-    var fmm = try n.fastNetworkSolve(allocator);
+    var fmm = try n.fastNetworkSolver(allocator);
     defer fmm.deinit();
     try std.testing.expect(fmm.nodeCount() == 9);
 }
@@ -630,7 +655,7 @@ test "FastModularNetworkSolver link count" {
     var n = try buildModularNetwork(allocator);
     defer n.deinit();
 
-    var fmm = try n.fastNetworkSolve(allocator);
+    var fmm = try n.fastNetworkSolver(allocator);
     defer fmm.deinit();
     try std.testing.expect(fmm.linkCount() == 9);
 }

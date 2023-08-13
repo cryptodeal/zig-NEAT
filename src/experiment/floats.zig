@@ -1,5 +1,6 @@
 const std = @import("std");
 
+/// Returns the smallest value in the slice.
 pub fn min(comptime T: type, x: []T) T {
     if (x.len == 0) {
         return std.math.nan(T);
@@ -7,6 +8,7 @@ pub fn min(comptime T: type, x: []T) T {
     return std.mem.min(T, x);
 }
 
+/// Returns the greatest value in the slice.
 pub fn max(comptime T: type, x: []T) T {
     if (x.len == 0) {
         return std.math.nan(T);
@@ -14,6 +16,7 @@ pub fn max(comptime T: type, x: []T) T {
     return std.mem.max(T, x);
 }
 
+/// Returns the total of the values in the slice.
 pub fn sum(comptime T: type, x: []T) T {
     var res: T = 0;
     for (x) |v| {
@@ -22,6 +25,7 @@ pub fn sum(comptime T: type, x: []T) T {
     return res;
 }
 
+/// Returns the average of the values in the slice.
 pub fn mean(comptime T: type, x: []T) T {
     if (x.len == 0) {
         return std.math.nan(T);
@@ -44,6 +48,7 @@ fn hasNan(comptime T: type, x: []T) bool {
     return contains_nan;
 }
 
+/// Returns the sample mean and unbiased variance of the values in the slice.
 pub fn meanVariance(allocator: std.mem.Allocator, comptime T: type, x: []T) ![]T {
     var res = try allocator.alloc(T, 2);
     if (x.len == 0) {
@@ -63,6 +68,7 @@ pub fn meanVariance(allocator: std.mem.Allocator, comptime T: type, x: []T) ![]T
     return res;
 }
 
+/// Returns the middle value in the slice (50% quantile).
 pub fn median(comptime T: type, x: []T) !T {
     if (x.len == 0) {
         return std.math.nan(T);
@@ -70,6 +76,7 @@ pub fn median(comptime T: type, x: []T) !T {
     return quantile(T, 0.5, CumulantKind.Empirical, x, null);
 }
 
+/// Q25 is the 25% quantile
 pub fn q25(comptime T: type, x: []T) !T {
     if (x.len == 0) {
         return std.math.nan(T);
@@ -77,6 +84,7 @@ pub fn q25(comptime T: type, x: []T) !T {
     return quantile(T, 0.25, CumulantKind.Empirical, x, null);
 }
 
+/// Q75 is the 75% quantile
 pub fn q75(comptime T: type, x: []T) !T {
     if (x.len == 0) {
         return std.math.nan(T);
@@ -84,6 +92,7 @@ pub fn q75(comptime T: type, x: []T) !T {
     return quantile(T, 0.75, CumulantKind.Empirical, x, null);
 }
 
+/// Returns the variance of the values in the slice.
 pub fn variance(allocator: std.mem.Allocator, comptime T: type, x: []T) !T {
     if (x.len == 0) {
         return std.math.nan(T);
@@ -93,6 +102,7 @@ pub fn variance(allocator: std.mem.Allocator, comptime T: type, x: []T) !T {
     return res[1];
 }
 
+/// Returns the standard deviation of the values in the slice.
 pub fn stdDev(allocator: std.mem.Allocator, comptime T: type, x: []T) !T {
     if (x.len == 0) {
         return std.math.nan(T);

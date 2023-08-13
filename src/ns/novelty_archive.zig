@@ -19,40 +19,43 @@ const noveltyItemComparison = novelty_item.noveltyItemComparison;
 const itemsDistanceComparison = novelty_item.itemsDistanceComparison;
 const logger = @constCast(opt.logger);
 
-/// The novelty archive contains all the novel items we have encountered thus far.
-/// Using a novelty metric we can determine how novel a new item is compared to everything
-/// currently in the novelty set
+/// NoveltyArchive contains all the novel items we have encountered thus far.
+/// Using a novelty metric we can determine how novel a new item is
+/// compared to everything currently in the novelty set.
 pub const NoveltyArchive = struct {
-    /// all the novel items we have found so far
+    /// All the novel items found so far.
     novel_items: std.ArrayList(*NoveltyItem),
-    /// all novel items from the fittest organisms found so far
+    /// All novel items from the fittest organisms found so far.
     fittest_items: std.ArrayList(*NoveltyItem),
-
+    /// Tracks all NoveltyItems created (used to free them after run finishes).
     encountered_items: std.ArrayList(*NoveltyItem),
 
-    /// the current generation
+    /// The current generation.
     generation: usize = 0,
 
-    /// the measure of novelty
+    /// The measure of novelty.
     novelty_metric: *const NoveltyMetric,
 
-    /// the novel items added during current generation
+    /// Count of novel items added during current generation.
     items_added_in_generation: usize = 0,
-    /// the current generation index
+    /// The current generation index.
     generation_index: usize,
 
-    /// the minimum threshold for a "novel item"
+    /// The minimum threshold for a "novel item".
     novelty_threshold: f64,
-    /// the minimal possible value of novelty threshold
+    /// The minimal possible value of novelty threshold.
     novelty_floor: f64 = 0.25,
 
-    /// the counter to keep track of how many gens since we've added to the archive
+    /// The counter to keep track of how many gens since we've added to the archive
     timeout: usize = 0,
-
+    /// The options for novelty archive.
     options: *NoveltyArchiveOptions,
 
+    /// Holds reference to underlying allocator, which is used to
+    /// free memory when `deinit` is called.
     allocator: std.mem.Allocator,
 
+    /// Initializes a new NoveltyArchive.
     pub fn init(allocator: std.mem.Allocator, threshold: f64, metric: *const NoveltyMetric, options: *NoveltyArchiveOptions) !*NoveltyArchive {
         var self = try allocator.create(NoveltyArchive);
         self.* = .{
@@ -68,6 +71,7 @@ pub const NoveltyArchive = struct {
         return self;
     }
 
+    /// Frees all associated memory.
     pub fn deinit(self: *NoveltyArchive) void {
         for (self.encountered_items.items) |i| {
             i.deinit();
@@ -80,7 +84,7 @@ pub const NoveltyArchive = struct {
     }
 
     /// Evaluates the novelty of a single individual organism within population and update
-    /// its fitness (only_fitness = true) or store individual's novelty item into archive
+    /// its fitness (only_fitness = true) or store individual's novelty item into archive.
     pub fn evaluateIndividualNovelty(self: *NoveltyArchive, allocator: std.mem.Allocator, org: *Organism, pop: *Population, only_fitness: bool) !void {
         if (org.data == null) {
             logger.info("WARNING! Found Organism without novelty point associated: {any}\nNovelty evaluation will be skipped for it. Probably winner found!", .{org}, @src());
@@ -109,13 +113,14 @@ pub const NoveltyArchive = struct {
     }
 
     /// Evaluates the novelty of the whole population and update organisms fitness (only_fitness = true)
-    /// or store each population individual's novelty items into archive
+    /// or store each population individual's novelty items into archive.
     pub fn evaluatePopulationNovelty(self: *NoveltyArchive, allocator: std.mem.Allocator, pop: *Population, only_fitness: bool) !void {
         for (pop.organisms.items) |org| {
             try self.evaluateIndividualNovelty(allocator, org, pop, only_fitness);
         }
     }
 
+    /// Maintains list of the fittest organisms so far.
     pub fn updateFittestWithOrganism(self: *NoveltyArchive, allocator: std.mem.Allocator, org: *Organism) !void {
         if (org.data == null) {
             logger.err("organism with no data provided", .{}, @src());
@@ -151,13 +156,13 @@ pub const NoveltyArchive = struct {
         }
     }
 
-    /// the steady-state end of generation call
+    /// The steady-state end of generation call.
     pub fn endOfGeneration(self: *NoveltyArchive) void {
         self.generation += 1;
         self.adjustArchiveSettings();
     }
 
-    /// adds novelty item to archive
+    /// Adds novelty item to archive.
     pub fn addNoveltyItem(self: *NoveltyArchive, i: *NoveltyItem) !void {
         i.added = true;
         i.generation = self.generation;
@@ -165,7 +170,7 @@ pub const NoveltyArchive = struct {
         self.items_added_in_generation += 1;
     }
 
-    /// Used to adjust dynamic novelty threshold depending on how many have been added to archive recently
+    /// Used to adjust dynamic novelty threshold depending on how many have been added to archive recently.
     pub fn adjustArchiveSettings(self: *NoveltyArchive) void {
         if (self.items_added_in_generation == 0) {
             self.timeout += 1;
@@ -191,7 +196,7 @@ pub const NoveltyArchive = struct {
         self.generation_index = self.novel_items.items.len;
     }
 
-    /// Allows the K nearest neighbor novelty score calculation for given item within provided population
+    /// Allows the K nearest neighbor novelty score calculation for given item within provided population.
     pub fn noveltyAvgKNN(self: *NoveltyArchive, allocator: std.mem.Allocator, item: *NoveltyItem, neighbors: i64, pop: ?*Population) !f64 {
         var novelties: []*ItemsDistance = undefined;
         if (pop != null) {
@@ -234,7 +239,7 @@ pub const NoveltyArchive = struct {
         return density;
     }
 
-    /// maps the novelty metric across the archive against provided item
+    /// Maps the novelty metric across the archive against provided item.
     pub fn mapNovelty(self: *NoveltyArchive, allocator: std.mem.Allocator, item: *NoveltyItem) ![]*ItemsDistance {
         var distances = try allocator.alloc(*ItemsDistance, self.novel_items.items.len);
         for (self.novel_items.items, 0..) |nov, i| {
@@ -243,7 +248,7 @@ pub const NoveltyArchive = struct {
         return distances;
     }
 
-    /// Maps the novelty metric across the archive and the current population
+    /// Maps the novelty metric across the archive and the current population.
     pub fn mapNoveltyInPopulation(self: *NoveltyArchive, allocator: std.mem.Allocator, item: *NoveltyItem, pop: *Population) ![]*ItemsDistance {
         var distances = try std.ArrayList(*ItemsDistance).initCapacity(allocator, self.novel_items.items.len);
 
@@ -262,7 +267,7 @@ pub const NoveltyArchive = struct {
         return distances.toOwnedSlice();
     }
 
-    /// dumps collected novelty points to file as JSON
+    /// Dumps collected novelty points to file as JSON.
     pub fn dumpNoveltyPoints(self: *NoveltyArchive, path: []const u8) !void {
         if (self.novel_items.items.len == 0) return error.NoNovelItems;
         var output_file = try getWritableFile(path);
@@ -270,7 +275,7 @@ pub const NoveltyArchive = struct {
         try self.dumpNoveltyItems(self.novel_items.items, output_file.writer());
     }
 
-    /// dumps collected novelty points of individuals with maximal fitness found during evolution
+    /// Dumps collected novelty points of individuals with maximal fitness found during evolution.
     pub fn dumpFittest(self: *NoveltyArchive, path: []const u8) !void {
         if (self.fittest_items.items.len == 0) return error.NoNovelItems;
         var output_file = try getWritableFile(path);

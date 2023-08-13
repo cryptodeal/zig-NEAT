@@ -3,34 +3,60 @@ const std = @import("std");
 const ActivationFn = fn (f64, []f64) f64;
 const ModuleActivationFn = fn ([]f64, []f64) []f64;
 
-// neuron activation function types
+/// NodeActivationType defines the type of activation function to use for the neuron node.
 pub const NodeActivationType = enum(usize) {
     // sigmoid activation functions
+
+    /// The plain sigmoid activation function.
     SigmoidPlainActivation,
+    /// The plain reduced sigmoid activation function.
     SigmoidReducedActivation,
+    /// The bipolar sigmoid activation function.
     SigmoidBipolarActivation,
+    /// The steepened sigmoid activation function.
     SigmoidSteepenedActivation,
+    /// The approximation sigmoid activation function; squashing range [-4.0; 4.0].
     SigmoidApproximationActivation,
+    /// The steepened approximation sigmoid activation function; squashing range [-1.0; 1.0].
     SigmoidSteepenedApproximationActivation,
+    /// The inverse absolute sigmoid activation function.
     SigmoidInverseAbsoluteActivation,
+    /// The left shifted sigmoid activation function.
     SigmoidLeftShiftedActivation,
+    /// The left shifted steepened sigmoid activation function.
     SigmoidLeftShiftedSteepenedActivation,
+    /// The right shifted steepened sigmoid activation function.
     SigmoidRightShiftedSteepenedActivation,
 
     // other activation functions
+
+    /// The hyperbolic tangent activation function.
     TanhActivation,
+    /// The bipolar Gaussian activator function; xrange->[-1,1] yrange->[-1,1].
     GaussianBipolarActivation,
+    /// The linear activation function.
     LinearActivation,
+    /// The absolute linear activation function.
     LinearAbsActivation,
+    /// The linear activation function with clipping; by 'clipping' we mean the output value is linear between
+    /// x = -1 and x = 1. Below -1 and above +1 the output is clipped at -1 and +1 respectively.
     LinearClippedActivation,
+    /// The null activation function.
     NullActivation,
+    /// The sign activation function.
     SignActivation,
+    /// The sine periodic activation function with doubled period.
     SineActivation,
+    /// The step activation function; x < 0 ? 0.0 : 1.0.
     StepActivation,
 
     // modular activation functions
+
+    /// The multiply module activation function; multiplies input values and returns multiplication result.
     MultiplyModuleActivation,
+    /// The maximal module activation function; finds maximal value among inputs and return it.
     MaxModuleActivation,
+    /// The minimal module activation function; finds minimal value among inputs and return it.
     MinModuleActivation,
 
     pub const ActivationNameTable = [@typeInfo(NodeActivationType).Enum.fields.len][]const u8{
@@ -61,6 +87,9 @@ pub const NodeActivationType = enum(usize) {
         "MinModuleActivation",
     };
 
+    /// Used to calculate activation value for give input and auxiliary parameters using
+    /// the activation function with specified type. Will return error if an unsupported
+    /// activation type is requested.
     pub fn activateByType(input: f64, aux_params: ?[]f64, activation_type: NodeActivationType) !f64 {
         return switch (activation_type) {
             NodeActivationType.SigmoidPlainActivation => plainSigmoid(input, aux_params),
@@ -86,6 +115,8 @@ pub const NodeActivationType = enum(usize) {
         };
     }
 
+    /// Applies corresponding module activation function to the input values and returns the appropriate
+    /// output values. Will return error if an unsupported activation function is requested
     pub fn activateModuleByType(inputs: []f64, aux_params: ?[]f64, activation_type: NodeActivationType) ![1]f64 {
         return switch (activation_type) {
             NodeActivationType.MultiplyModuleActivation => multiplyModule(inputs, aux_params),
@@ -95,10 +126,12 @@ pub const NodeActivationType = enum(usize) {
         };
     }
 
+    /// Returns activation function name from given type.
     pub fn activationNameByType(self: NodeActivationType) []const u8 {
         return @tagName(self);
     }
 
+    /// Parse node activation type name and returns the corresponding activation type.
     pub fn activationTypeByName(name: []const u8) NodeActivationType {
         inline for (ActivationNameTable, 0..) |enum_name, idx| {
             if (std.mem.eql(u8, name, enum_name)) {
@@ -109,13 +142,13 @@ pub const NodeActivationType = enum(usize) {
     }
 };
 
-/// plain sigmoid
+/// The plain sigmoid activation function.
 fn plainSigmoid(input: f64, aux_params: ?[]f64) f64 {
     _ = aux_params;
     return 1.0 / (1.0 + @exp(-input));
 }
 
-/// plain reduced sigmoid
+/// The plain reduced sigmoid activation function
 fn reducedSigmoid(input: f64, aux_params: ?[]f64) f64 {
     _ = aux_params;
     return 1.0 / (1.0 + @exp(-0.5 * input));

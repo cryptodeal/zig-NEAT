@@ -24,17 +24,21 @@ const epochExecutorForCtx = exp_common.epochExecutorForCtx;
 /// An Experiment is a collection of trials for one experiment.
 /// It's helpful for analysis of a series of experiments.
 pub const Experiment = struct {
+    /// The Experiment's Id.
     id: usize,
+    /// The Experiment's name.
     name: []const u8 = undefined,
-    rand_seed: u64 = undefined,
+    /// The list of all Trials comprising the Experiment.
     trials: std.ArrayList(*Trial),
     /// The maximal allowed fitness score as defined by fitness function of experiment.
     /// It is used to normalize fitness score value used in efficiency score calculation. If this value
     /// is not set the fitness score will not be normalized during efficiency score estimation.
     max_fitness_score: ?f64 = null,
-
+    /// Holds reference to underlying allocator, which is used to
+    /// free memory when `deinit` is called.
     allocator: std.mem.Allocator,
 
+    /// Initializes a new Experiment.
     pub fn init(allocator: std.mem.Allocator, id: usize) !*Experiment {
         var self = try allocator.create(Experiment);
         self.* = .{
@@ -45,17 +49,16 @@ pub const Experiment = struct {
         return self;
     }
 
+    /// Frees all associated memory.
     pub fn deinit(self: *Experiment) void {
-        for (self.trials.items) |t| {
-            t.deinit();
-        }
+        for (self.trials.items) |t| t.deinit();
         self.trials.deinit();
         self.allocator.destroy(self);
     }
 
-    /// Calculates average duration of experiment's trial. Returns EmptyDuration for experiment with no trials.
-    /// Note, that most trials finish after solution solved, so this metric can be used to represent how efficient the solvers
-    /// was generated
+    /// Calculates average duration of the Experiment's Trials. Returns `-1` for Experiment with no trials.
+    /// N.B. most Trials finish after solution has been found, so this metric can be used to represent how efficiently
+    /// the solvers were generated
     pub fn avgTrialDuration(self: *Experiment) f64 {
         var total: u64 = 0;
         for (self.trials.items) |t| {
@@ -68,7 +71,7 @@ pub const Experiment = struct {
         }
     }
 
-    /// Calculates average duration of evaluations among all generations of organism populations in this experiment
+    /// Calculates average duration of evaluations among all Generations of organism populations in this experiment.
     pub fn avgEpochDuration(self: *Experiment) f64 {
         var total: i64 = 0;
         for (self.trials.items) |t| {
@@ -81,7 +84,7 @@ pub const Experiment = struct {
         }
     }
 
-    /// Calculates average number of generations evaluated per trial during this experiment.
+    /// Calculates average number of Generations evaluated per trial during this experiment.
     /// This can be helpful when estimating algorithm efficiency, because when winner organism is found the trial is
     /// terminated, i.e. less evaluations - more fast convergence.
     pub fn avgGenerationsPerTrial(self: *Experiment) f64 {
@@ -96,7 +99,7 @@ pub const Experiment = struct {
         }
     }
 
-    /// Returns the time of evaluation of the most recent trial
+    /// Returns the time of evaluation of the most recent trial.
     pub fn mostRecentTrialEvalTime(self: *Experiment) ?std.time.Instant {
         if (self.trials.items.len == 0) {
             return null;
@@ -117,7 +120,7 @@ pub const Experiment = struct {
 
     /// Finds the most fit organism among all trials in this experiment. It's also possible to get the best organism
     /// only among the ones which was able to solve the experiment's problem. Returns the best fit organism in this experiment
-    /// among with ID of trial where it was found and boolean value to indicate if search was successful.
+    /// among with Id of trial where it was found and boolean value to indicate if search was successful.
     pub fn bestOrganism(self: *Experiment, allocator: std.mem.Allocator, only_solvers: bool) !?*Organism {
         var orgs = std.ArrayList(*Organism).init(allocator);
         defer orgs.deinit();
@@ -137,7 +140,7 @@ pub const Experiment = struct {
         }
     }
 
-    /// Checks whether solution was found in at least one trial
+    /// Checks whether solution was found in at least one trial.
     pub fn solved(self: *Experiment) bool {
         for (self.trials.items) |t| {
             if (t.solved()) {
@@ -183,7 +186,7 @@ pub const Experiment = struct {
         return x;
     }
 
-    /// Returns the average number of species in each trial
+    /// Returns the average number of species in each trial.
     pub fn avgDiversity(self: *Experiment, allocator: std.mem.Allocator) ![]f64 {
         var x = try allocator.alloc(f64, self.trials.items.len);
         for (self.trials.items, 0..) |t, i| {
@@ -195,7 +198,7 @@ pub const Experiment = struct {
         return x;
     }
 
-    /// Calculates the number of epochs per trial
+    /// Calculates the number of epochs per trial.
     pub fn epochsPerTrial(self: *Experiment, allocator: std.mem.Allocator) ![]f64 {
         var x = try allocator.alloc(f64, self.trials.items.len);
         for (self.trials.items, 0..) |t, i| {
@@ -204,7 +207,7 @@ pub const Experiment = struct {
         return x;
     }
 
-    /// Calculates the number of trials solved
+    /// Calculates the number of trials solved.
     pub fn trialsSolved(self: *Experiment) u64 {
         var count: u64 = 0;
         for (self.trials.items) |t| {
@@ -256,6 +259,13 @@ pub const Experiment = struct {
         return avg_winner_stats;
     }
 
+    /// Calculates the efficiency score of the found solution.
+    ///
+    /// We are interested in efficient solver solution that take less time per epoch, fewer generations per trial,
+    /// and produce less complicated winner genomes. At the same time it should have maximal fitness score and maximal
+    /// success rate among trials.
+    ///
+    /// This value can only be compared against values obtained for the same type of experiments.
     pub fn efficiencyScore(self: *Experiment) f64 {
         var mean_complexity: f64 = 0;
         var mean_fitness: f64 = 0;
@@ -297,6 +307,7 @@ pub const Experiment = struct {
         return self.avgEpochDuration() * self.avgGenerationsPerTrial() * mean_complexity;
     }
 
+    /// Used to run specific experiment using provided `start_genome` and specific evaluator for each epoch of the experiment.
     pub fn execute(self: *Experiment, allocator: std.mem.Allocator, rand: std.rand.Random, opts: *Options, start_genome: *Genome, evaluator: GenerationEvaluator, trial_observer: ?TrialRunObserver) !void {
         var run: usize = 0;
         while (run < opts.num_runs) : (run += 1) {

@@ -7,6 +7,7 @@ const PointFHash = quad_tree.PointFHash;
 const PointF = quad_tree.PointF;
 const assert = std.debug.assert;
 
+/// The standard SubstrateLayout interface.
 pub const SubstrateLayout = struct {
     const Self = @This();
     // The type erased pointer to the GenerationEvaluator implementation
@@ -22,36 +23,37 @@ pub const SubstrateLayout = struct {
         deinit: *const fn (ctx: *anyopaque) void,
     };
 
-    /// Returns coordinates of the neuron with specified index [0; count) and type
+    /// Returns coordinates of the neuron with specified index [0; count) and type.
     pub fn nodePosition(self: Self, allocator: std.mem.Allocator, index: usize, n_type: NodeNeuronType) anyerror!*PointF {
         return try self.vtable.nodePosition(self.ptr, allocator, index, n_type);
     }
 
-    /// Return number of BIAS neurons in the layout
+    /// Return number of BIAS neurons in the layout.
     pub fn bias_count(self: Self) usize {
         return self.vtable.bias_count(self.ptr);
     }
 
-    /// Returns number of INPUT neurons in the layout
+    /// Returns number of INPUT neurons in the layout.
     pub fn inputCount(self: Self) usize {
         return self.vtable.inputCount(self.ptr);
     }
 
-    /// Returns number of HIDDEN neurons in the layout
+    /// Returns number of HIDDEN neurons in the layout.
     pub fn hiddenCount(self: Self) usize {
         return self.vtable.hiddenCount(self.ptr);
     }
 
-    /// Returns number of OUTPUT neurons in the layout
+    /// Returns number of OUTPUT neurons in the layout.
     pub fn outputCount(self: Self) usize {
         return self.vtable.outputCount(self.ptr);
     }
 
-    /// Frees any memory allocated by the layout implementation
+    /// Frees all associated memory from the underlying implementation.
     pub fn deinit(self: Self) void {
         return self.vtable.deinit(self.ptr);
     }
 
+    /// Initializes a new SubstrateLayout from the provided pointer to implementation.
     pub fn init(es_layout: anytype) Self {
         const Ptr = @TypeOf(es_layout);
         const PtrInfo = @typeInfo(Ptr);
@@ -103,26 +105,28 @@ pub const SubstrateLayout = struct {
     }
 };
 
-/// Defines grid substrate layout
+/// GridSubstrateLayout defines grid substrate layout.
 pub const GridSubstrateLayout = struct {
-    /// The number of bias nodes encoded in this substrate
+    /// The number of bias nodes encoded in this substrate.
     num_bias: usize,
-    /// The number of input nodes encoded in this substrate
+    /// The number of input nodes encoded in this substrate.
     num_input: usize,
-    /// The number of hidden nodes encoded in this substrate
+    /// The number of hidden nodes encoded in this substrate.
     num_hidden: usize,
-    /// The number of output nodes encoded in this substrate
+    /// The number of output nodes encoded in this substrate.
     num_output: usize,
 
-    /// The input coordinates increment
+    /// The input coordinates increment.
     input_delta: f64 = 0,
-    /// The hidden coordinates increment
+    /// The hidden coordinates increment.
     hidden_delta: f64 = 0,
-    /// The output coordinates increment
+    /// The output coordinates increment.
     output_delta: f64 = 0,
-
+    /// Holds reference to underlying allocator, which is used to
+    /// free memory when `deinit` is called.
     allocator: std.mem.Allocator,
 
+    /// Initializes a new GridSubstrateLayout with specified number of nodes to create layout for.
     pub fn init(allocator: std.mem.Allocator, num_bias: usize, num_input: usize, num_output: usize, num_hidden: usize) !*GridSubstrateLayout {
         var self = try allocator.create(GridSubstrateLayout);
         self.* = .{
@@ -144,10 +148,12 @@ pub const GridSubstrateLayout = struct {
         return self;
     }
 
+    /// Frees all associated memory.
     pub fn deinit(self: *GridSubstrateLayout) void {
         self.allocator.destroy(self);
     }
 
+    /// Returns coordinates of the neuron with specified index [0; count) and type.
     pub fn nodePosition(self: *GridSubstrateLayout, allocator: std.mem.Allocator, index: usize, n_type: NodeNeuronType) !*PointF {
         var point = try PointF.init(allocator, 0, 0);
         errdefer point.deinit();
@@ -188,18 +194,22 @@ pub const GridSubstrateLayout = struct {
         return point;
     }
 
+    /// Return number of BIAS neurons in the layout.
     pub fn bias_count(self: *GridSubstrateLayout) usize {
         return self.num_bias;
     }
 
+    /// Return number of INPUT neurons in the layout.
     pub fn inputCount(self: *GridSubstrateLayout) usize {
         return self.num_input;
     }
 
+    /// Return number of HIDDEN neurons in the layout.
     pub fn hiddenCount(self: *GridSubstrateLayout) usize {
         return self.num_hidden;
     }
 
+    /// Return number of OUTPUT neurons in the layout.
     pub fn outputCount(self: *GridSubstrateLayout) usize {
         return self.num_output;
     }
