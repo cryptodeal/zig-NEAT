@@ -45,7 +45,7 @@ pub const Trait = struct {
         return t;
     }
 
-    /// Initializes a new Trait by copying existing Trait.
+    /// Initializes a new Trait by copying an existing Trait.
     pub fn initCopy(allocator: std.mem.Allocator, trait: *Trait) !*Trait {
         var nt = try Trait.init(allocator, trait.params.len);
         nt.id = trait.id;

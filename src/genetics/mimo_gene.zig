@@ -8,10 +8,12 @@ const Trait = @import("../trait.zig").Trait;
 const traitWithId = genetics_common.traitWithId;
 const nodeWithId = genetics_common.nodeWithId;
 
+/// Encoded MIMOControlGeneLink for (de)serialization to/from JSON.
 pub const MIMOControlGeneLinkJSON = struct {
     id: i64,
 };
 
+/// Encoded MIMOControlGene for (de)serialization to/from JSON.
 pub const MIMOControlGeneJSON = struct {
     id: i64,
     trait_id: ?i64,
@@ -28,20 +30,26 @@ pub const MIMOControlGeneJSON = struct {
     }
 };
 
+/// MIMOControlGene or the Multiple-Input Multiple-Output (MIMO) control Gene, which allows creating modular Genomes,
+/// in which several groups of Genes connected through single MIMO Gene and corresponding control function is
+/// applied to all inputs in order to produce outputs. This allows building modular hierarchical Genomes which
+/// can be considered as sum of constituent components and evolved as a whole and as a concrete parts simultaneously.
 pub const MIMOControlGene = struct {
-    // current innovation number for gene
+    /// The current innovation number for the Gene.
     innovation_num: i64,
-    // represents impact of mutation on gene
+    /// Represents the impact of mutation on the Gene.
     mutation_num: f64,
-    // if true, gene is enabled
+    /// If true, the Gene is enabled.
     is_enabled: bool,
-    // control node with control/activation function
+    /// The control node with control/activation function.
     control_node: *NNode,
-    // list of associated IO nodes for fast traversal
+    /// The list of associated IO nodes for fast traversal.
     io_nodes: []*NNode,
-
+    /// Holds reference to underlying allocator, which is used to
+    /// free memory when `deinit` is called.
     allocator: std.mem.Allocator,
 
+    /// For internal use only; parses MIMOControlGene into format that can be serialized to JSON.
     pub fn jsonify(self: *MIMOControlGene, allocator: std.mem.Allocator) !MIMOControlGeneJSON {
         var inputs = try allocator.alloc(MIMOControlGeneLinkJSON, self.control_node.incoming.items.len);
         for (self.control_node.incoming.items, 0..) |l, i| {
@@ -63,6 +71,7 @@ pub const MIMOControlGene = struct {
         };
     }
 
+    /// Initializes a new MIMOControlGene.
     pub fn init(allocator: std.mem.Allocator, control_node: *NNode, innov_num: i64, mut_num: f64, enabled: bool) !*MIMOControlGene {
         var gene: *MIMOControlGene = try allocator.create(MIMOControlGene);
         var io_nodes = std.ArrayList(*NNode).init(allocator);
@@ -83,10 +92,12 @@ pub const MIMOControlGene = struct {
         return gene;
     }
 
+    /// Initializes a new MIMOControlGene from an existing MIMOControlGene.
     pub fn initCopy(allocator: std.mem.Allocator, g: *MIMOControlGene, control_node: *NNode) !*MIMOControlGene {
         return MIMOControlGene.init(allocator, control_node, g.innovation_num, g.mutation_num, g.is_enabled);
     }
 
+    /// Initializes a new MIMOControlGene from JSON (used when reading Genome from file).
     pub fn initFromJSON(allocator: std.mem.Allocator, value: MIMOControlGeneJSON, traits: []*Trait, nodes: []*NNode) !*MIMOControlGene {
         var control_node = try NNode.init(allocator, value.id, .HiddenNeuron);
         // set activation function
@@ -124,18 +135,16 @@ pub const MIMOControlGene = struct {
         return MIMOControlGene.init(allocator, control_node, innov_num, mut_num, enabled);
     }
 
+    /// Frees all associated memory.
     pub fn deinit(self: *MIMOControlGene) void {
-        for (self.control_node.incoming.items) |l| {
-            l.deinit();
-        }
-        for (self.control_node.outgoing.items) |l| {
-            l.deinit();
-        }
+        for (self.control_node.incoming.items) |l| l.deinit();
+        for (self.control_node.outgoing.items) |l| l.deinit();
         self.control_node.deinit();
         self.allocator.free(self.io_nodes);
         self.allocator.destroy(self);
     }
 
+    /// Tests equality of MIMOControlGene against another MIMOControlGene.
     pub fn isEql(self: *MIMOControlGene, m: *MIMOControlGene) bool {
         if (self.innovation_num != m.innovation_num or self.mutation_num != m.mutation_num or self.is_enabled != m.is_enabled) {
             return false;
@@ -153,6 +162,7 @@ pub const MIMOControlGene = struct {
         return true;
     }
 
+    /// Tests whether this MIMOControlGene has intersection with provided map of nodes, i.e. any of it's IO nodes included into list.
     pub fn hasIntersection(self: *MIMOControlGene, nodes: *std.AutoHashMap(i64, *NNode)) bool {
         for (self.io_nodes) |nd| {
             if (nodes.contains(nd.id)) {
@@ -163,6 +173,7 @@ pub const MIMOControlGene = struct {
         return false;
     }
 
+    /// Formats MIMOControlGene for printing to writer.
     pub fn format(value: MIMOControlGene, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
         var enabled_str: []const u8 = "";
         if (!value.is_enabled) {

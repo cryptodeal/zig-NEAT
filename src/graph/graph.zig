@@ -1,3 +1,5 @@
+//! Graph data structure.
+
 const std = @import("std");
 const utils = @import("utils.zig");
 const paths_helpers = @import("paths.zig");
@@ -8,6 +10,7 @@ const FifoQueue = utils.FifoQueue;
 const Shortest = paths_helpers.Shortest;
 const AllShortest = paths_helpers.AllShortest;
 
+/// Error values for `Graph` operations.
 pub const GraphError = error{
     VertexNotFound,
     EdgeNotFound,
@@ -15,6 +18,7 @@ pub const GraphError = error{
     NegativePathWeight,
 };
 
+/// GraphNode represents a node in the Graph structure.
 pub fn GraphNode(comptime IdType: type, comptime DType: type) type {
     return struct {
         const Self = @This();
@@ -27,34 +31,49 @@ pub fn GraphNode(comptime IdType: type, comptime DType: type) type {
     };
 }
 
+/// Graph data structure.
 pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: type) type {
     const Inf_Val = comptime getInfValue(WeightType);
 
     return struct {
         const VerticesMap = if (IdType == []const u8) ?std.StringHashMap(*Node) else ?std.AutoHashMap(IdType, *Node);
 
+        /// Shortest-path tree created by the `dijkstraAllPaths`, `floydWarshall` or `johnsonAllPaths`
+        /// all-pairs shortest paths functions.
         pub const AllShortestPaths = AllShortest(IdType, WeightType, Node);
+        /// Shortest-path tree created by the `mooreBellmanFord`, `bellmanFord`, `dijkstraShortestPath`,
+        /// or AStar (not yet implemented) single-source shortest path functions.
         pub const ShortestPaths = Shortest(WeightType, IdType, Node);
 
+        /// The number of Vertices (`Node`s) in the `Graph`.
         N: usize,
         connected: usize,
+        /// The root Vertex (`Node`) of the Graph.
         root: ?*Node,
+        /// Hashmap of all Vertices (`Node`s) in the Graph.
         vertices: VerticesMap,
+        /// Hashmap of all Vertices in Map where the value is an ArrayList of all outgoing connections (`Edge`s).
         graph: ?std.AutoHashMap(*Node, std.ArrayList(*Edge)),
+        /// Holds reference to underlying allocator, which is used for memory allocations internally
+        /// and to free memory when `deinit` is called.
         allocator: std.mem.Allocator,
 
         const Self = @This();
 
+        /// Holds data for a given `Graph` Node.
         pub const Node = GraphNode(IdType, DType);
 
+        /// Holds data for a given `Graph` Edge.
         pub const Edge = struct {
             node: *Node,
             weight: WeightType,
 
+            /// Initializes a new Edge.
             pub fn init(n1: *Node, w: WeightType) Edge {
                 return Edge{ .node = n1, .weight = w };
             }
 
+            /// Initializes a new Edge by copying from existing instance.
             pub fn clone(self: *Edge, allocator: std.mem.Allocator) !*Edge {
                 var cloned: *Edge = try allocator.create(Edge);
                 cloned.* = .{
@@ -65,6 +84,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             }
         };
 
+        /// Initializes a new `Graph`.
         pub fn init(alloc: std.mem.Allocator) Self {
             return Self{
                 .N = 0,
@@ -76,6 +96,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             };
         }
 
+        /// Initializes a new `Graph`, copying from existing instance.
         pub fn clone(self: *Self) !Self {
             var cloned_graph = try self.graph.?.clone();
             var graph_it = self.graph.?.iterator();
@@ -98,6 +119,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             return cloned;
         }
 
+        /// Frees all associated memory.
         pub fn deinit(self: *Self) void {
             if (self.graph != null) {
                 var graph_it = self.graph.?.iterator();
@@ -120,6 +142,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             self.N = 0;
         }
 
+        /// Add a Vertex (`Node`) to the `Graph`.
         pub fn addVertex(self: *Self, n: IdType, d: DType) !void {
             if (self.N == 0) {
                 var rt = try self.allocator.create(Node);
@@ -148,6 +171,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             }
         }
 
+        /// Remove a Vertex (`Node`) from the `Graph`.
         pub fn removeVertex(self: *Self, n: IdType) ?DType {
             var node_data: ?DType = null;
             if (self.vertices.?.contains(n)) {
@@ -161,10 +185,12 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
                 edges.deinit();
                 _ = self.graph.?.remove(node);
                 self.allocator.destroy(node);
+                self.N -= 1;
             }
             return node_data;
         }
 
+        /// Add an `Edge` to the `Graph` between the two specified Vertices (`Node`s).
         pub fn addEdge(self: *Self, n1: IdType, d1: DType, n2: IdType, d2: DType, w: WeightType) !void {
             if (self.N == 0 or self.vertices.?.contains(n1) == false) {
                 try self.addVertex(n1, d1);
@@ -188,6 +214,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             _ = try self.graph.?.put(node1, arr);
         }
 
+        /// Print `Graph` to stdout.
         pub fn print(self: *Self) void {
             std.debug.print("\r\n", .{});
             std.debug.print("Size: {d}\r\n", .{self.N});
@@ -247,6 +274,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             return true;
         }
 
+        /// Returns an ArrayList of `Node`s where each node appears before all the nodes it points to.
         pub fn topoSort(self: *Self) !std.ArrayList(*Node) {
             comptime var T: type = if (IdType == []const u8) *std.StringHashMap(i32) else *std.AutoHashMap(IdType, i32);
             var visited = if (IdType == []const u8) std.StringHashMap(i32).init(self.allocator) else std.AutoHashMap(IdType, i32).init(self.allocator);
@@ -284,6 +312,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             return result;
         }
 
+        /// Depth First Search (DFS) implements stateful depth-first `Graph` traversal.
         pub fn dfs(self: *Self) !std.ArrayList(*Node) {
             var visited = if (IdType == []const u8) std.StringHashMap(i32).init(self.allocator) else std.AutoHashMap(IdType, i32).init(self.allocator);
             defer visited.deinit();
@@ -317,6 +346,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             return result;
         }
 
+        /// Breadth First Search (BFS) implements stateful breadth-first `Graph` traversal.
         pub fn bfs(self: *Self) !std.ArrayList(*Node) {
             var visited = if (IdType == []const u8) std.StringHashMap(i32).init(self.allocator) else std.AutoHashMap(IdType, i32).init(self.allocator);
             defer visited.deinit();
@@ -350,14 +380,15 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             return result;
         }
 
-        pub const Element = struct { id: IdType, distance: WeightType };
+        const Element = struct { id: IdType, distance: WeightType };
 
-        pub fn minCompare(context: void, a: Element, b: Element) std.math.Order {
+        fn minCompare(context: void, a: Element, b: Element) std.math.Order {
             _ = context;
             return std.math.order(a.distance, b.distance);
         }
 
-        pub fn dijikstraShortestPath(self: *Self, src: IdType) !*ShortestPaths {
+        /// Returns a shortest-path tree for a shortest path from `src` to all nodes in the graph.
+        pub fn dijkstraShortestPath(self: *Self, src: IdType) !*ShortestPaths {
             if ((self.vertices.?.contains(src) == false)) {
                 return error.VertexNotFound;
             }
@@ -493,15 +524,15 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             }
         }
 
+        /// Tarjan uses `dfs` in order to traverse a graph, and return all the strongly connected components in it.
+        /// The algorithm uses two markers called index and low. Index marks the order in which the node has been visited. The
+        /// count of nodes from the start vertex. The other marker, low, marks the lowest index value
+        /// seen by the algorithm so far. Once the recursion unwraps, the key of this algorithm
+        /// is to compare the current stack 'low' (c1) with the previous stack 'low' (c0)
+        /// while it collapses the stacks. If c1 < c0, then the low for the previous node is updated
+        /// to low[prev] = c1, if c1 > c0 then we have found a min-cut edge for the graph. These edges
+        /// separate the strongly connected components from each other.
         pub fn tarjan(self: *Self) !std.ArrayList(std.ArrayList(*Node)) {
-            // Tarjan uses dfs in order to traverse a graph, and return all the strongly connected components in it.
-            // The algorithm uses two markers called index and low. Index marks the order in which the node has been visited. The
-            // count of nodes from the start vertex. The other marker, low, marks the lowest index value
-            // seen by the algorithm so far. Once the recursion unwraps, the key of this algorithm
-            // is to compare the current stack 'low' (c1) with the previous stack 'low' (c0)
-            // while it collapses the stacks. If c1 < c0, then the low for the previous node is updated
-            // to low[prev] = c1, if c1 > c0 then we have found a min-cut edge for the graph. These edges
-            // separate the strongly connected components from each other.
             var result = std.ArrayList(std.ArrayList(*Node)).init(self.allocator);
 
             var globalIndexCounter: i32 = 0;
@@ -525,7 +556,8 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             return result;
         }
 
-        pub fn dijikstraAllPaths(self: *Self, paths: *AllShortestPaths, adjust_by: *ShortestPaths) !void {
+        /// Returns a shortest-path tree for shortest paths in the graph.
+        pub fn dijkstraAllPaths(self: *Self, paths: *AllShortestPaths, adjust_by: *ShortestPaths) !void {
             var pq = std.PriorityQueue(Element, void, minCompare).init(self.allocator, {});
             defer pq.deinit();
 
@@ -564,6 +596,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             }
         }
 
+        /// Returns a shortest-path tree for shortest paths in the graph.
         pub fn johnsonAllPaths(self: *Self) !*AllShortestPaths {
             var paths = try AllShortestPaths.init(self.allocator, self.N, false);
 
@@ -607,7 +640,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             defer adjust_by.deinit();
             _ = self.removeVertex(q);
 
-            try self.dijikstraAllPaths(paths, adjust_by);
+            try self.dijkstraAllPaths(paths, adjust_by);
 
             for (paths.nodes, 0..) |u, i| {
                 var hu = adjust_by.weightTo(u.id);
@@ -623,6 +656,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             return paths;
         }
 
+        /// Returns a shortest-path tree for the graph.
         pub fn floydWarshall(self: *Self) !*AllShortestPaths {
             var paths = try AllShortestPaths.init(self.allocator, self.N, true);
 
@@ -686,6 +720,9 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             return paths;
         }
 
+        /// Returns a shortest-path tree for a shortest path from `src` to all nodes in the graph;
+        /// if negative cycle exists in the graph, returns an error. This is optimized compared to `bellmanFord` as
+        /// it exits early if no change is observed during main loop of algorithm.
         pub fn mooreBellmanFord(self: *Self, src: IdType) !*ShortestPaths {
             if ((self.vertices.?.contains(src) == false)) {
                 return error.VertexNotFound;
@@ -741,7 +778,8 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             return ShortestPaths.init(self.allocator, source, distances, prev, self.vertices);
         }
 
-        // bellman ford algorithm
+        /// Returns a shortest-path tree for a shortest path from `src` to all nodes in the graph;
+        /// if negative cycle exists in the graph, returns an error.
         pub fn bellmanFord(self: *Self, src: IdType) !*ShortestPaths {
             if ((self.vertices.?.contains(src) == false)) {
                 return error.VertexNotFound;
@@ -858,7 +896,7 @@ test "basic graph dfs" {
     defer res1.deinit();
 }
 
-test "basic graph dijikstraShortestPath" {
+test "basic graph dijkstraShortestPath" {
     // Graph with no self loops for dijiksta.
     const allocator = std.testing.allocator;
     var graph2 = Graph(i64, void, f64).init(allocator);
@@ -871,10 +909,7 @@ test "basic graph dijikstraShortestPath" {
     try graph2.addEdge(3, {}, 4, {}, 5);
     try graph2.addEdge(4, {}, 5, {}, 4);
 
-    var res = try graph2.topoSort();
-    defer res.deinit();
-
-    var res3 = try graph2.dijikstraShortestPath(1);
+    var res3 = try graph2.dijkstraShortestPath(1);
     defer res3.deinit();
 
     var res4 = try res3.pathTo(5);
@@ -896,9 +931,6 @@ test "basic graph tarjan" {
     try graph4.addEdge("B", 1, "E", 1, 1);
     try graph4.addEdge("J", 1, "K", 1, 1);
     try graph4.addEdge("M", 1, "N", 1, 1);
-
-    var res = try graph4.topoSort();
-    defer res.deinit();
 
     var res5 = try graph4.tarjan();
     defer res5.deinit();
@@ -923,9 +955,6 @@ test "basic bellman ford" {
     try graph.addEdge(4, {}, 6, {}, -1);
     try graph.addEdge(5, {}, 6, {}, 3);
 
-    var res = try graph.topoSort();
-    defer res.deinit();
-
     var res5 = try graph.bellmanFord(1);
     defer res5.deinit();
 
@@ -948,9 +977,6 @@ test "basic moore bellman ford" {
     try graph.addEdge(4, {}, 6, {}, -1);
     try graph.addEdge(5, {}, 6, {}, 3);
 
-    var res = try graph.topoSort();
-    defer res.deinit();
-
     var res5 = try graph.mooreBellmanFord(1);
     defer res5.deinit();
 
@@ -967,9 +993,6 @@ test "basic floyd warshall" {
     try graph.addEdge(1, {}, 2, {}, 5);
     try graph.addEdge(2, {}, 3, {}, 3);
     try graph.addEdge(3, {}, 4, {}, 1);
-
-    var res = try graph.topoSort();
-    defer res.deinit();
 
     var paths = try graph.floydWarshall();
     defer paths.deinit();
@@ -992,9 +1015,6 @@ test "basic johnson" {
     try graph.addEdge(4, {}, 3, {}, -2);
     try graph.addEdge(4, {}, 6, {}, -1);
     try graph.addEdge(5, {}, 6, {}, 3);
-
-    var res = try graph.topoSort();
-    defer res.deinit();
 
     var paths = try graph.johnsonAllPaths();
     defer paths.deinit();

@@ -119,6 +119,18 @@ pub const NNode = struct {
         return node;
     }
 
+    pub fn initSensor(allocator: std.mem.Allocator, id: i64, bias: bool) !*NNode {
+        var node = try NNode.rawInit(allocator);
+        node.activation_type = .NullActivation;
+        node.id = id;
+        if (bias) {
+            node.neuron_type = .BiasNeuron;
+        } else {
+            node.neuron_type = .InputNeuron;
+        }
+        return node;
+    }
+
     /// Initializes a new NNode from file (used when reading Genome from plain text file).
     pub fn readFromFile(allocator: std.mem.Allocator, data: []const u8, traits: []*Trait) !*NNode {
         var node = try NNode.rawInit(allocator);

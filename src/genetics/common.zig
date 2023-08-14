@@ -24,21 +24,19 @@ pub const MaxAvgFitness = species.MaxAvgFitness;
 pub const OffspringCount = species.OffspringCount;
 pub const Species = species.Species;
 
+/// The innovation method type to be applied.
 pub const InnovationType = enum(u8) {
     NewNodeInnType,
     NewLinkInnType,
 };
 
+/// The mutator type specifying a type of mutation of connection weights between `NNode`s.
 pub const MutatorType = enum(u8) {
     GaussianMutator,
     GoldGaussianMutator,
 };
 
-pub const GenomeEncoding = enum(u8) {
-    PlainGenomeEncoding,
-    YAMLGenomeEncoding,
-};
-
+/// Utility to select Trait with given Id from provided slice of Traits.
 pub fn traitWithId(trait_id: i64, traits: ?[]*Trait) ?*Trait {
     if (trait_id != 0 and traits != null) {
         for (traits.?) |tr| {
@@ -50,6 +48,7 @@ pub fn traitWithId(trait_id: i64, traits: ?[]*Trait) ?*Trait {
     return null;
 }
 
+/// Utility to select NNode with given Id from provided slice NNodes.
 pub fn nodeWithId(node_id: i64, nodes: ?[]*NNode) ?*NNode {
     if (node_id != 0 and nodes != null) {
         for (nodes.?) |n| {

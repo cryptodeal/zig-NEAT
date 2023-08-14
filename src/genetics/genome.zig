@@ -64,7 +64,9 @@ pub const GenomeError = error{
     NetworkMissingOutputs,
 } || std.mem.Allocator.Error;
 
+/// Encoded Genome for (de)serialization to/from JSON.
 const GenomeJSON = struct {
+    /// The Genome's Id.
     id: i64,
     traits: []TraitJSON,
     nodes: []NNodeJSON,
@@ -84,22 +86,48 @@ const GenomeJSON = struct {
     }
 };
 
+/// A Genome is the primary source of genotype information used to create a phenotype.
+/// It contains 3 major constituents:
+///
+/// 	1) A Vector of Traits
+///
+/// 	2) A List of NNodes pointing to a Trait from (1)
+///
+/// 	3) A List of Genes with Links that point to Traits from (1)
+///
+/// 	4) A List of MIMO Control Genes with Links to different genome modules
+///
+/// (1) Reserved parameter space for future use.
+///
+/// (2) NNode specifications.
+///
+/// (3) Is the primary source of innovation in the evolutionary Genome.
+///
+/// (4) Control genes allows to receive inputs from multiple independent genome modules and output processed signal to the
+///     multitude of output locations
+///
+/// Each Gene in (3) has a marker telling when it arose historically. Thus, these Genes can be used to speciate the
+/// population, and the list of Genes provide an evolutionary history of innovation and link-building.
 pub const Genome = struct {
-    // genome id
+    /// The Genome's Id.
     id: i64,
-    // parameters conglomerations
+    /// The parameters conglomerations.
     traits: []*Trait,
-    // list of NNodes for network
+    /// The list of NNodes for the network.
     nodes: []*NNode,
-    // list of innovation-tracking genes
+    /// The list of innovation-tracking genes.
     genes: []*Gene,
-    // list of MIMO control genes
+    /// The list of MIMO control genes.
     control_genes: ?[]*MIMOControlGene = null,
-    // allows genome to be matched w network
+    /// Allows genome to be matched with its Network.
     phenotype: ?*Network = null,
-
+    /// Allows fast lookup to determine if node with specific Id belongs to this Genome.
+    node_by_id_map: std.AutoHashMap(i64, *NNode) = undefined,
+    /// Holds reference to underlying allocator, which is used to
+    /// free memory when `deinit` is called.
     allocator: std.mem.Allocator,
 
+    /// Initializes a new Genome.
     pub fn init(allocator: std.mem.Allocator, id: i64, t: []*Trait, n: []*NNode, g: []*Gene) !*Genome {
         var genome: *Genome = try allocator.create(Genome);
         genome.* = .{
@@ -109,16 +137,21 @@ pub const Genome = struct {
             .traits = t,
             .nodes = n,
             .genes = g,
+            .node_by_id_map = std.AutoHashMap(i64, *NNode).init(allocator),
         };
         return genome;
     }
 
+    /// Initializes a new modular Genome.
     pub fn initModular(allocator: std.mem.Allocator, id: i64, t: []*Trait, n: []*NNode, g: []*Gene, mimo: []*MIMOControlGene) !*Genome {
         var genome: *Genome = try Genome.init(allocator, id, t, n, g);
         genome.control_genes = mimo;
         return genome;
     }
 
+    /// Initializes a new Genome with `in` inputs, `out` outputs, `n` out of `max_hidden` hidden units, and random
+    /// connectivity. If `recurrent` is true then recurrent connections will be included. The last input is a bias
+    /// `link_prob` is the probability of a link. The resulting Genome is not modular.
     pub fn initRand(allocator: std.mem.Allocator, rand: std.rand.Random, new_id: i64, in: i64, out: i64, n: i64, max_hidden: i64, recurrent: bool, link_prob: f64) !*Genome {
         var total_nodes = in + out + max_hidden;
         var matrix_dim = @as(usize, @intCast(total_nodes * total_nodes));
@@ -239,33 +272,24 @@ pub const Genome = struct {
         return Genome.init(allocator, new_id, traits, try nodes.toOwnedSlice(), try genes.toOwnedSlice());
     }
 
+    /// Frees all associated memory.
     pub fn deinit(self: *Genome) void {
-        if (self.phenotype != null) {
-            self.phenotype.?.deinit();
-        }
-        for (self.genes) |gene| {
-            gene.deinit();
-        }
+        self.node_by_id_map.deinit();
+        if (self.phenotype != null) self.phenotype.?.deinit();
+        for (self.genes) |gene| gene.deinit();
         self.allocator.free(self.genes);
-        for (self.nodes) |node| {
-            node.deinit();
-        }
+        for (self.nodes) |node| node.deinit();
         self.allocator.free(self.nodes);
-        for (self.traits) |t| {
-            t.deinit();
-        }
+        for (self.traits) |t| t.deinit();
         if (self.control_genes != null) {
-            for (self.control_genes.?) |cg| {
-                cg.deinit();
-            }
+            for (self.control_genes.?) |cg| cg.deinit();
             self.allocator.free(self.control_genes.?);
         }
         self.allocator.free(self.traits);
         self.allocator.destroy(self);
     }
 
-    //TODO: implement `write`
-
+    /// Formats Genome for printing to writer.
     pub fn format(value: Genome, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
         try writer.print("GENOME START\nNodes:\n", .{});
         for (value.nodes) |n| {
@@ -289,7 +313,7 @@ pub const Genome = struct {
         return writer.print("GENOME END", .{});
     }
 
-    /// returns count of non-disabled genes
+    /// Returns the count of non-disabled Genes.
     pub fn extrons(self: *Genome) i64 {
         var total: i64 = 0;
         for (self.genes) |gene| {
@@ -300,6 +324,7 @@ pub const Genome = struct {
         return total;
     }
 
+    /// Tests equality of Genome against another Genome.
     pub fn isEql(self: *Genome, og: *Genome) !bool {
         if (self.traits.len != og.traits.len) {
             logger.err("traits count mismatch: {d} != {d}", .{ self.traits.len, og.traits.len }, @src());
@@ -351,6 +376,7 @@ pub const Genome = struct {
         return true;
     }
 
+    /// Returns the Id of the final NNode in this Genome.
     pub fn getLastNodeId(self: *Genome) !i64 {
         if (self.nodes.len == 0) {
             logger.err("Genome has no nodes", .{}, @src());
@@ -367,6 +393,7 @@ pub const Genome = struct {
         return id;
     }
 
+    /// Returns innovation number of last gene in Genome + 1
     pub fn getNextGeneInnovNum(self: *Genome) !i64 {
         var inn_num: i64 = 0;
         if (self.genes.len > 0) {
@@ -385,6 +412,20 @@ pub const Genome = struct {
         return inn_num + 1;
     }
 
+    pub fn addNode(self: *Genome, node: *NNode) !void {
+        self.nodes = try self.nodeInsert(self.allocator, self.nodes, node);
+        self.mapNodeId(node);
+    }
+
+    pub fn addNodes(self: *Genome, nodes: []*NNode) !void {
+        for (nodes) |n| try self.addNode(n);
+    }
+
+    pub fn mapNodeId(self: *Genome, node: *NNode) !void {
+        try self.node_by_id_map.put(node.id, node);
+    }
+
+    /// Returns true if this Genome already includes provided NNode.
     pub fn hasNode(self: *Genome, node: ?*NNode) !bool {
         if (node == null) {
             return false;
@@ -401,6 +442,7 @@ pub const Genome = struct {
         return false;
     }
 
+    /// Returns true if this Genome already includes provided Gene.
     pub fn hasGene(self: *Genome, gene: *Gene) !bool {
         var inn = try self.getNextGeneInnovNum();
         if (gene.innovation_num > inn) {
@@ -417,6 +459,7 @@ pub const Genome = struct {
         return false;
     }
 
+    /// Generates a Network phenotype from this Genome with specified Id.
     pub fn genesis(self: *Genome, allocator: std.mem.Allocator, net_id: i64) !*Network {
         var in_list = std.ArrayList(*NNode).init(allocator);
         var out_list = std.ArrayList(*NNode).init(allocator);
@@ -506,6 +549,7 @@ pub const Genome = struct {
         return new_net;
     }
 
+    /// Initializes a new Genome with the specified Id by copying an existing Genome.
     pub fn duplicate(self: *Genome, allocator: std.mem.Allocator, new_id: i64) !*Genome {
         // duplicate the traits
         var traits_dup = try allocator.alloc(*Trait, self.traits.len);
@@ -589,6 +633,9 @@ pub const Genome = struct {
         }
     }
 
+    /// For debugging: A number of tests can be run on a Genome to check its integrity.
+    /// Note: Some of these tests do not indicate a bug, but rather are meant to be used
+    /// to detect specific system states.
     pub fn verify(self: *Genome) !bool {
         if (self.genes.len == 0) {
             std.debug.print("Genome has no Genes", .{});
@@ -748,6 +795,14 @@ pub const Genome = struct {
         return new_genes.toOwnedSlice();
     }
 
+    /// This function gives a measure of compatibility between two Genomes by computing a linear combination of three
+    /// characterizing variables of their compatibility. The three variables represent PERCENT DISJOINT GENES,
+    /// PERCENT EXCESS GENES, MUTATIONAL DIFFERENCE WITHIN MATCHING GENES. So the formula for compatibility
+    /// is:  disjoint_coeff * pdg + excess_coeff * peg + mutdiff_coeff * mdmg
+    /// The three coefficients are global system parameters.
+    /// The bigger returned value the less compatible the genomes.
+    ///
+    /// Fully compatible genomes has 0.0 returned.
     pub fn compatability(self: *Genome, og: *Genome, opt: *Options) f64 {
         if (opt.gen_compat_method == GenomeCompatibilityMethod.GenomeCompatibilityMethodLinear) {
             return self.compatLinear(og, opt);
@@ -756,6 +811,12 @@ pub const Genome = struct {
         }
     }
 
+    /// The compatibility checking method with linear performance depending on the size of the lognest genome in comparison.
+    /// When genomes are small this method is compatible in performance with Genome#compatFast method.
+    /// The compatibility formula remains the same: disjoint_coeff * pdg + excess_coeff * peg + mutdiff_coeff * mdmg
+    /// where: pdg - PERCENT DISJOINT GENES, peg - PERCENT EXCESS GENES, and mdmg - MUTATIONAL DIFFERENCE WITHIN MATCHING GENES
+    ///
+    /// Fully compatible genomes has 0.0 returned.
     pub fn compatLinear(self: *Genome, og: *Genome, opt: *Options) f64 {
         var num_disjoint: f64 = 0.0;
         var num_excess: f64 = 0.0;
@@ -804,6 +865,23 @@ pub const Genome = struct {
         return comp;
     }
 
+    /// The faster version of genome compatibility checking. The compatibility check will start from the end of genome where
+    /// the most of disparities are located - the novel genes with greater innovation ID are always attached at the end (see geneInsert).
+    /// This has the result of complicating the routine because we must now invoke additional logic to determine which genes
+    /// are excess and when the first disjoint gene is found. This is done with an extra integer:
+    ///
+    /// * excessGenesSwitch=0 // indicates to the loop that it is handling the first gene.
+    ///
+    /// * excessGenesSwitch=1 // Indicates that the first gene was excess and on genome 1.
+    ///
+    /// * excessGenesSwitch=2 // Indicates that the first gene was excess and on genome 2.
+    ///
+    /// * excessGenesSwitch=3 // Indicates that there are no more excess genes.
+    ///
+    /// The compatibility formula remains the same: disjoint_coeff * pdg + excess_coeff * peg + mutdiff_coeff * mdmg
+    /// where: pdg - PERCENT DISJOINT GENES, peg - PERCENT EXCESS GENES, and mdmg - MUTATIONAL DIFFERENCE WITHIN MATCHING GENES
+    ///
+    /// Fully compatible genomes has 0.0 returned.
     pub fn compatFast(self: *Genome, og: *Genome, opt: *Options) f64 {
         var list1_count = self.genes.len;
         var list2_count = og.genes.len;
@@ -902,6 +980,16 @@ pub const Genome = struct {
         return compat;
     }
 
+    /// Mutate the genome by adding connections to disconnected sensors (input, bias type neurons).
+    /// The reason this mutator is important is that if we can start NEAT with some inputs disconnected,
+    /// then we can allow NEAT to decide which inputs are important.
+    /// This process has two good effects:
+    ///
+    /// 	(1) You can start minimally even in problems with many inputs and
+    ///
+    /// 	(2) you don't need a priori knowledge of the important features of the domain.
+    ///
+    /// If all sensors already connected than do nothing.
     pub fn mutateConnectSensors(self: *Genome, allocator: std.mem.Allocator, rand: std.rand.Random, innovations: *Population, _: *Options) !bool {
         if (self.genes.len == 0) {
             logger.debug("GENOME ID: {d} ---- mutateConnectSensors FAILED; Genome has no Genes!", .{self.id}, @src());

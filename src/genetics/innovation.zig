@@ -1,31 +1,40 @@
 const std = @import("std");
 const InnovationType = @import("common.zig").InnovationType;
 
+/// Innovation serves as a way to record innovations specifically, so that an innovation in one Genome can be
+/// compared with other innovations in the same epoch, and if they are the same innovation, they can both be assigned the
+/// same innovation number.
+///
+/// This can encode innovations that represent a new link forming, or a new node being added.  In each case, two
+/// nodes fully specify the innovation and where it must have occurred (between them).
 pub const Innovation = struct {
-    // specify where the innovation occurred
+    /// The Id of NNode inputting into the Link where the innovation occurred.
     in_node_id: i64,
+    /// The Id of NNode outputting from the Link where the innovation occurred.
     out_node_id: i64,
-    // number assigned to the innovation
+    /// The number assigned to the innovation.
     innovation_num: i64,
-    // if new node innovation, there are 2 innovations (links) added for the new node
+    /// If new node innovation, there are 2 innovations (Links) added for the new node.
     innnovation_num2: i64 = undefined,
 
-    // if link is added, this is its weight
+    /// If Link is added, this is its weight.
     new_weight: f64 = undefined,
-    // if link is added, this is its connected trait index
+    /// If link is added, this is its connected Trait index.
     new_trait_num: usize = undefined,
-    // if new node created, this is its ID
+    /// If new NNode created, this is its Id.
     new_node_id: i64 = undefined,
 
-    // if new node created, this is the innovation number of the gene's link it is being inserted into
+    /// If new NNode created, this is the innovation number of the Gene's Link it is being inserted into.
     old_innov_num: i64 = undefined,
-    // flag indicating whether innovation is for recurrent link
+    /// Flag indicating whether innovation is for recurrent Link.
     is_recurrent: bool = false,
-    // either new node or new link
+    /// The type of innovation.
     innovation_type: InnovationType,
-
+    /// Holds reference to underlying allocator, which is used to
+    /// free memory when `deinit` is called.
     allocator: std.mem.Allocator,
 
+    /// Initializes a new Innovation for a Node.
     pub fn initForNode(allocator: std.mem.Allocator, in_node_id: i64, out_node_id: i64, innovation_num_1: i64, innovation_num_2: i64, new_node_id: i64, old_innovation_num: i64) !*Innovation {
         var self = try allocator.create(Innovation);
         self.* = .{
@@ -41,6 +50,7 @@ pub const Innovation = struct {
         return self;
     }
 
+    /// Initializes a new Innovation for a Link.
     pub fn initForLink(allocator: std.mem.Allocator, in_node_id: i64, out_node_id: i64, innovation_num: i64, weight: f64, trait_id: usize) !*Innovation {
         var self = try allocator.create(Innovation);
         self.* = .{
@@ -55,6 +65,7 @@ pub const Innovation = struct {
         return self;
     }
 
+    /// Initializes a new Innovation for a Recurrent Link.
     pub fn initForRecurrentLink(allocator: std.mem.Allocator, in_node_id: i64, out_node_id: i64, innovation_num: i64, weight: f64, trait_id: usize, recur: bool) !*Innovation {
         var self = try allocator.create(Innovation);
         self.* = .{
@@ -70,6 +81,7 @@ pub const Innovation = struct {
         return self;
     }
 
+    /// Frees all associated memory.
     pub fn deinit(self: *Innovation) void {
         self.allocator.destroy(self);
     }

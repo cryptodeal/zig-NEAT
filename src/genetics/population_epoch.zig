@@ -13,6 +13,7 @@ const Organism = neat_organism.Organism;
 const WaitGroup = std.Thread.WaitGroup;
 const logger = @constCast(opt.logger);
 
+/// Holds results of Population reproduction when executed in parallel.
 pub const ReproductionResult = struct {
     babies_stored: usize = 0,
     babies: ?[]*Organism = null,
@@ -36,13 +37,19 @@ pub const ReproductionResult = struct {
     }
 };
 
+/// The epoch executor that runs execution sequentially in single thread for all species and organisms.
 pub const SequentialPopulationEpochExecutor = struct {
-    // sorted_species sorted to have species with the best fitness score first
+    /// Species sorted to have Species with the best fitness score first.
     sorted_species: std.ArrayList(*Species),
+    /// Flag indicating whether the best species reproduced.
     best_species_reproduced: bool,
+    /// The Id of the Species with the best fitness value.
     best_species_id: i64,
+    /// Holds reference to underlying allocator, which is used to
+    /// free memory when `deinit` is called.
     allocator: std.mem.Allocator,
 
+    /// Initializes a new SequentialPopulationEpochExecutor.
     pub fn init(allocator: std.mem.Allocator) !*SequentialPopulationEpochExecutor {
         var self = try allocator.create(SequentialPopulationEpochExecutor);
         self.* = .{
@@ -54,17 +61,20 @@ pub const SequentialPopulationEpochExecutor = struct {
         return self;
     }
 
+    /// Frees all associated memory.
     pub fn deinit(self: *SequentialPopulationEpochExecutor) void {
         self.sorted_species.deinit();
         self.allocator.destroy(self);
     }
 
+    /// Turnover the Population to a new generation.
     pub fn nextEpoch(self: *SequentialPopulationEpochExecutor, allocator: std.mem.Allocator, rand: std.rand.Random, opts: *Options, generation: usize, population: *Population) !void {
         try self.prepareForReproduction(allocator, rand, opts, generation, population);
         try self.reproduce(allocator, rand, opts, generation, population);
         try self.finalizeReproduction(allocator, opts, population);
     }
 
+    /// Prepares the Population for reproduction.
     pub fn prepareForReproduction(self: *SequentialPopulationEpochExecutor, allocator: std.mem.Allocator, rand: std.rand.Random, opts: *Options, generation: usize, p: *Population) !void {
         // clear executor state from previous run
         self.sorted_species.clearRetainingCapacity();
@@ -114,6 +124,7 @@ pub const SequentialPopulationEpochExecutor = struct {
         try p.purgeOrganisms(allocator);
     }
 
+    /// Runs the reproduction cycle for the Population.
     pub fn reproduce(self: *SequentialPopulationEpochExecutor, allocator: std.mem.Allocator, rand: std.rand.Random, opts: *Options, generation: usize, p: *Population) !void {
         logger.info("POPULATION: Start Sequential Reproduction Cycle >>>>>", .{}, @src());
 
@@ -144,6 +155,7 @@ pub const SequentialPopulationEpochExecutor = struct {
         logger.info("POPULATION: >>>>> Reproduction Complete\n", .{}, @src());
     }
 
+    /// Finalizes the reproduction cycle for the Population.
     pub fn finalizeReproduction(self: *SequentialPopulationEpochExecutor, allocator: std.mem.Allocator, _: *Options, pop: *Population) !void {
         // Destroy and remove the old generation from the organisms and species
         try pop.purgeOldGeneration(allocator);
@@ -163,10 +175,15 @@ pub const SequentialPopulationEpochExecutor = struct {
     }
 };
 
+/// The population epoch executor with parallel reproduction cycle.
 pub const ParallelPopulationEpochExecutor = struct {
+    /// The sequential executor used to prepare a Population for reproduction.
     sequential: *SequentialPopulationEpochExecutor,
+    /// Holds reference to underlying allocator, which is used to
+    /// free memory when `deinit` is called.
     allocator: std.mem.Allocator,
 
+    /// Initializes a new ParallelPopulationEpochExecutor.
     pub fn init(allocator: std.mem.Allocator) !*ParallelPopulationEpochExecutor {
         var self = try allocator.create(ParallelPopulationEpochExecutor);
         self.* = .{
@@ -176,10 +193,12 @@ pub const ParallelPopulationEpochExecutor = struct {
         return self;
     }
 
+    /// Frees all associated memory
     pub fn deinit(self: *ParallelPopulationEpochExecutor) void {
         self.allocator.destroy(self);
     }
 
+    /// Turnover the Population to a new generation.
     pub fn nextEpoch(self: *ParallelPopulationEpochExecutor, allocator: std.mem.Allocator, rand: std.rand.Random, opts: *Options, generation: usize, population: *Population) !void {
         self.sequential = try SequentialPopulationEpochExecutor.init(allocator);
         defer self.sequential.deinit();
@@ -191,6 +210,7 @@ pub const ParallelPopulationEpochExecutor = struct {
         try self.sequential.finalizeReproduction(allocator, opts, population);
     }
 
+    // Execute parallel reproduction cycle for the Population.
     pub fn reproduce(self: *ParallelPopulationEpochExecutor, allocator: std.mem.Allocator, rand: std.rand.Random, opts: *Options, generation: usize, pop: *Population) !void {
         std.debug.print("POPULATION: Start Parallel Reproduction Cycle >>>>>\n", .{});
 
@@ -238,11 +258,17 @@ pub const ParallelPopulationEpochExecutor = struct {
     }
 };
 
+/// The context used by parallel executor to store results of reproduction.
 pub const WorkerCtx = struct {
+    /// Holds reference to underlying allocator, which is used to
+    /// free memory when `deinit` is called.
     allocator: std.mem.Allocator,
+    /// Mutex used to synchronize access to `res` field.
     mu: std.Thread.Mutex = .{},
+    /// Slice of reproduction results (item per species).
     res: []*ReproductionResult,
 
+    /// Initializes a new WorkerCtx.
     pub fn init(allocator: std.mem.Allocator, count: usize) !*WorkerCtx {
         var self = try allocator.create(WorkerCtx);
         var res = try allocator.alloc(*ReproductionResult, count);
@@ -254,10 +280,9 @@ pub const WorkerCtx = struct {
         return self;
     }
 
+    /// Frees all associated memory.
     pub fn deinit(self: *WorkerCtx) void {
-        for (self.res) |res| {
-            res.deinit();
-        }
+        for (self.res) |res| res.deinit();
         self.allocator.free(self.res);
         self.allocator.destroy(self);
     }
@@ -273,6 +298,8 @@ fn parallelExecutorWorkerFn(rand: std.rand.Random, ctx: *WorkerCtx, wg: *WaitGro
     }
 }
 
+/// Sorts Species by max original fitness of its best Organism; if fitness scores
+/// are equal, fall back to the complexity of the Organism's Phenotype.
 pub fn speciesOrgSort(context: void, a: *Species, b: *Species) bool {
     _ = context;
     const org1 = a.organisms.items[0];

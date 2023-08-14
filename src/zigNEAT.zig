@@ -30,7 +30,7 @@ pub const EpochExecutorType = options.EpochExecutorType;
 pub const GenomeCompatibilityMethod = options.GenomeCompatibilityMethod;
 pub const Options = options.Options;
 pub const HyperNEATContext = options.HyperNEATContext;
-pub const ESHyperNEATContextJSON = options.ESHyperNEATContextJSON;
+pub const ESHyperNEATContext = options.ESHyperNEATContext;
 pub const NeatLogger = @import("log.zig");
 pub const Trait = trait_common.Trait;
 
