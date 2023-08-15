@@ -12,9 +12,9 @@ pub const TraitJSON = struct {
 
 /// Trait is a group of parameters that can be expressed as a group more than one time.
 /// Traits save a genetic algorithm from having to search vast parameter landscapes on every
-/// node. Instead, each node can simply point to a traitand those traits can evolve on their own.
+/// node. Instead, each node can simply point to a trait and those traits can evolve on their own.
 pub const Trait = struct {
-    /// The Trait id.
+    /// The Trait Id.
     id: ?i64 = null,
     /// The learned Trait parameters.
     params: []f64,

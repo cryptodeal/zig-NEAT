@@ -8,8 +8,12 @@ const trial = @import("trial.zig");
 const utils = @import("utils.zig");
 
 // exports
+
 pub const Experiment = experiment.Experiment;
+/// Holds the average number of nodes, genes, organisms evaluations,
+/// and species diversity of winners among all trials in the experiment.
 pub const AvgWinnerStats = experiment.AvgWinnerStats;
+/// Utility functions for statistical analysis of floating point slices.
 pub const floats = @import("floats.zig");
 pub const Generation = exp_generation.Generation;
 pub const GenerationAvg = exp_generation.GenerationAvg;

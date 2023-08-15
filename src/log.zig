@@ -1,6 +1,7 @@
+//! Wraps `std.log` to provide granular control of logging output.
+
 const std = @import("std");
 
-/// NeatLogger wraps `std.log` to provide granular control of logging output.
 pub const NeatLogger = @This();
 
 pub fn log_fn(

@@ -388,6 +388,8 @@ pub const Experiment = struct {
     }
 };
 
+/// Holds the average number of nodes, genes, organisms evaluations,
+/// and species diversity of winners among all trials in the experiment.
 pub const AvgWinnerStats = struct {
     avg_nodes: f64 = -1,
     avg_genes: f64 = -1,

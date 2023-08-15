@@ -7,11 +7,13 @@ const utils = @import("utils/utils.zig");
 const readFile = utils.readFile;
 const getWritableFile = utils.getWritableFile;
 
+/// Defines the type of Epoch Executor to use.
 pub const EpochExecutorType = enum {
     EpochExecutorTypeSequential,
     EpochExecutorTypeParallel,
 };
 
+/// Defines the method used to calculate Genome compatability.
 pub const GenomeCompatibilityMethod = enum {
     GenomeCompatibilityMethodLinear,
     GenomeCompatibilityMethodFast,
@@ -492,21 +494,23 @@ const HyperNEATContextJSON = struct {
     cppn_bias: f64 = 0,
 };
 
-/// The HyperNEAT execution context
+/// The HyperNEAT algorithm execution options.
 pub const HyperNEATContext = struct {
-    /// The threshold value to indicate which links should be included
+    /// The threshold value that indicate which links should be included.
     link_threshold: f64,
     /// The weight range defines the minimum and maximum values for weights on substrate connections,
-    ///  they go from -WeightRange to +WeightRange, and can be any integer.
+    /// they go from -WeightRange to +WeightRange, and can be any integer.
     weight_range: f64,
 
-    /// The substrate activation function
+    /// The substrate activation function.
     substrate_activator: math.NodeActivationType,
-
+    /// The BIAS value for the CPPN network.
     cppn_bias: f64 = 0,
-
+    /// Holds reference to underlying allocator, which is used to
+    /// free memory when `deinit` is called.
     allocator: std.mem.Allocator,
 
+    /// Returns the JSON representation of HyperNEATContext. Called by `writeToJSON`; for internal use only.
     pub fn jsonify(self: *HyperNEATContext) HyperNEATContextJSON {
         return .{
             .link_threshold = self.link_threshold,
@@ -516,12 +520,14 @@ pub const HyperNEATContext = struct {
         };
     }
 
+    /// Writes the HyperNEATContext to a JSON file (path relative to CWD).
     pub fn writeToJSON(self: *HyperNEATContext, path: []const u8) !void {
         var output_file = try getWritableFile(path);
         defer output_file.close();
         try json.toPrettyWriter(null, self.jsonify(), output_file.writer());
     }
 
+    /// Initializes a new HyperNEATContext from the JSON encoded data.
     pub fn initFromJSONEnc(allocator: std.mem.Allocator, enc: HyperNEATContextJSON) !*HyperNEATContext {
         var self = try allocator.create(HyperNEATContext);
         self.* = .{
@@ -534,6 +540,7 @@ pub const HyperNEATContext = struct {
         return self;
     }
 
+    /// Initializes HyperNEATContext by reading from JSON file (path relative to CWD).
     pub fn readFromJSON(allocator: std.mem.Allocator, path: []const u8) !*HyperNEATContext {
         const buf = try readFile(allocator, path);
         defer allocator.free(buf);
@@ -541,6 +548,7 @@ pub const HyperNEATContext = struct {
         return HyperNEATContext.initFromJSONEnc(allocator, enc);
     }
 
+    /// Frees all associated memory.
     pub fn deinit(self: *HyperNEATContext) void {
         self.allocator.destroy(self);
     }
@@ -569,6 +577,7 @@ const ESHyperNEATContextJSON = struct {
     es_iterations: usize,
 };
 
+/// The ES-HyperNEAT algorithm execution options.
 pub const ESHyperNEATContext = struct {
     /// defines the initial ES-HyperNEAT sample resolution.
     initial_depth: usize,
@@ -590,9 +599,12 @@ pub const ESHyperNEATContext = struct {
 
     /// Defines how many times ES-HyperNEAT should iteratively discover new hidden nodes.
     es_iterations: usize,
+    /// Holds reference to underlying allocator, which is used to
+    /// free memory when `deinit` is called.
     allocator: std.mem.Allocator,
 
-    pub fn jsonify(self: *HyperNEATContext) HyperNEATContextJSON {
+    /// Returns the JSON representation of ESHyperNEATContext. Called by `writeToJSON`; for internal use only.
+    pub fn jsonify(self: *HyperNEATContext) ESHyperNEATContextJSON {
         return .{
             .initial_depth = self.initial_depth,
             .maximal_depth = self.maximal_depth,
@@ -603,12 +615,14 @@ pub const ESHyperNEATContext = struct {
         };
     }
 
+    /// Writes the ESHyperNEATContext to a JSON file (path relative to CWD).
     pub fn writeToJSON(self: *ESHyperNEATContext, path: []const u8) !void {
         var output_file = try getWritableFile(path);
         defer output_file.close();
         try json.toPrettyWriter(null, self.jsonify(), output_file.writer());
     }
 
+    /// Initializes a new ESHyperNEATContext from the JSON encoded data.
     pub fn initFromJSONEnc(allocator: std.mem.Allocator, enc: ESHyperNEATContextJSON) !*ESHyperNEATContext {
         var self = try allocator.create(ESHyperNEATContext);
         self.* = .{
@@ -623,6 +637,7 @@ pub const ESHyperNEATContext = struct {
         return self;
     }
 
+    /// Initializes ESHyperNEATContext by reading from JSON file (path relative to CWD).
     pub fn readFromJSON(allocator: std.mem.Allocator, path: []const u8) !*ESHyperNEATContext {
         const buf = try readFile(allocator, path);
         defer allocator.free(buf);
@@ -630,6 +645,7 @@ pub const ESHyperNEATContext = struct {
         return ESHyperNEATContext.initFromJSONEnc(allocator, enc);
     }
 
+    /// Frees all associated memory.
     pub fn deinit(self: *ESHyperNEATContext) void {
         self.allocator.destroy(self);
     }
