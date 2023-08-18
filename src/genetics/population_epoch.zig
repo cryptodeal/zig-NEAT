@@ -13,13 +13,19 @@ const Organism = neat_organism.Organism;
 const WaitGroup = std.Thread.WaitGroup;
 const logger = @constCast(opt.logger);
 
-/// Holds results of Population reproduction when executed in parallel.
+/// Data structure that holds the results of parallel reproduction (multi-threaded).
 pub const ReproductionResult = struct {
+    /// The number of offspring saved.
     babies_stored: usize = 0,
+    /// The offspring created in the reproduction cycle.
     babies: ?[]*Organism = null,
+    /// The Id of the Species used for reproduction.
     species_id: i64,
+    /// Holds reference to underlying allocator, which is used to
+    /// free memory when `deinit` is called.
     allocator: std.mem.Allocator,
 
+    /// Initializes a new ReproductionResult.
     pub fn init(allocator: std.mem.Allocator, id: i64) !*ReproductionResult {
         var self = try allocator.create(ReproductionResult);
         self.* = .{
@@ -29,6 +35,7 @@ pub const ReproductionResult = struct {
         return self;
     }
 
+    /// Frees all associated memory.
     pub fn deinit(self: *ReproductionResult) void {
         if (self.babies != null) {
             self.allocator.free(self.babies.?);

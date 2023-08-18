@@ -103,7 +103,7 @@ pub const Generation = struct {
     }
 };
 
-/// GenerationAvg represents average statistics of one generation.
+/// Data structure that holds the average statistics of one `Generation`.
 pub const GenerationAvg = struct {
     fitness: f64,
     age: f64,

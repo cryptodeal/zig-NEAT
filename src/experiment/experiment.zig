@@ -32,7 +32,7 @@ pub const Experiment = struct {
     trials: std.ArrayList(*Trial),
     /// The maximal allowed fitness score as defined by fitness function of experiment.
     /// It is used to normalize fitness score value used in efficiency score calculation. If this value
-    /// is not set the fitness score will not be normalized during efficiency score estimation.
+    /// is not set, the fitness score will not be normalized during efficiency score estimation.
     max_fitness_score: ?f64 = null,
     /// Holds reference to underlying allocator, which is used to
     /// free memory when `deinit` is called.

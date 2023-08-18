@@ -7,21 +7,33 @@ const pop_epoch = @import("population_epoch.zig");
 const species = @import("species.zig");
 
 // exports
+/// The connection Gene.
 pub const Gene = @import("gene.zig").Gene;
 pub const GenomeError = genome.GenomeError;
 pub const Genome = genome.Genome;
 pub const ModuleMate = genome.ModuleMate;
 pub const Innovation = @import("innovation.zig").Innovation;
+/// Multiple-Input Multiple-Output (MIMO) control Gene.
 pub const MIMOControlGene = @import("mimo_gene.zig").MIMOControlGene;
+/// Genomes and Network along with fitness score.
 pub const Organism = @import("organism.zig").Organism;
+/// Holds the results of parallel (multi-threaded) reproduction.
 pub const ReproductionResult = pop_epoch.ReproductionResult;
+/// Single-threaded reproduction cycle runner.
 pub const SequentialPopulationEpochExecutor = pop_epoch.SequentialPopulationEpochExecutor;
 pub const speciesOrgSort = pop_epoch.speciesOrgSort;
+/// Multi-threaded reproduction cycle runner.
 pub const ParallelPopulationEpochExecutor = pop_epoch.ParallelPopulationEpochExecutor;
+/// Data structure used by `ParallelPopulationEpochExecutor` to
+/// store results of reproduction.
 pub const WorkerCtx = pop_epoch.WorkerCtx;
+/// Population of Organisms and the Species they belong to.
 pub const Population = @import("population.zig").Population;
 pub const MaxAvgFitness = species.MaxAvgFitness;
+/// Data structure holding expected offspring count as well as
+/// skim value for Species.
 pub const OffspringCount = species.OffspringCount;
+/// A group of similar Organisms.
 pub const Species = species.Species;
 
 /// The innovation method type to be applied.

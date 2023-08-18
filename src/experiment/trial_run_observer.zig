@@ -1,4 +1,4 @@
-//! The statndard TrialRunObserver interface.
+//! The standard TrialRunObserver interface.
 
 const std = @import("std");
 const Trial = @import("trial.zig").Trial;

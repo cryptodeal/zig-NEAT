@@ -9,9 +9,13 @@ const Solver = @import("../network/solver.zig").Solver;
 const FastNetworkLink = fast_net.FastNetworkLink;
 
 // exports
+/// Defines a hashable value for a given PointF instance
 pub const PointFHash = quad_tree.PointFHash;
+/// Defines a point with f64 precision coordinates.
 pub const PointF = quad_tree.PointF;
+/// Defines the quad-point in the 4 dimensional hypercube.
 pub const QuadPoint = quad_tree.QuadPoint;
+/// Defines a quad-tree node to model 4 dimensional hypercube.
 pub const QuadNode = quad_tree.QuadNode;
 pub const EvolvableSubstrate = @import("evolvable_substrate.zig").EvolvableSubstrate;
 pub const EvolvableSubstrateLayout = es_layout.EvolvableSubstrateLayout;

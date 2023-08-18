@@ -34,6 +34,7 @@ const Innovation = innov.Innovation;
 const Population = neat_pop.Population;
 const readFile = utils.readFile;
 
+/// The Genome ErrorSet.
 pub const GenomeError = error{
     GenomeMissingPhenotype,
     GenomeHasNoNodes,

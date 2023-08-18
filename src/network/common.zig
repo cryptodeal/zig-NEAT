@@ -3,13 +3,21 @@ const neat_math = @import("../math/activations.zig");
 const fast_net = @import("fast_network.zig");
 
 // exports
-pub const Link = @import("link.zig").Link;
+
+/// The Artificial Neural Network implementation (ANN).
 pub const Network = @import("network.zig").Network;
+/// A Link in the Artificial Neural Network (ANN).
+pub const Link = @import("link.zig").Link;
+/// A Node in the Artificial Neural Network (ANN).
 pub const NNode = @import("nnode.zig").NNode;
+/// The standard Solver interface.
 pub const Solver = @import("solver.zig").Solver;
-pub const FastNetworkLink = fast_net.FastNetworkLink;
-pub const FastControlNode = fast_net.FastControlNode;
+/// `Solver` implementation optimized for larger Artificial Neural Networks.
 pub const FastModularNetworkSolver = fast_net.FastModularNetworkSolver;
+/// A link in the `FastModularNetworkSolver` implementation.
+pub const FastNetworkLink = fast_net.FastNetworkLink;
+/// A Control Node in the `FastModularNetworkSolver` implementation.
+pub const FastControlNode = fast_net.FastControlNode;
 
 /// NodeType defines the type of NNode to create.
 pub const NodeType = enum(u8) {

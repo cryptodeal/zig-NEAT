@@ -13,40 +13,51 @@ const MutatorType = neat_common.MutatorType;
 const fitnessComparison = orgn.fitnessComparison;
 const logger = @constCast(opt.logger);
 
+/// Data structure holding the maximal and average
+/// fitness of a Species.
 pub const MaxAvgFitness = struct {
     max: f64 = 0.0,
     avg: f64 = 0.0,
 };
 
+/// Data structure holding the expected offspring count
+/// and skim value, which are used when calculating the
+/// number of expected offspring per each Species.
 pub const OffspringCount = struct {
     expected: i64 = 0,
     skim: f64 = 0.0,
 };
 
+/// A Species is a group of similar Organisms.
+/// Reproduction primarily takes plaece within the same species,
+/// which encourages mating between compatible organisms.
 pub const Species = struct {
-    // species ID
+    /// The Species Id.
     id: i64,
-    // age of the species
+    /// The age of the Species.
     age: i64 = 1,
-    // maximal fitness of species (all time)
+    /// The maximal fitness of the Species (all-time).
     max_fitness_ever: f64 = undefined,
-    // how many offspring expected
+    /// The count of expected offspring for the Species.
     expected_offspring: i64 = undefined,
 
-    // is it novel
+    /// Indicates whether the Species is novel.
     is_novel: bool = false,
 
-    // organisms in the species; the algo keeps it sorted to have most
-    // fit first at beginning of each reproduction cycle
+    /// List of all Organisms in the species; the algorithm keeps it sorted
+    /// to have most fit first at beginning of each reproduction cycle.
     organisms: std.ArrayList(*Organism),
-    // if this is too long ago, species will go extinct
+    /// Denotes the age of the Species when it's best fitness last improved.
+    /// If this is too long ago, the Species will go extinct.
     age_of_last_improvement: i64 = undefined,
 
-    // flag used for search optimization
+    /// Flag used for search optimization.
     is_checked: bool = false,
-
+    /// Holds reference to underlying allocator, which is used to
+    /// free memory when `deinit` is called.
     allocator: std.mem.Allocator,
 
+    /// Initializes a new Species.
     pub fn init(allocator: std.mem.Allocator, id: i64) !*Species {
         var self = try allocator.create(Species);
         self.* = .{
@@ -57,24 +68,26 @@ pub const Species = struct {
         return self;
     }
 
+    /// Initializes a new Species and flags as being novel.
     pub fn initNovel(allocator: std.mem.Allocator, id: i64, novel: bool) !*Species {
         var self = try Species.init(allocator, id);
         self.is_novel = novel;
         return self;
     }
 
+    /// Frees all associated memory.
     pub fn deinit(self: *Species) void {
-        for (self.organisms.items) |o| {
-            o.deinit();
-        }
+        for (self.organisms.items) |o| o.deinit();
         self.organisms.deinit();
         self.allocator.destroy(self);
     }
 
+    /// Adds a new Organism to the list of Organisms that comprise this Species.
     pub fn addOrganism(self: *Species, o: *Organism) !void {
         try self.organisms.append(o);
     }
 
+    /// Removes an Organism from the list of Organisms that comprise this Species.
     pub fn removeOrganism(self: *Species, allocator: std.mem.Allocator, org: *Organism) !void {
         var old_orgs = self.organisms;
         var orgs = std.ArrayList(*Organism).init(allocator);
@@ -97,6 +110,11 @@ pub const Species = struct {
         }
     }
 
+    /// Used to change the fitness of Organisms in the Species to be higher
+    /// for very new Species (to protect them). Divides the fitness by the
+    /// size of the Species, so that fitness is "shared" by the Species.
+    /// NOTE: Invocation of this method will result in the Species Organisms
+    /// sorted by fitness in descending order, i.e. most fit will be first.
     pub fn adjustFitness(self: *Species, opts: *Options) void {
         var age_debt = (self.age - self.age_of_last_improvement + 1) - opts.dropoff_age;
         if (age_debt == 0) {
@@ -150,6 +168,7 @@ pub const Species = struct {
         }
     }
 
+    /// Computes the maximal and average fitness of this Species.
     pub fn computeMaxAndAvgFitness(self: *Species) MaxAvgFitness {
         var res = MaxAvgFitness{};
         var total: f64 = 0.0;
@@ -165,6 +184,7 @@ pub const Species = struct {
         return res;
     }
 
+    /// Returns most fit organism for this Species.
     pub fn findChampion(self: *Species) ?*Organism {
         var champ_fitness: f64 = 0.0;
         var champ: ?*Organism = null;
@@ -178,6 +198,7 @@ pub const Species = struct {
         return champ;
     }
 
+    /// Returns the first Organism in this Species or null if empty.
     pub fn firstOrganism(self: *Species) ?*Organism {
         if (self.organisms.items.len > 0) {
             return self.organisms.items[0];
@@ -186,6 +207,12 @@ pub const Species = struct {
         }
     }
 
+    /// Computes the collective offspring the entire Species (the sum of all
+    /// Organism's offspring) is assigned. The skim is fractional offspring
+    /// left over from a previous Species that was counted. These fractional
+    /// parts are kept until they add up to 1. Returns the whole offspring
+    /// count for this Species as well as fractional offspring left after
+    /// computation (skim).
     pub fn countOffspring(self: *Species, skim: f64) !OffspringCount {
         var org_off_int_part: i64 = undefined;
         var org_off_fract_part: f64 = undefined;
@@ -213,14 +240,20 @@ pub const Species = struct {
         return res;
     }
 
+    /// Compute the number of Generations since the Species'
+    /// fitness last improved.
     pub fn lastImproved(self: *Species) i64 {
         return self.age - self.age_of_last_improvement;
     }
 
+    /// Returns the size of this Species;
+    /// i.e. the number of Organisms belonging to it.
     pub fn size(self: *Species) usize {
         return self.organisms.items.len;
     }
 
+    /// Sorts the Organisms in this Species by fitness and returns
+    /// the Organism with the highest fitness score.
     pub fn sortFindChampion(self: *Species) ?*Organism {
         var champ: ?*Organism = null;
         // sort the population (most fit first) and mark for death those after : survival_threshold * pop_size
@@ -230,6 +263,10 @@ pub const Species = struct {
         return champ;
     }
 
+    /// Performs mating and mutation to form the next Generation.
+    /// The sorted_species is ordered to have best Species in the beginning.
+    /// Returns list of baby Organisms as a result of reproduction of all
+    /// organisms in this species.
     pub fn reproduce(self: *Species, allocator: std.mem.Allocator, rand: std.rand.Random, opts: *Options, generation: usize, pop: *Population, sorted_species: []*Species) ![]*Organism {
         // Check for a mistake
         if (self.expected_offspring > 0 and self.organisms.items.len == 0) {

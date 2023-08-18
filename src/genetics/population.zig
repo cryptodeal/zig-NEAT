@@ -14,47 +14,54 @@ const Options = opt.Options;
 const Genome = neat_genome.Genome;
 const MutatorType = common.MutatorType;
 
+/// Data structure representing a group of Organisms and the Species they belong to.
 pub const Population = struct {
-    // species in the population; should comprise all the Genomes
+    /// List of all species in the Population; N.B. the species should comprise all the Genomes.
     species: std.ArrayList(*Species),
-    // organisms in the population
+    /// List of all Organisms in the Population.
     organisms: std.ArrayList(*Organism),
-    // highest species number
+    /// The highest Species number.
     last_species: i64 = 0,
-    // integer that, when greater than 0, indicates when the first winner appeared
+    /// An integer that, when greater than 0, indicates when the first winner appeared.
     winner_gen: usize = 0,
-    // last generation run
+    /// The last generation run.
     final_gen: usize = undefined,
 
-    // stagnation detector
+    /// Records the greatest fitness observed in the Population;
+    /// used to detect Population stagnation.
     highest_fitness: f64 = 0.0,
+    /// The number of epochs since the highest fitness was recorded for this Population.
+    /// If it was too long ago, delta coding will be applied to prevent the population's
+    /// fitness from stagnating.
     epoch_highest_last_changed: usize = 0,
 
     // fitness characteristics
+
+    /// The average fitness of the Population.
     mean_fitness: f64 = undefined,
+    /// The variance of the Population's fitness.
     variance: f64 = undefined,
+    /// The standard deviation of the Population's fitness.
     standard_deviation: f64 = undefined,
 
-    // holds genetic innovations of most recent population
+    /// Holds the genetic innovations of the most recent Generation.
     innovations: std.ArrayList(*Innovation),
-    // next innovation number for the population
+    // The next innovation number for the Population.
     next_innov_number: std.atomic.Atomic(i64) = undefined,
-    // next node id for population
+    // The next node Id for the Population.
     next_node_id: std.atomic.Atomic(i64) = undefined,
 
-    // mutex to guard against concurrent modifications
+    // The Mutex used to guard against concurrent modifications.
     mutex: std.Thread.Mutex = .{},
 
-    // threadsafe allocator; enabling concurrent allocations/deallocations
-    threadsafe_allocator: std.heap.ThreadSafeAllocator,
+    /// Holds reference to underlying allocator, which is used to
+    /// free memory when `deinit` is called.
     allocator: std.mem.Allocator,
-    org_mem_pool: ?std.heap.MemoryPoolExtra(Organism, .{}) = null,
 
+    /// Initializes a new empty Population.
     pub fn rawInit(allocator: std.mem.Allocator) !*Population {
-        var multi_thread_alloc = std.heap.ThreadSafeAllocator{ .child_allocator = allocator };
         var self = try allocator.create(Population);
         self.* = .{
-            .threadsafe_allocator = multi_thread_alloc,
             .allocator = allocator,
             .species = std.ArrayList(*Species).init(allocator),
             .organisms = std.ArrayList(*Organism).init(allocator),
@@ -63,6 +70,9 @@ pub const Population = struct {
         return self;
     }
 
+    /// Initializes a new Population from a single Genome, which is used to spawn the
+    /// Organisms which comprise the Population. The resulting Organisms are then speciated
+    /// to form the initial Species of the Population.
     pub fn init(allocator: std.mem.Allocator, rand: std.rand.Random, g: *Genome, opts: *Options) !*Population {
         if (opts.pop_size <= 0) {
             std.debug.print("wrong population size in the context: {d}\n", .{opts.pop_size});
@@ -73,6 +83,9 @@ pub const Population = struct {
         return self;
     }
 
+    /// Initializes a new Population of random topologies by spawning Organisms created from
+    /// random Genomes. The resulting Organisms are then speciated to form the initial Species
+    /// of the Population.
     pub fn initRandom(allocator: std.mem.Allocator, rand: std.rand.Random, in: usize, out: usize, max_hidden: usize, recurrent: bool, link_prob: f64, opts: *Options) !*Population {
         if (opts.pop_size <= 0) {
             std.debug.print("wrong population size in the options: {d}", .{opts.pop_size});
@@ -92,21 +105,18 @@ pub const Population = struct {
         return self;
     }
 
+    /// Frees all associated memory.
     pub fn deinit(self: *Population) void {
         // may need to iterate through each list to free items
-        for (self.species.items) |s| {
-            s.deinit();
-        }
+        for (self.species.items) |s| s.deinit();
         self.species.deinit();
-
         self.organisms.deinit();
-        for (self.innovations.items) |i| {
-            i.deinit();
-        }
+        for (self.innovations.items) |i| i.deinit();
         self.innovations.deinit();
         self.allocator.destroy(self);
     }
 
+    /// Runs verification on all Genomes in this Population (Debugging).
     pub fn verify(self: *Population) !bool {
         for (self.organisms.items) |o| {
             _ = try o.genotype.verify();
@@ -114,26 +124,32 @@ pub const Population = struct {
         return true;
     }
 
+    /// Get the next Node Id of the Population and increment.
     pub fn getNextNodeId(self: *Population) i64 {
         var res = self.next_node_id.fetchAdd(1, .Monotonic);
         return res + 1;
     }
 
+    /// Get the next Innovation number of the Population and increment.
     pub fn getNextInnovationNumber(self: *Population) i64 {
         var res = self.next_innov_number.fetchAdd(1, .Monotonic);
         return res + 1;
     }
 
+    /// Stores the given Innovation in the Population.
     pub fn storeInnovation(self: *Population, innovation: *Innovation) !void {
         self.mutex.lock();
         defer self.mutex.unlock();
         try self.innovations.append(innovation);
     }
 
+    /// Get all current Innovations of the Population.
     pub fn getInnovations(self: *Population) []*Innovation {
         return self.innovations.items;
     }
 
+    /// Creates a population from Genome g. The new Population will have the same topology as g
+    /// with link weights slightly perturbed from g's.
     pub fn spawn(self: *Population, allocator: std.mem.Allocator, rand: std.rand.Random, g: *Genome, opts: *Options) !void {
         var count: usize = 0;
         while (count < opts.pop_size) : (count += 1) {
@@ -154,6 +170,10 @@ pub const Population = struct {
         try self.speciate(allocator, opts, self.organisms.items);
     }
 
+    /// Check to see if the best Species died somehow. (This is undesirable) N.B. the mutated
+    /// offspring of the best species may be added to other more compatible species and as result
+    /// the best species from the previous generation will be removed, but their offspring will
+    /// still be alive. Returns an error if the best Species died.
     pub fn checkBestSpeciesAlive(self: *Population, best_species_id: i64, best_species_reproduced: bool) !void {
         var best_ok = false;
         var best_sp_max_fitness: f64 = undefined;
@@ -169,6 +189,8 @@ pub const Population = struct {
         }
     }
 
+    /// Separates given Organisms into Species of this Population by checking compatibilities against a threshold.
+    /// Any Organism that is not compatible with the first Organism in any existing Species becomes a new Species.
     pub fn speciate(self: *Population, allocator: std.mem.Allocator, opts: *Options, organisms: []*Organism) !void {
         if (organisms.len == 0) {
             std.debug.print("no organisms to speciate from\n", .{});
@@ -214,6 +236,8 @@ pub const Population = struct {
         }
     }
 
+    /// Removes zero offspring Species from this population, i.e. Species which will not have any offspring
+    /// Organisms belonging to it after reproduction cycle has ended due to its fitness stagnation.
     pub fn purgeZeroOffspringSpecies(self: *Population, allocator: std.mem.Allocator, generation: usize) !void {
         _ = generation;
         // used to compute avg fitness over all Organisms
@@ -302,7 +326,7 @@ pub const Population = struct {
         self.species = species_to_keep;
     }
 
-    // When population stagnation detected the delta coding will be performed in attempt to fix this
+    /// When Population stagnation is detected, delta coding will be performed in attempt to fix this.
     pub fn deltaCoding(self: *Population, sorted_species: []*Species, opts: *Options) void {
         self.epoch_highest_last_changed = 0;
         var half_pop = opts.pop_size / 2;
@@ -332,8 +356,8 @@ pub const Population = struct {
         }
     }
 
-    // The system can take expected offspring away from worse species and give them
-    // to superior species depending on the system parameter BabiesStolen (when BabiesStolen > 0)
+    /// The system can take expected offspring away from an inferior Species and give them to a superior
+    /// Species depending on the system parameter `babies_stolen` (when `babies_stolen` > 0).
     pub fn giveBabiesToTheBest(_: *Population, rand: std.rand.Random, sorted_species: []*Species, opts: *Options) !void {
         // Babies taken from the bad species and given to the champs
         var stolen_babies: usize = 0;
@@ -401,7 +425,7 @@ pub const Population = struct {
         }
     }
 
-    // Purge from population all organisms marked to be eliminated
+    // Purge all Organisms marked to be eliminated from this Population.
     pub fn purgeOrganisms(self: *Population, allocator: std.mem.Allocator) !void {
         var org_to_keep = std.ArrayList(*Organism).init(allocator);
         for (self.organisms.items) |org| {
@@ -416,7 +440,7 @@ pub const Population = struct {
         self.organisms = org_to_keep;
     }
 
-    // Destroy and remove the old generation of the organisms and of the species
+    /// Destroy and remove the old Generation of Organisms and Species.
     pub fn purgeOldGeneration(self: *Population, allocator: std.mem.Allocator) !void {
         for (self.organisms.items) |org| {
             // Remove the organism from its Species
@@ -427,6 +451,8 @@ pub const Population = struct {
         self.organisms = std.ArrayList(*Organism).init(allocator);
     }
 
+    /// Removes all empty Species and age the ones that survive.
+    /// As this happens, create the master Organism list for the new Generation.
     pub fn purgeOrAgeSpecies(self: *Population, allocator: std.mem.Allocator) !void {
         var org_count: usize = 0;
         var species_to_keep = std.ArrayList(*Species).init(allocator);

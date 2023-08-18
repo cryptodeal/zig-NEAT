@@ -99,7 +99,7 @@ pub const QuadPoint = struct {
     }
 };
 
-/// QuadNode defines quad-tree node to model 4 dimensional hypercube.
+/// QuadNode defines a quad-tree node to model 4 dimensional hypercube.
 pub const QuadNode = struct {
     /// The X coordinates of center of this quad-tree node's square.
     x: f64,
