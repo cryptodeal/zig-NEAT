@@ -36,7 +36,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
     const Inf_Val = comptime getInfValue(WeightType);
 
     return struct {
-        const VerticesMap = if (IdType == []const u8) ?std.StringHashMap(*Node) else ?std.AutoHashMap(IdType, *Node);
+        pub const VerticesMap = if (IdType == []const u8) std.StringHashMap(*Node) else std.AutoHashMap(IdType, *Node);
 
         /// Shortest-path tree created by the `dijkstraAllPaths`, `floydWarshall` or `johnsonAllPaths`
         /// all-pairs shortest paths functions.
@@ -53,7 +53,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
         /// Hashmap of all Vertices (`Node`s) in the Graph.
         vertices: VerticesMap,
         /// Hashmap of all Vertices in Map where the value is an ArrayList of all outgoing connections (`Edge`s).
-        graph: ?std.AutoHashMap(*Node, std.ArrayList(*Edge)),
+        graph: std.AutoHashMap(*Node, std.ArrayList(*Edge)),
         /// Holds reference to underlying allocator, which is used for memory allocations internally
         /// and to free memory when `deinit` is called.
         allocator: std.mem.Allocator,
@@ -90,16 +90,16 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
                 .N = 0,
                 .connected = 0,
                 .root = undefined,
-                .vertices = null,
-                .graph = null,
+                .vertices = VerticesMap.init(alloc),
+                .graph = std.AutoHashMap(*Node, std.ArrayList(*Edge)).init(alloc),
                 .allocator = alloc,
             };
         }
 
         /// Initializes a new `Graph`, copying from existing instance.
         pub fn clone(self: *Self) !Self {
-            var cloned_graph = try self.graph.?.clone();
-            var graph_it = self.graph.?.iterator();
+            var cloned_graph = try self.graph.clone();
+            var graph_it = self.graph.iterator();
             while (graph_it.next()) |v| {
                 var key: *Node = v.key_ptr.*;
                 var edges_out: std.ArrayList(*Edge) = v.value_ptr.*;
@@ -112,7 +112,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
                 .N = self.N,
                 .connected = self.connected,
                 .root = self.root,
-                .vertices = try self.vertices.?.clone(),
+                .vertices = try self.vertices.clone(),
                 .graph = cloned_graph,
                 .allocator = self.allocator,
             };
@@ -121,24 +121,22 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
 
         /// Frees all associated memory.
         pub fn deinit(self: *Self) void {
-            if (self.graph != null) {
-                var graph_it = self.graph.?.iterator();
-                while (graph_it.next()) |entry| {
-                    // self.allocator.destroy(entry.key_ptr);
-                    for (entry.value_ptr.*.items) |v| {
-                        self.allocator.destroy(v);
-                    }
-                    entry.value_ptr.*.deinit();
+            var graph_it = self.graph.iterator();
+            while (graph_it.next()) |entry| {
+                // self.allocator.destroy(entry.key_ptr);
+                for (entry.value_ptr.*.items) |v| {
+                    self.allocator.destroy(v);
                 }
-                self.graph.?.deinit();
+                entry.value_ptr.*.deinit();
             }
-            if (self.vertices != null) {
-                var vertices_it = self.vertices.?.iterator();
-                while (vertices_it.next()) |entry| {
-                    self.allocator.destroy(entry.value_ptr.*);
-                }
-                self.vertices.?.deinit();
+            self.graph.deinit();
+
+            var vertices_it = self.vertices.iterator();
+            while (vertices_it.next()) |entry| {
+                self.allocator.destroy(entry.value_ptr.*);
             }
+            self.vertices.deinit();
+
             self.N = 0;
         }
 
@@ -150,23 +148,21 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
                 rt.* = Node.init(n, d);
 
                 self.root = rt;
-                self.vertices = if (IdType == []const u8) std.StringHashMap(*Node).init(self.allocator) else std.AutoHashMap(IdType, *Node).init(self.allocator);
-                _ = try self.vertices.?.put(rt.id, rt);
+                try self.vertices.put(rt.id, rt);
 
-                self.graph = std.AutoHashMap(*Node, std.ArrayList(*Edge)).init(self.allocator);
-                _ = try self.graph.?.put(rt, std.ArrayList(*Edge).init(self.allocator));
+                try self.graph.put(rt, std.ArrayList(*Edge).init(self.allocator));
 
                 self.N += 1;
                 return;
             }
 
-            if (self.vertices.?.contains(n) == false) {
+            if (self.vertices.contains(n) == false) {
                 var node = try self.allocator.create(Node);
                 errdefer self.allocator.destroy(node);
                 node.* = Node.init(n, d);
 
-                _ = try self.vertices.?.put(node.id, node);
-                _ = try self.graph.?.put(node, std.ArrayList(*Edge).init(self.allocator));
+                try self.vertices.put(node.id, node);
+                try self.graph.put(node, std.ArrayList(*Edge).init(self.allocator));
                 self.N += 1;
             }
         }
@@ -174,16 +170,16 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
         /// Remove a Vertex (`Node`) from the `Graph`.
         pub fn removeVertex(self: *Self, n: IdType) ?DType {
             var node_data: ?DType = null;
-            if (self.vertices.?.contains(n)) {
-                var node: *Node = self.vertices.?.get(n).?;
+            if (self.vertices.contains(n)) {
+                var node: *Node = self.vertices.get(n).?;
                 node_data = node.data;
-                _ = self.vertices.?.remove(n);
-                var edges: std.ArrayList(*Edge) = self.graph.?.get(node).?;
+                _ = self.vertices.remove(n);
+                var edges: std.ArrayList(*Edge) = self.graph.get(node).?;
                 for (edges.items) |edge| {
                     self.allocator.destroy(edge);
                 }
                 edges.deinit();
-                _ = self.graph.?.remove(node);
+                _ = self.graph.remove(node);
                 self.allocator.destroy(node);
                 self.N -= 1;
             }
@@ -192,18 +188,18 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
 
         /// Add an `Edge` to the `Graph` between the two specified Vertices (`Node`s).
         pub fn addEdge(self: *Self, n1: IdType, d1: DType, n2: IdType, d2: DType, w: WeightType) !void {
-            if (self.N == 0 or self.vertices.?.contains(n1) == false) {
+            if (self.N == 0 or self.vertices.contains(n1) == false) {
                 try self.addVertex(n1, d1);
             }
 
-            if (self.vertices.?.contains(n2) == false) {
+            if (self.vertices.contains(n2) == false) {
                 try self.addVertex(n2, d2);
             }
 
-            var node1: *Node = self.vertices.?.get(n1).?;
-            var node2: *Node = self.vertices.?.get(n2).?;
+            var node1: *Node = self.vertices.get(n1).?;
+            var node2: *Node = self.vertices.get(n2).?;
 
-            var arr: std.ArrayList(*Edge) = self.graph.?.get(node1).?;
+            var arr: std.ArrayList(*Edge) = self.graph.get(node1).?;
 
             var edge = try self.allocator.create(Edge);
             errdefer self.allocator.destroy(edge);
@@ -211,7 +207,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
 
             try arr.append(edge);
 
-            _ = try self.graph.?.put(node1, arr);
+            try self.graph.put(node1, arr);
         }
 
         /// Print `Graph` to stdout.
@@ -222,13 +218,13 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             std.debug.print("Root: {any}\r\n", .{self.root});
             std.debug.print("\r\n", .{});
             std.debug.print("Vertices:\r\n", .{});
-            var vertices_it = self.vertices.?.iterator();
+            var vertices_it = self.vertices.iterator();
             while (vertices_it.next()) |entry| {
                 std.debug.print("\r\n{any}\r\n", .{entry.key_ptr.*});
             }
             std.debug.print("\r\n", .{});
             std.debug.print("Graph:\r\n", .{});
-            var graph_it = self.graph.?.iterator();
+            var graph_it = self.graph.iterator();
             while (graph_it.next()) |entry| {
                 std.debug.print("\r\nConnections: {any}  =>", .{entry.key_ptr.*});
                 for (entry.value_ptr.*.items) |v| {
@@ -255,8 +251,8 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             // to visit all its neighbors. If we reach the same vertex again, return (#cond1)
             _ = try visited.put(node, 1);
 
-            var nodePtr: *Node = self.vertices.?.get(node).?;
-            var neighbors: std.ArrayList(*Edge) = self.graph.?.get(nodePtr).?;
+            var nodePtr: *Node = self.vertices.get(node).?;
+            var neighbors: std.ArrayList(*Edge) = self.graph.get(nodePtr).?;
             for (neighbors.items) |n| {
                 if (visited.get(n.node.id).? == 0) {
                     var check: bool = self.topoDriver(n.node.id, T, visited, stack) catch unreachable;
@@ -286,11 +282,11 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             var result = std.ArrayList(*Node).init(self.allocator);
 
             // Initially, color all the nodes 0, to mark them unvisited.
-            var vertices_it = self.vertices.?.iterator();
+            var vertices_it = self.vertices.iterator();
             while (vertices_it.next()) |entry| {
                 _ = try visited.put(entry.key_ptr.*, 0);
             }
-            vertices_it = self.vertices.?.iterator();
+            vertices_it = self.vertices.iterator();
             while (vertices_it.next()) |entry| {
                 if (visited.get(entry.key_ptr.*).? == 0) {
                     var check: bool = self.topoDriver(entry.key_ptr.*, T, &visited, &stack) catch unreachable;
@@ -320,7 +316,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             var result = std.ArrayList(*Node).init(self.allocator);
 
             // Initially, color all the nodes 0, to mark them unvisited.
-            var vertices_it = self.vertices.?.iterator();
+            var vertices_it = self.vertices.iterator();
             while (vertices_it.next()) |entry| {
                 _ = try visited.put(entry.key_ptr.*, 0);
             }
@@ -333,7 +329,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             while (stack.items.len > 0) {
                 var current: *Node = stack.pop();
 
-                var neighbors: std.ArrayList(*Edge) = self.graph.?.get(current).?;
+                var neighbors: std.ArrayList(*Edge) = self.graph.get(current).?;
                 for (neighbors.items) |n| {
                     if (visited.get(n.node.id).? == 0) {
                         try stack.append(n.node);
@@ -354,7 +350,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             var result = std.ArrayList(*Node).init(self.allocator);
 
             // Initially, color all the nodes 0, to mark them unvisited.
-            var vertices_it = self.vertices.?.iterator();
+            var vertices_it = self.vertices.iterator();
             while (vertices_it.next()) |entry| {
                 _ = try visited.put(entry.key_ptr.*, 0);
             }
@@ -367,7 +363,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             while (qu.items.len > 0) {
                 var current: *Node = qu.orderedRemove(0);
 
-                var neighbors: std.ArrayList(*Edge) = self.graph.?.get(current).?;
+                var neighbors: std.ArrayList(*Edge) = self.graph.get(current).?;
                 for (neighbors.items) |n| {
                     if (visited.get(n.node.id).? == 0) {
                         try qu.append(n.node);
@@ -389,11 +385,11 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
 
         /// Returns a shortest-path tree for a shortest path from `src` to all nodes in the graph.
         pub fn dijkstraShortestPath(self: *Self, src: IdType) !*ShortestPaths {
-            if ((self.vertices.?.contains(src) == false)) {
+            if ((self.vertices.contains(src) == false)) {
                 return error.VertexNotFound;
             }
 
-            var source: *Node = self.vertices.?.get(src).?;
+            var source: *Node = self.vertices.get(src).?;
 
             var pq = std.PriorityQueue(Element, void, minCompare).init(self.allocator, {});
             defer pq.deinit();
@@ -405,7 +401,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             var prev = if (IdType == []const u8) std.StringHashMap(*Node).init(self.allocator) else std.AutoHashMap(IdType, *Node).init(self.allocator);
 
             // Initially, push all the nodes into the distances hashmap with a distance of infinity.
-            var vertices_it = self.vertices.?.iterator();
+            var vertices_it = self.vertices.iterator();
             while (vertices_it.next()) |entry| {
                 const equality = if (IdType == []const u8) std.mem.eql(u8, source.id, entry.key_ptr.*) else std.meta.eql(entry.key_ptr.*, src);
                 if (!equality) {
@@ -421,8 +417,8 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
                 var current: Element = pq.remove();
 
                 if (!visited.contains(current.id)) {
-                    var currentPtr: *Node = self.vertices.?.get(current.id).?;
-                    var neighbors: std.ArrayList(*Edge) = self.graph.?.get(currentPtr).?;
+                    var currentPtr: *Node = self.vertices.get(current.id).?;
+                    var neighbors: std.ArrayList(*Edge) = self.graph.get(currentPtr).?;
 
                     for (neighbors.items) |n| {
                         // Update the distance values from all neighbors, to the current node
@@ -483,7 +479,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             globalIndexCounter.* += 1;
 
             // Get the neighbors of the current node.
-            var neighbors: std.ArrayList(*Edge) = self.graph.?.get(current).?;
+            var neighbors: std.ArrayList(*Edge) = self.graph.get(current).?;
 
             for (neighbors.items) |n| {
                 if (index.contains(n.node.id) == false) {
@@ -546,7 +542,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
 
             var low = if (IdType == []const u8) std.StringHashMap(i32).init(self.allocator) else std.AutoHashMap(IdType, i32).init(self.allocator);
             defer low.deinit();
-            var vertices_it = self.vertices.?.iterator();
+            var vertices_it = self.vertices.iterator();
             while (vertices_it.next()) |entry| {
                 if (index.contains(entry.value_ptr.*.id) == false) {
                     self.tarjanDriver(entry.value_ptr.*, &globalIndexCounter, T, &index, &low, &stack, &result) catch unreachable;
@@ -570,7 +566,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
                         paths.dist[i][k] = mid.distance;
                     }
                     var mnid = mid.id;
-                    var edges_to: std.ArrayList(*Edge) = self.graph.?.get(self.vertices.?.get(mnid).?).?;
+                    var edges_to: std.ArrayList(*Edge) = self.graph.get(self.vertices.get(mnid).?).?;
                     for (edges_to.items) |e| {
                         var v = e.node;
                         var vid = v.id;
@@ -607,7 +603,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             });
             const rand = prng.random();
 
-            var vertices_it = self.vertices.?.valueIterator();
+            var vertices_it = self.vertices.valueIterator();
             var idx: usize = 0;
             while (vertices_it.next()) |node| : (idx += 1) {
                 try paths.index_of.put(node.*.id, idx);
@@ -660,7 +656,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
         pub fn floydWarshall(self: *Self) !*AllShortestPaths {
             var paths = try AllShortestPaths.init(self.allocator, self.N, true);
 
-            var vertices_it = self.vertices.?.valueIterator();
+            var vertices_it = self.vertices.valueIterator();
             var idx: usize = 0;
             while (vertices_it.next()) |node| : (idx += 1) {
                 try paths.index_of.put(node.*.id, idx);
@@ -669,7 +665,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
 
             for (paths.nodes, 0..) |n, i| {
                 paths.dist[i][i] = 0;
-                var edges: std.ArrayList(*Edge) = self.graph.?.get(n).?;
+                var edges: std.ArrayList(*Edge) = self.graph.get(n).?;
                 for (edges.items) |e| {
                     var dst_id: IdType = e.node.id;
                     var j: usize = paths.index_of.get(dst_id).?;
@@ -724,11 +720,11 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
         /// if negative cycle exists in the graph, returns an error. This is optimized compared to `bellmanFord` as
         /// it exits early if no change is observed during main loop of algorithm.
         pub fn mooreBellmanFord(self: *Self, src: IdType) !*ShortestPaths {
-            if ((self.vertices.?.contains(src) == false)) {
+            if ((self.vertices.contains(src) == false)) {
                 return error.VertexNotFound;
             }
 
-            var source: *Node = self.vertices.?.get(src).?;
+            var source: *Node = self.vertices.get(src).?;
 
             var distances = if (IdType == []const u8) std.StringHashMap(WeightType).init(self.allocator) else std.AutoHashMap(IdType, WeightType).init(self.allocator);
             var prev = if (IdType == []const u8) std.StringHashMap(*Node).init(self.allocator) else std.AutoHashMap(IdType, *Node).init(self.allocator);
@@ -736,7 +732,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             defer queue.deinit();
 
             // Initially, push all the nodes into the distances hashmap with a distance of infinity.
-            var vertices_it = self.vertices.?.iterator();
+            var vertices_it = self.vertices.iterator();
             while (vertices_it.next()) |entry| {
                 const equality = if (IdType == []const u8) std.mem.eql(u8, source.id, entry.key_ptr.*) else std.meta.eql(entry.key_ptr.*, src);
                 if (!equality) {
@@ -749,19 +745,19 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
 
             while (!queue.is_empty()) {
                 var src_node: *Node = queue.pop().?;
-                var edges: std.ArrayList(*Edge) = self.graph.?.get(src_node).?;
+                var edges: std.ArrayList(*Edge) = self.graph.get(src_node).?;
                 for (edges.items) |e| {
                     var source_dist: WeightType = distances.get(src_node.id).?;
                     if (source_dist + e.weight < distances.get(e.node.id).?) {
                         try distances.put(e.node.id, source_dist + e.weight);
-                        try prev.put(e.node.id, self.vertices.?.get(src_node.*.id).?);
+                        try prev.put(e.node.id, self.vertices.get(src_node.*.id).?);
                         try queue.push(e.node);
                     }
                 }
             }
 
             // check for negative cycles
-            var edge_it = self.graph.?.iterator();
+            var edge_it = self.graph.iterator();
             while (edge_it.next()) |entry| {
                 var source_id: IdType = entry.key_ptr.*.id;
                 var edges: std.ArrayList(*Edge) = entry.value_ptr.*;
@@ -781,17 +777,17 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
         /// Returns a shortest-path tree for a shortest path from `src` to all nodes in the graph;
         /// if negative cycle exists in the graph, returns an error.
         pub fn bellmanFord(self: *Self, src: IdType) !*ShortestPaths {
-            if ((self.vertices.?.contains(src) == false)) {
+            if ((self.vertices.contains(src) == false)) {
                 return error.VertexNotFound;
             }
 
-            var source: *Node = self.vertices.?.get(src).?;
+            var source: *Node = self.vertices.get(src).?;
 
             var distances = if (IdType == []const u8) std.StringHashMap(WeightType).init(self.allocator) else std.AutoHashMap(IdType, WeightType).init(self.allocator);
             var prev = if (IdType == []const u8) std.StringHashMap(*Node).init(self.allocator) else std.AutoHashMap(IdType, *Node).init(self.allocator);
 
             // Initially, push all the nodes into the distances hashmap with a distance of infinity.
-            var vertices_it = self.vertices.?.iterator();
+            var vertices_it = self.vertices.iterator();
             while (vertices_it.next()) |entry| {
                 const equality = if (IdType == []const u8) std.mem.eql(u8, source.id, entry.key_ptr.*) else std.meta.eql(entry.key_ptr.*, src);
                 if (!equality) {
@@ -805,7 +801,7 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
             // repeat N - 1 times
             var i: usize = 0;
             while (i < self.N - 1) : (i += 1) {
-                var edge_it = self.graph.?.iterator();
+                var edge_it = self.graph.iterator();
                 while (edge_it.next()) |entry| {
                     var source_id: IdType = entry.key_ptr.*.id;
                     var edges: std.ArrayList(*Edge) = entry.value_ptr.*;
@@ -813,14 +809,14 @@ pub fn Graph(comptime IdType: type, comptime DType: type, comptime WeightType: t
                         var source_dist: WeightType = distances.get(source_id).?;
                         if (source_dist + e.weight < distances.get(e.node.id).?) {
                             try distances.put(e.node.id, source_dist + e.weight);
-                            try prev.put(e.node.id, self.vertices.?.get(source_id).?);
+                            try prev.put(e.node.id, self.vertices.get(source_id).?);
                         }
                     }
                 }
             }
 
             // check for negative cycles
-            var edge_it = self.graph.?.iterator();
+            var edge_it = self.graph.iterator();
             while (edge_it.next()) |entry| {
                 var source_id: IdType = entry.key_ptr.*.id;
                 var edges: std.ArrayList(*Edge) = entry.value_ptr.*;

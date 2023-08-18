@@ -1,7 +1,5 @@
 const std = @import("std");
 
-const package_path = "src/zigNEAT.zig";
-
 // Although this function looks imperative, note that its job is to
 // declaratively construct a build graph that will be executed by an external
 // runner.
@@ -21,8 +19,8 @@ pub fn build(b: *std.Build) void {
     const json_module = b.dependency("json", opts).module("json");
 
     // we name the module duck which will be used later
-    _ = b.addModule("zigNEAT", .{
-        .source_file = .{ .path = package_path },
+    const main_module = b.addModule("zigNEAT", .{
+        .source_file = .{ .path = "src/zigNEAT.zig" },
         .dependencies = &.{
             .{ .name = "json", .module = json_module },
         },
@@ -31,7 +29,7 @@ pub fn build(b: *std.Build) void {
     // Creates a step for unit testing. This only builds the test executable
     // but does not run it.
     const main_tests = b.addTest(.{
-        .root_source_file = .{ .path = package_path },
+        .root_source_file = main_module.source_file,
         .target = target,
         .optimize = optimize,
     });

@@ -4,15 +4,28 @@ pub fn IdxMapType(comptime IdType: type) type {
     return if (IdType == []const u8) std.StringHashMap(usize) else std.AutoHashMap(IdType, usize);
 }
 
-pub fn getInfValue(comptime WeightType: type) WeightType {
-    return switch (WeightType) {
-        f16, f32, f64 => std.math.inf(WeightType),
-        i32 => @as(i32, @intCast(std.math.inf_u32())),
-        u32 => std.math.inf_u32(),
-        i64 => @as(i64, @intCast(std.math.inf_u64())),
-        u64 => std.math.inf_u64(),
-        else => @panic("Unsupported type for WeightType"),
-    };
+pub inline fn getInfValue(comptime WeightType: type) WeightType {
+    comptime {
+        const inf_u32: u32 = @bitCast(std.math.inf(f32));
+        const inf_u64: u64 = @bitCast(std.math.inf(f64));
+        return switch (WeightType) {
+            f16, f32, f64 => |T| std.math.inf(T),
+            i32 => @intCast(inf_u32),
+            u32 => inf_u32,
+            i64 => @intCast(inf_u64),
+            u64 => inf_u64,
+            else => |T| @compileError("Unsupported type for WeightType: " ++ @typeName(T)),
+        };
+    }
+}
+
+test getInfValue {
+    comptime {
+        const types = [_]type{ f16, f32, f64 } ++ .{ i32, i64 } ++ .{ u32, u64 };
+        for (types) |T| {
+            _ = getInfValue(T); // just test for compilation errors
+        }
+    }
 }
 
 pub fn FifoQueue(comptime IdType: type, comptime Node: type) type {
