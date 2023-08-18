@@ -14,6 +14,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = .{ .path = "src/main.zig" },
         .target = target,
         .optimize = optimize,
+        .link_libc = true, // for C allocator
     });
 
     exe.addModule("zigNEAT", neat_module);
